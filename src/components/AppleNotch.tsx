@@ -3,6 +3,8 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { useHotzone } from '../hooks/useHotzone'
 import { useMediaSession } from '../hooks/useMediaSession'
 import { invoke } from '@tauri-apps/api/core'
+import { getCurrentWindow } from '@tauri-apps/api/window'
+import { listen } from '@tauri-apps/api/event'
 import { apple } from '../tokens'
 import IslandPill from './IslandPill'
 import MusicIsland from './MusicIsland'
@@ -206,6 +208,46 @@ function TemplateSwitcherPanel({
       }}>
         Switches instantly, saved to disk
       </div>
+
+      <div style={{ height: '1px', background: apple.sep, margin: '12px 0 10px' }} />
+
+      <button
+        className="apple-active-feedback"
+        onClick={() => getCurrentWindow().hide()}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '8px',
+          width: '100%',
+          padding: '8px 12px',
+          borderRadius: '10px',
+          background: apple.fill4,
+          border: `1px solid ${apple.sep}`,
+          color: apple.text2,
+          fontFamily: "'Inter', sans-serif",
+          fontSize: '11px',
+          fontWeight: 500,
+          cursor: 'pointer',
+          transition: 'all 0.18s ease',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = apple.fill3
+          e.currentTarget.style.color = apple.text1
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = apple.fill4
+          e.currentTarget.style.color = apple.text2
+        }}
+      >
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+          <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+          <line x1="1" y1="1" x2="23" y2="23" />
+        </svg>
+        Hide to Tray
+      </button>
     </motion.div>
   )
 }
@@ -312,6 +354,19 @@ export default function AppleNotch({ currentTemplate, onSwitchTemplate }: Props)
       setActiveToast(null)
     }
   }, [isOpen])
+
+  // Listen for tray menu navigation events
+  useEffect(() => {
+    if (!isTauri) return
+    const unlisten = listen<string>('tray-navigate', (event) => {
+      const tab = event.payload
+      if (tab === 'music' || tab === 'notifications' || tab === 'calendar') {
+        setActiveModule(tab as Module)
+        setIsOpen(true)
+      }
+    })
+    return () => { unlisten.then(fn => fn()) }
+  }, [])
 
   const handleDismiss = async (id: string) => {
     setNotifications(prev => prev.filter(n => n.id !== id))
