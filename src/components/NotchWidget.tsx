@@ -1,814 +1,570 @@
-import React, { useEffect, useRef, useState } from "react";
-import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
-import { useHotzone } from "../hooks/useHotzone";
-import { useMediaSession } from "../hooks/useMediaSession";
-import { Music2, Play, Pause, SkipBack, SkipForward, Settings } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState, useEffect, useRef } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { useHotzone } from '../hooks/useHotzone'
+import { useMediaSession } from '../hooks/useMediaSession'
+import { tokens } from '../tokens'
+import { invoke } from '@tauri-apps/api/core'
+import CollapsedNotch from './CollapsedNotch'
+import MusicModule from './MusicModule'
+import NotificationsModule, { Notification } from './NotificationsModule'
+import CalendarModule from './CalendarModule'
 
-const Toggle = ({ checked, onChange }: { checked: boolean; onChange: () => void }) => (
-  <div
-    onClick={(e) => {
-      e.stopPropagation();
-      onChange();
-    }}
-    style={{
-      width: "36px",
-      height: "20px",
-      borderRadius: "10px",
-      background: checked ? "linear-gradient(90deg, var(--acc), var(--acc2))" : "rgba(255, 255, 255, 0.15)",
-      border: "1px solid rgba(255, 255, 255, 0.1)",
-      position: "relative",
-      cursor: "pointer",
-      transition: "background 0.3s ease",
-      flexShrink: 0,
-    }}
-  >
-    <div
-      style={{
-        width: "14px",
-        height: "14px",
-        borderRadius: "50%",
-        background: "#fff",
-        position: "absolute",
-        top: "2px",
-        left: checked ? "18px" : "2px",
-        transition: "left 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
-        boxShadow: "0 1px 3px rgba(0, 0, 0, 0.4)",
-      }}
-    />
-  </div>
-);
+type ActiveModule = 'none' | 'music' | 'notifications' | 'calendar'
 
-const MOCK_TRACKS = [
-  {
-    title: "Midnight Pulse",
-    artist: "Aurora Skye",
-    albumArt: null,
+const MOCK_NOTIFICATIONS: Notification[] = [
+  { id: '1', app: 'Gmail', message: 'Gowtham: Hey can you push the HRMS build today?', time: '2m', unread: true },
+  { id: '2', app: 'WhatsApp', message: 'Nandha Kumar: Great work on the recruitment module da', time: '15m', unread: true },
+  { id: '3', app: 'System', message: 'AWS S3 nuke-hrms-media-dev storage at 78%', time: '1h', unread: false },
+]
+
+const MOCK_EVENTS = [
+  { id: '1', title: 'SRM Lab Submission', timeRange: '10:00 – 11:00 AM', stripe: '#A78BFA', badgeLabel: 'URGENT', badgeColor: '#F87171' },
+  { id: '2', title: 'Nuke Sprint Review', timeRange: '2:30 – 3:30 PM', stripe: '#60A5FA', badgeLabel: 'MEET', badgeColor: '#60A5FA' },
+  { id: '3', title: 'Push HRMS to staging', timeRange: '5:00 PM', stripe: '#4ADE80', badgeLabel: 'TASK', badgeColor: '#4ADE80' },
+]
+
+const toastVariants = {
+  initial: {
+    y: -40,
+    opacity: 0,
+    scale: 0.95,
   },
-  {
-    title: "Drifting Auroras",
-    artist: "Lenny Dany",
-    albumArt: null,
+  animate: {
+    y: 0,
+    opacity: 1,
+    scale: 1,
+    transition: {
+      type: 'spring',
+      stiffness: 260,
+      damping: 22,
+    }
+  },
+  exit: {
+    y: -40,
+    opacity: 0,
+    scale: 0.95,
+    transition: {
+      type: 'tween',
+      ease: 'easeIn',
+      duration: 0.15,
+    }
   }
-];
+}
+
+const SOURCE_COLORS: Record<string, string> = {
+  Gmail:    '#60A5FA',
+  WhatsApp: '#4ADE80',
+  System:   '#FB923C',
+}
+
+const getSourceColor = (app: string) => {
+  return SOURCE_COLORS[app] || '#A78BFA'
+}
+
+const SOURCE_ICONS: Record<string, (color: string) => React.ReactNode> = {
+  Gmail: (color: string) => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+      stroke={color} strokeWidth="1.8" strokeLinecap="round">
+      <rect x="2" y="4" width="20" height="16"/>
+      <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+    </svg>
+  ),
+  WhatsApp: (color: string) => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+      stroke={color} strokeWidth="1.8" strokeLinecap="round">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+    </svg>
+  ),
+  System: (color: string) => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+      stroke={color} strokeWidth="1.8" strokeLinecap="round">
+      <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+      <line x1="12" y1="9" x2="12" y2="13"/>
+      <line x1="12" y1="17" x2="12.01" y2="17"/>
+    </svg>
+  ),
+}
+
+const getSourceIcon = (app: string, color: string) => {
+  const iconFn = SOURCE_ICONS[app]
+  if (iconFn) return iconFn(color)
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+      stroke={color} strokeWidth="1.8" strokeLinecap="round">
+      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+      <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+    </svg>
+  )
+}
+
+const collapsedVariants = {
+  initial: {
+    y: -40,
+    opacity: 0,
+  },
+  animate: {
+    y: 0,
+    opacity: 1,
+    transition: {
+      type: 'spring',
+      stiffness: 220,
+      damping: 24,
+    }
+  },
+  exit: {
+    y: -40,
+    opacity: 0,
+    transition: {
+      type: 'tween',
+      ease: 'easeIn',
+      duration: 0.1,
+    }
+  }
+}
+
+const expandedVariants = {
+  initial: {
+    y: -120,
+    opacity: 0,
+    scale: 0.96,
+  },
+  animate: {
+    y: 0,
+    opacity: 1,
+    scale: 1,
+    transition: {
+      y: { type: 'spring', stiffness: 200, damping: 24 },
+      scale: { type: 'spring', stiffness: 200, damping: 24 },
+      opacity: { duration: 0.2 },
+    }
+  },
+  exit: {
+    y: -120,
+    opacity: 0,
+    scale: 0.96,
+    transition: {
+      type: 'tween',
+      ease: 'easeIn',
+      duration: 0.1,
+    }
+  }
+}
+
+const isTauri = typeof window !== 'undefined' && !!(window as any).__TAURI_INTERNALS__;
 
 export default function NotchWidget() {
-  const [mode, setMode] = useState<"idle" | "peek" | "expanded">("idle");
-  const [holding, setHolding] = useState(false);
-  const [timerSec, setTimerSec] = useState(766); // 12m 46s
-  const [now, setNow] = useState(new Date());
+  const [activeModule, setActiveModule] = useState<ActiveModule>('none')
+  const [mode, setMode] = useState<'idle' | 'peek' | 'expanded'>('idle')
+  const { isOpen, setIsOpen } = useHotzone(mode)
+  const { track: rawTrack, isPlaying, progress, duration, playPause, next, prev, seek } = useMediaSession()
+  const [notifications, setNotifications] = useState<Notification[]>(MOCK_NOTIFICATIONS)
 
-  // Settings states with localStorage persistence
-  const [isOpaque, setIsOpaque] = useState(() => {
-    return localStorage.getItem("notch_isOpaque") === "true";
-  });
-  const [bgOpacity, setBgOpacity] = useState(() => {
-    const val = localStorage.getItem("notch_bgOpacity");
-    return val ? parseFloat(val) : 0.75;
-  });
-  const [blurStrength, setBlurStrength] = useState(() => {
-    const val = localStorage.getItem("notch_blurStrength");
-    return val ? parseInt(val, 10) : 28;
-  });
-  const [showSettings, setShowSettings] = useState(false);
+  // Map rawTrack + playback state to match expected interface in MusicModule
+  const track = {
+    title: rawTrack?.title || 'Nothing playing',
+    artist: rawTrack?.artist || '—',
+    albumArt: rawTrack?.albumArt || undefined,
+    progress,
+    duration,
+    isPlaying,
+  }
 
-  useEffect(() => {
-    localStorage.setItem("notch_isOpaque", String(isOpaque));
-  }, [isOpaque]);
-
-  useEffect(() => {
-    localStorage.setItem("notch_bgOpacity", String(bgOpacity));
-  }, [bgOpacity]);
-
-  useEffect(() => {
-    localStorage.setItem("notch_blurStrength", String(blurStrength));
-  }, [blurStrength]);
-  
-  // Simulated playback state for fallback if SMTC has nothing playing
-  const [simIsPlaying, setSimIsPlaying] = useState(true);
-  const [simProgressPercent, setSimProgressPercent] = useState(32);
-  const [mockTrackIndex, setMockTrackIndex] = useState(0);
-
-  // Notification state
-  const [notification, setNotification] = useState({
-    title: "Design Review · in 5 min",
-    subtitle: "Calendar — Jump to the meeting room",
-    iconBg: "linear-gradient(135deg,#4f46e5,#7c3aed)",
-  });
-
-  const { isOpen } = useHotzone(mode);
-  const { track, isPlaying, progress, duration, playPause, next, prev, seek } = useMediaSession();
-
-  const holdTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const peekTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const prevTitleRef = useRef<string | null>(null);
-
-  // Keep track of time and update progress percent
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setNow(new Date());
-      setTimerSec((s) => (s > 0 ? s - 1 : 900));
-
-      if (!track && simIsPlaying) {
-        setSimProgressPercent((p) => {
-          const nextVal = p + 0.45;
-          return nextVal > 100 ? 0 : nextVal;
-        });
-      }
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [track, simIsPlaying]);
-
-  // Handle auto-closing resetting mode to idle
+  // Synchronize useHotzone hit testing region based on expanded/collapsed state
   useEffect(() => {
     if (!isOpen) {
-      setMode("idle");
-      setHolding(false);
-      if (holdTimeoutRef.current) clearTimeout(holdTimeoutRef.current);
-      if (peekTimeoutRef.current) clearTimeout(peekTimeoutRef.current);
+      setMode('idle')
+      setActiveModule('none')
+    } else {
+      setMode('expanded')
     }
-  }, [isOpen]);
+  }, [isOpen])
 
-  // Window resizing controller
+  const isMouseOverRef = useRef(false)
+  const isToastHoveredRef = useRef(false)
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const prevNotificationsRef = useRef<Notification[]>([])
+  const isInitialRef = useRef(true)
+  const [activeToast, setActiveToast] = useState<Notification | null>(null)
+
+  // Retrieve Windows Notifications with fallback to MOCK
   useEffect(() => {
-    let active = true;
-    const updateSize = async () => {
+    if (!isTauri) {
+      // Simulate a notification arriving after 4 seconds in browser mode to demonstrate the popup feature
+      const timer = setTimeout(() => {
+        setNotifications((prev) => [
+          {
+            id: 'mock-new-1',
+            app: 'Gmail',
+            message: 'Gowtham: Hey, I just pushed the final build verification! Check it out.',
+            time: 'now',
+            unread: true,
+          },
+          ...prev,
+        ])
+      }, 4000)
+      return () => clearTimeout(timer)
+    }
+
+    const fetchNotifications = async () => {
       try {
-        const win = getCurrentWindow();
-        if (mode === "expanded") {
-          await win.setSize(new LogicalSize(560, 390));
-        } else if (mode === "peek") {
-          await win.setSize(new LogicalSize(560, 100));
-        } else {
-          // Add a short delay when collapsing to idle to prevent transition clipping
-          const t = setTimeout(async () => {
-            if (active && mode === "idle") {
-              await win.setSize(new LogicalSize(560, 80));
-            }
-          }, 800);
-          return () => clearTimeout(t);
+        const list = await invoke<any[]>('get_windows_notifications')
+        const mapped: Notification[] = list.map((item) => ({
+          id: item.id || Math.random().toString(),
+          app: item.app || 'System',
+          message: item.message || '',
+          time: item.time || 'now',
+          unread: item.unread ?? true,
+        }))
+        setNotifications(mapped)
+      } catch (err) {
+        console.warn('Failed to fetch Windows notifications:', err)
+      }
+    }
+
+    fetchNotifications()
+    const interval = setInterval(fetchNotifications, 5000)
+    return () => clearInterval(interval)
+  }, [])
+
+  // Auto-popup logic when a new notification is received (freestanding toast)
+  useEffect(() => {
+    if (isInitialRef.current) {
+      if (notifications.length > 0 || !isTauri) {
+        isInitialRef.current = false
+        prevNotificationsRef.current = notifications
+      }
+      return
+    }
+
+    const newNotifs = notifications.filter(
+      (newNotif) => !prevNotificationsRef.current.some((prevNotif) => prevNotif.id === newNotif.id)
+    )
+
+    if (newNotifs.length > 0) {
+      const latest = newNotifs[0]
+      setActiveToast(latest)
+
+      if (toastTimerRef.current) {
+        clearTimeout(toastTimerRef.current)
+      }
+
+      toastTimerRef.current = setTimeout(() => {
+        if (!isToastHoveredRef.current) {
+          setActiveToast(null)
+        }
+      }, 7000)
+    }
+
+    prevNotificationsRef.current = notifications
+  }, [notifications])
+
+  // Automatically hide the active toast if the main panel is expanded
+  useEffect(() => {
+    if (isOpen) {
+      setActiveToast(null)
+    }
+  }, [isOpen])
+
+  const handleDismissNotification = async (id: string) => {
+    setNotifications((prev) => prev.filter((n) => n.id !== id))
+    if (activeToast?.id === id) {
+      setActiveToast(null)
+    }
+    if (isTauri) {
+      try {
+        const numericId = parseInt(id, 10)
+        if (!isNaN(numericId)) {
+          await invoke('dismiss_notification', { id: numericId })
         }
       } catch (err) {
-        console.error("Window sizing error:", err);
+        console.error('Failed to dismiss notification:', err)
       }
-    };
+    }
+  }
 
-    updateSize();
-    return () => {
-      active = false;
-    };
-  }, [mode]);
-
-  // Helper trigger for peeking at a notification
-  const triggerPeek = () => {
-    if (mode === "expanded") return;
-    if (peekTimeoutRef.current) clearTimeout(peekTimeoutRef.current);
-
-    setMode("peek");
-    peekTimeoutRef.current = setTimeout(() => {
-      setMode((current) => (current === "peek" ? "idle" : current));
-    }, 2800);
-  };
-
-  // Trigger simulated notification peek every 20 seconds for demo value
-  useEffect(() => {
-    const simulation = setInterval(() => {
-      if (mode === "idle") {
-        setNotification({
-          title: "Design Review · in 5 min",
-          subtitle: "Calendar — Jump to the meeting room",
-          iconBg: "linear-gradient(135deg,#4f46e5,#7c3aed)",
-        });
-        triggerPeek();
+  const handleClearAllNotifications = async () => {
+    setNotifications([])
+    if (isTauri) {
+      try {
+        await invoke('clear_all_notifications')
+      } catch (err) {
+        console.error('Failed to clear all notifications:', err)
       }
-    }, 20000);
-    return () => clearInterval(simulation);
-  }, [mode]);
-
-  // Peek on actual song changes
-  useEffect(() => {
-    if (track?.title && prevTitleRef.current !== track.title) {
-      if (mode !== "expanded") {
-        setNotification({
-          title: track.title,
-          subtitle: track.artist || "Unknown Artist",
-          iconBg: "linear-gradient(135deg, var(--acc), var(--acc2) 52%, #60a5fa)",
-        });
-        triggerPeek();
-      }
-      prevTitleRef.current = track.title;
     }
-  }, [track?.title, mode]);
+  }
 
-  // Hover hold handlers
-  const onEnter = () => {
-    if (mode === "expanded") return;
-    setHolding(true);
-    if (holdTimeoutRef.current) clearTimeout(holdTimeoutRef.current);
-    holdTimeoutRef.current = setTimeout(() => {
-      setMode("expanded");
-      setHolding(false);
-    }, 300);
-  };
+  // Auto show music when opened if music is active, otherwise default to music module tab
+  const currentModule: ActiveModule = !isOpen
+    ? 'none'
+    : activeModule === 'none'
+    ? (isPlaying ? 'music' : 'music')
+    : activeModule
 
-  const onLeave = () => {
-    if (holdTimeoutRef.current) clearTimeout(holdTimeoutRef.current);
-    setHolding(false);
-    setMode("idle");
-    setShowSettings(false); // Reset settings panel on collapse
-  };
+  const t = tokens
 
-  // Media controls wrapper
-  const handlePlayPause = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (track) {
-      playPause();
-    } else {
-      setSimIsPlaying(!simIsPlaying);
-    }
-  };
-
-  const handleNext = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (track) {
-      next();
-    } else {
-      setMockTrackIndex((i) => (i === 0 ? 1 : 0));
-    }
-  };
-
-  const handlePrev = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (track) {
-      prev();
-    } else {
-      setMockTrackIndex((i) => (i === 0 ? 1 : 0));
-    }
-  };
-
-  // Formatter for media timeline
-  const formatTime = (ms: number) => {
-    const totalSecs = Math.floor(ms / 1000);
-    const mins = Math.floor(totalSecs / 60);
-    const secs = totalSecs % 60;
-    return `${mins}:${String(secs).padStart(2, "0")}`;
-  };
-
-  // Live vs Fallback variables
-  const activeTrackTitle = track?.title || MOCK_TRACKS[mockTrackIndex].title;
-  const activeTrackArtist = track?.artist || MOCK_TRACKS[mockTrackIndex].artist;
-  const activeIsPlaying = track ? isPlaying : simIsPlaying;
-  const activeDuration = track && duration > 0 ? duration : 204000; // 3:24 fallback
-  const activeProgress = track ? progress : (simProgressPercent / 100) * activeDuration;
-  const progL = track && duration > 0 ? (progress / duration) * 100 : simProgressPercent;
-
-  // Date styling variables
-  const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-  const months = [
-    "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December"
-  ];
-  let h = now.getHours() % 12;
-  if (h === 0) h = 12;
-  const timeStr = h + ":" + String(now.getMinutes()).padStart(2, "0");
-  const dateLong = days[now.getDay()] + ", " + months[now.getMonth()] + " " + now.getDate();
-  const monthAbbr = months[now.getMonth()].slice(0, 3).toUpperCase();
-  const dayNum = now.getDate();
-
-  // Dimension mapping
-  const dims = {
-    idle: [224, 34, 17],
-    peek: [348, 60, 24],
-    expanded: [438, 340, 26]
-  }[mode];
-  const [w, hh, r] = dims;
-
-  // Background and translucency styling variables
-  const dynamicBackground = isOpaque
-    ? "rgba(18, 18, 22, 1)"
-    : "rgba(0, 0, 0, 0.02)"; // near-transparent; inner glass layer handles the look
-
-  const dynamicBackdropFilter = isOpaque
-    ? "none"
-    : "blur(12px) saturate(160%)"; // bonus: blurs any OS content behind on supporting systems
-
-  // Circle timer calculations
-  const ts = Math.max(0, timerSec);
-  const timerStr = Math.floor(ts / 60) + ":" + String(ts % 60).padStart(2, "0");
-  const circExp = 2 * Math.PI * 34; // 213.63
-  const ringOffset = (circExp * (1 - ts / 900)).toFixed(1);
-  const circMini = 2 * Math.PI * 6; // 37.7
-  const miniRingOffset = (circMini * (1 - ts / 900)).toFixed(2);
-
-  const waveBars = [0, .3, .15, .45, .2, .5, .1, .35, .25, .4, .05, .3, .18, .42, .12, .48, .22, .38, .08, .28, .16, .44].map((v) => ({ d: v }));
-
-  const containerStyle: React.CSSProperties = {
-    position: "absolute",
-    top: "8px",
-    left: "50%",
-    transform: "translateX(-50%)",
-    padding: "16px 30px 30px",
-    cursor: "pointer",
-    zIndex: 5,
-    ["--acc" as any]: "#a78bfa",
-    ["--acc2" as any]: "#f0abfc",
-  };
-
-  const isMusicNotif = notification.title === track?.title;
+  // Format today's date dynamically
+  const dateLabel = new Date()
+    .toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' })
+    .toUpperCase()
 
   return (
-    <div
-      style={{
-        width: "100%",
-        height: "100%",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "flex-start",
-        background: "transparent",
-      }}
-    >
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            key="notch"
-            initial={{ y: -80, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: -80, opacity: 0 }}
-            transition={{ type: "spring", stiffness: 300, damping: 28 }}
-            style={{
-              position: "relative",
-              width: "100%",
-              height: "100%",
-              background: "transparent"
-            }}
-          >
-            <div
-              onMouseEnter={onEnter}
-              onMouseLeave={onLeave}
-              style={containerStyle}
+    <div style={{
+      width: '100vw',
+      height: '100vh',
+      background: 'transparent',
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'flex-start',
+      pointerEvents: 'none',
+    }}>
+      <div style={{ pointerEvents: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+
+        {/* Collapsed pill — always visible when not expanded */}
+        <AnimatePresence>
+          {!isOpen && (
+            <motion.div
+              key="collapsed"
+              variants={collapsedVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
             >
-              <div
-                style={{
-                  position: "relative",
-                  width: `${w}px`,
-                  height: `${hh}px`,
-                  borderRadius: `${r}px`,
-                  background: dynamicBackground,
-                  backdropFilter: dynamicBackdropFilter,
-                  WebkitBackdropFilter: dynamicBackdropFilter,
-                  border: "1px solid rgba(255,255,255,.15)",
-                  boxShadow: "inset 0 1px 0 rgba(255,255,255,.2), inset 0 -1px 0 rgba(255,255,255,.06), 0 14px 50px rgba(0,0,0,.55)",
-                  overflow: "hidden",
-                  transition: "width .7s cubic-bezier(.34,1.45,.5,1), height .7s cubic-bezier(.34,1.45,.5,1), border-radius .5s ease",
-                  animation: "breath 6s ease-in-out infinite",
-                  animationPlayState: mode === "idle" ? "running" : "paused",
-                }}
-              >
-                {/* ---- LIQUID GLASS BACKGROUND (only when not opaque) ---- */}
-                {!isOpaque && (
-                  <>
-                    {/* Base dark translucent layer */}
-                    <div
-                      style={{
-                        position: "absolute",
-                        inset: 0,
-                        background: `linear-gradient(160deg, rgba(24,20,40,${bgOpacity}) 0%, rgba(12,12,22,${bgOpacity * 0.93}) 100%)`,
-                      }}
-                    />
-                    {/* Iridescent color blobs — blurred to create the liquid glass refraction */}
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: "-30%",
-                        left: "-20%",
-                        right: "-20%",
-                        bottom: "-30%",
-                        background: `
-                          radial-gradient(ellipse 55% 45% at 22% 5%, rgba(167,139,250,0.55) 0%, transparent 100%),
-                          radial-gradient(ellipse 45% 40% at 80% 95%, rgba(96,165,250,0.45) 0%, transparent 100%),
-                          radial-gradient(ellipse 38% 55% at 55% 45%, rgba(240,171,252,0.22) 0%, transparent 100%)
-                        `,
-                        filter: `blur(${Math.max(3, blurStrength * 0.65)}px)`,
-                      }}
-                    />
-                    {/* Top specular highlight — simulates light catching the glass edge */}
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: 0,
-                        left: "8%",
-                        right: "8%",
-                        height: "1.5px",
-                        background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.65) 30%, rgba(255,255,255,0.55) 70%, transparent)",
-                      }}
-                    />
-                    {/* Subtle bottom rim */}
-                    <div
-                      style={{
-                        position: "absolute",
-                        bottom: 0,
-                        left: "20%",
-                        right: "20%",
-                        height: "1px",
-                        background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.12) 50%, transparent)",
-                      }}
-                    />
-                  </>
-                )}
+              <CollapsedNotch
+                isPlaying={isPlaying}
+                notifCount={notifications.filter(n => n.unread).length}
+                eventCount={MOCK_EVENTS.length}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-                {/* hold-to-expand progress */}
-                <div
-                  style={{
-                    position: "absolute",
-                    left: 0,
-                    bottom: 0,
-                    height: "2px",
-                    width: holding ? "100%" : "0%",
-                    background: "linear-gradient(90deg, var(--acc), var(--acc2))",
-                    boxShadow: "0 0 8px var(--acc)",
-                    transition: holding ? "width 0.3s linear" : "width 0.15s ease",
-                    zIndex: 9,
-                  }}
-                />
+        {/* Separate Notification Toast popup — pops down below collapsed notch */}
+        <AnimatePresence>
+          {!isOpen && activeToast && (
+            <motion.div
+              key="toast"
+              variants={toastVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              onMouseEnter={() => {
+                isToastHoveredRef.current = true
+                if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
+              }}
+              onMouseLeave={() => {
+                isToastHoveredRef.current = false
+                toastTimerRef.current = setTimeout(() => {
+                  setActiveToast(null)
+                }, 4000)
+              }}
+              style={{
+                marginTop: '6px',
+                width: '380px',
+                height: '52px',
+                background: t.colors.bgSurface,
+                border: `1px solid ${t.colors.borderDefault}`,
+                clipPath: t.clipPath.default,
+                display: 'flex',
+                alignItems: 'stretch',
+                position: 'relative',
+                boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)',
+              }}
+            >
+              {/* Stripe */}
+              <div style={{
+                width: '2px',
+                flexShrink: 0,
+                background: getSourceColor(activeToast.app),
+                boxShadow: `0 0 6px ${getSourceColor(activeToast.app)}60`,
+              }} />
 
-                {/* ---- IDLE LAYER ---- */}
-                <div
-                  style={{
-                    position: "absolute",
-                    inset: 0,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    padding: "0 13px",
-                    opacity: mode === "idle" ? 1 : 0,
-                    transition: "opacity .3s ease",
-                    pointerEvents: "none",
-                  }}
-                >
-                  {/* left: music hint */}
-                  <div style={{ display: "flex", alignItems: "center", gap: "7px" }}>
-                    <span
-                      style={{
-                        width: "16px",
-                        height: "16px",
-                        borderRadius: "5px",
-                        background: "linear-gradient(135deg, var(--acc), var(--acc2) 55%, #60a5fa)",
-                        boxShadow: "0 0 0 1px rgba(255,255,255,.15) inset",
-                      }}
-                    />
-                    <span style={{ display: "flex", alignItems: "flex-end", gap: "1.5px", height: "13px" }}>
-                      {[0, 0.2, 0.35, 0.1].map((delay, idx) => (
-                        <span
-                          key={idx}
-                          style={{
-                            width: "2px",
-                            height: "100%",
-                            borderRadius: "2px",
-                            background: "var(--acc)",
-                            transformOrigin: "bottom",
-                            animation: "wave .9s ease-in-out infinite",
-                            animationDelay: `${delay}s`,
-                            animationPlayState: activeIsPlaying ? "running" : "paused",
-                          }}
-                        />
-                      ))}
-                    </span>
-                  </div>
-                  {/* center: time */}
-                  <span style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", fontSize: "16px", fontWeight: 600, letterSpacing: ".5px", fontVariantNumeric: "tabular-nums" }}>
-                    {timeStr}
-                  </span>
-
+              {/* App Icon */}
+              <div style={{
+                width: '36px',
+                flexShrink: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+                <div style={{
+                  width: '32px',
+                  height: '32px',
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  border: '1px solid rgba(255, 255, 255, 0.05)',
+                  clipPath: t.clipPath.small,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                  {getSourceIcon(activeToast.app, getSourceColor(activeToast.app))}
                 </div>
-
-                {/* ---- PEEK LAYER (notification) ---- */}
-                <div
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: "50%",
-                    transform: "translateX(-50%)",
-                    width: "348px",
-                    height: "60px",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "11px",
-                    padding: "0 16px",
-                    opacity: mode === "peek" ? 1 : 0,
-                    transition: "opacity .3s ease",
-                    pointerEvents: "none",
-                  }}
-                >
-                  <span
-                    style={{
-                      width: "34px",
-                      height: "34px",
-                      borderRadius: "10px",
-                      background: notification.iconBg,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      flex: "none",
-                      boxShadow: "0 4px 12px rgba(79,70,229,.4)",
-                    }}
-                  >
-                    {isMusicNotif ? (
-                      <Music2 size={16} color="#fff" />
-                    ) : (
-                      <svg width="17" height="17" viewBox="0 0 24 24" fill="#fff">
-                        <path d="M4 4h16v12H7l-3 3z" />
-                      </svg>
-                    )}
-                  </span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: "12.5px", fontWeight: 700, letterSpacing: ".2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {notification.title}
-                    </div>
-                    <div style={{ fontSize: "11.5px", color: "rgba(255,255,255,.6)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                      {notification.subtitle}
-                    </div>
-                  </div>
-                  <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "var(--acc)", boxShadow: "0 0 10px var(--acc)", flex: "none" }} />
-                </div>
-
-                {/* ---- EXPANDED LAYER ---- */}
-                <div
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: "50%",
-                    transform: "translateX(-50%)",
-                    width: "438px",
-                    height: "340px",
-                    padding: "14px 15px",
-                    opacity: mode === "expanded" ? 1 : 0,
-                    transition: "opacity .35s ease .05s",
-                    pointerEvents: mode === "expanded" ? "auto" : "none",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "9px",
-                  }}
-                >
-                  {/* Top center pill handle */}
-                  <div style={{ width: "38px", height: "4px", borderRadius: "3px", background: "rgba(255,255,255,.28)", margin: "1px auto 2px" }} />
-
-                  {/* Header Row with Settings toggle button */}
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", padding: "0 4px" }}>
-                    <span style={{ fontSize: "11px", fontWeight: 800, letterSpacing: "1.2px", color: "rgba(255,255,255,.45)", textTransform: "uppercase" }}>
-                      {showSettings ? "Settings" : "Now Playing"}
-                    </span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setShowSettings(!showSettings);
-                      }}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        padding: "4px",
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        borderRadius: "50%",
-                        transition: "background 0.2s",
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.08)"}
-                      onMouseLeave={(e) => e.currentTarget.style.background = "none"}
-                    >
-                      <Settings
-                        size={15}
-                        color="rgba(255,255,255,0.6)"
-                        style={{
-                          transform: showSettings ? "rotate(45deg)" : "rotate(0deg)",
-                          transition: "transform 0.3s ease",
-                        }}
-                      />
-                    </button>
-                  </div>
-
-                  {/* Content: Music Hero OR Settings Panel with cross-fade transition */}
-                  <div style={{ position: "relative", height: "154px" }}>
-                    <AnimatePresence mode="wait">
-                      {!showSettings ? (
-                        <motion.div
-                          key="music-hero"
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -10 }}
-                          transition={{ duration: 0.2 }}
-                          style={{
-                            borderRadius: "18px",
-                            padding: "12px",
-                            background: "linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.035))",
-                            border: "1px solid rgba(255,255,255,.1)",
-                            boxShadow: "inset 0 1px 0 rgba(255,255,255,.14)",
-                            height: "154px",
-                            display: "flex",
-                            flexDirection: "column",
-                            justifyContent: "space-between",
-                          }}
-                        >
-                          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                            <div
-                              style={{
-                                width: "56px",
-                                height: "56px",
-                                borderRadius: "14px",
-                                background: "linear-gradient(135deg, var(--acc), var(--acc2) 52%, #60a5fa)",
-                                flex: "none",
-                                boxShadow: "0 6px 18px rgba(167,139,250,.4), inset 0 1px 0 rgba(255,255,255,.4)",
-                                position: "relative",
-                                overflow: "hidden",
-                              }}
-                            >
-                              {track?.albumArt ? (
-                                <img src={track.albumArt} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                              ) : (
-                                <div style={{ position: "absolute", inset: 0, background: "radial-gradient(60% 60% at 30% 25%, rgba(255,255,255,.5), transparent 60%)" }} />
-                              )}
-                            </div>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontSize: "15px", fontWeight: 700, letterSpacing: "-.2px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                                {activeTrackTitle}
-                              </div>
-                              <div style={{ fontSize: "12px", color: "rgba(255,255,255,.58)", fontWeight: 500 }}>
-                                {activeTrackArtist}
-                              </div>
-                            </div>
-                            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                              <button
-                                onClick={handlePrev}
-                                style={{ background: "none", border: "none", padding: "6px", cursor: "pointer", display: "flex", borderRadius: "50%" }}
-                              >
-                                <SkipBack size={17} color="rgba(255,255,255,.85)" />
-                              </button>
-                              <button
-                                onClick={handlePlayPause}
-                                style={{
-                                  width: "38px",
-                                  height: "38px",
-                                  borderRadius: "50%",
-                                  border: "none",
-                                  cursor: "pointer",
-                                  background: "linear-gradient(180deg,#fff,#e6dcff)",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                  boxShadow: "0 4px 14px rgba(167,139,250,.5), inset 0 1px 0 rgba(255,255,255,.8)",
-                                }}
-                              >
-                                {activeIsPlaying ? (
-                                  <Pause size={15} color="#241046" />
-                                ) : (
-                                  <Play size={15} color="#241046" style={{ transform: "translateX(1px)" }} />
-                                )}
-                              </button>
-                              <button
-                                onClick={handleNext}
-                                style={{ background: "none", border: "none", padding: "6px", cursor: "pointer", display: "flex", borderRadius: "50%" }}
-                              >
-                                <SkipForward size={17} color="rgba(255,255,255,.85)" />
-                              </button>
-                            </div>
-                          </div>
-                          {/* waveform */}
-                          <div style={{ display: "flex", alignItems: "flex-end", gap: "2px", height: "26px", margin: "11px 2px 9px" }}>
-                            {waveBars.map((bar, idx) => (
-                              <span
-                                key={idx}
-                                style={{
-                                  flex: 1,
-                                  height: "100%",
-                                  borderRadius: "2px",
-                                  background: "linear-gradient(180deg, var(--acc), var(--acc2))",
-                                  transformOrigin: "bottom",
-                                  opacity: .85,
-                                  animation: "wave .95s ease-in-out infinite",
-                                  animationDelay: `${bar.d}s`,
-                                  animationPlayState: activeIsPlaying ? "running" : "paused",
-                                }}
-                              />
-                            ))}
-                          </div>
-                          {/* progress */}
-                          <div
-                            onClick={(e) => {
-                              if (activeDuration > 0) {
-                                const rect = e.currentTarget.getBoundingClientRect();
-                                const ratio = (e.clientX - rect.left) / rect.width;
-                                seek(ratio * activeDuration);
-                              }
-                            }}
-                            style={{
-                              position: "relative",
-                              height: "4px",
-                              borderRadius: "3px",
-                              background: "rgba(255,255,255,.16)",
-                              margin: "0 2px",
-                              cursor: "pointer",
-                            }}
-                          >
-                            <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${progL}%`, borderRadius: "3px", background: "linear-gradient(90deg,var(--acc),var(--acc2))" }} />
-                            <div style={{ position: "absolute", top: "50%", left: `${progL}%`, width: "11px", height: "11px", borderRadius: "50%", background: "#fff", transform: "translate(-50%,-50%)", boxShadow: "0 2px 6px rgba(0,0,0,.4)" }} />
-                          </div>
-                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "10px", fontWeight: 600, color: "rgba(255,255,255,.45)", margin: "6px 2px 0", fontVariantNumeric: "tabular-nums" }}>
-                            <span>{formatTime(activeProgress)}</span>
-                            <span>{formatTime(activeDuration)}</span>
-                          </div>
-                        </motion.div>
-                      ) : (
-                        <motion.div
-                          key="settings-panel"
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -10 }}
-                          transition={{ duration: 0.2 }}
-                          style={{
-                            borderRadius: "18px",
-                            padding: "12px 16px",
-                            background: "linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.035))",
-                            border: "1px solid rgba(255,255,255,.1)",
-                            boxShadow: "inset 0 1px 0 rgba(255,255,255,.14)",
-                            height: "154px",
-                            display: "flex",
-                            flexDirection: "column",
-                            justifyContent: "space-between",
-                          }}
-                        >
-                          {/* ROW 1: SOLID OPAQUE BACKGROUND */}
-                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", height: "36px" }}>
-                            <div style={{ display: "flex", flexDirection: "column" }}>
-                              <span style={{ fontSize: "12.5px", fontWeight: 700 }}>Opaque Background</span>
-                              <span style={{ fontSize: "10px", color: "rgba(255,255,255,0.4)" }}>Disable glass translucency</span>
-                            </div>
-                            <Toggle checked={isOpaque} onChange={() => setIsOpaque(!isOpaque)} />
-                          </div>
-
-                          {/* ROW 2: OPACITY SLIDER */}
-                          <div style={{ display: "flex", alignItems: "center", gap: "16px", height: "36px", opacity: isOpaque ? 0.4 : 1, transition: "opacity 0.2s" }}>
-                            <div style={{ display: "flex", flexDirection: "column", width: "120px", flexShrink: 0 }}>
-                              <span style={{ fontSize: "12.5px", fontWeight: 700 }}>Opacity</span>
-                              <span style={{ fontSize: "10px", color: "rgba(255,255,255,0.4)" }}>{Math.round(bgOpacity * 100)}%</span>
-                            </div>
-                            <input
-                              type="range"
-                              min="0.1"
-                              max="0.98"
-                              step="0.02"
-                              value={bgOpacity}
-                              disabled={isOpaque}
-                              onChange={(e) => {
-                                e.stopPropagation();
-                                setBgOpacity(parseFloat(e.target.value));
-                              }}
-                              style={{ flex: 1 }}
-                            />
-                          </div>
-
-                          {/* ROW 3: BLUR STRENGTH SLIDER */}
-                          <div style={{ display: "flex", alignItems: "center", gap: "16px", height: "36px", opacity: isOpaque ? 0.4 : 1, transition: "opacity 0.2s" }}>
-                            <div style={{ display: "flex", flexDirection: "column", width: "120px", flexShrink: 0 }}>
-                              <span style={{ fontSize: "12.5px", fontWeight: 700 }}>Blur Strength</span>
-                              <span style={{ fontSize: "10px", color: "rgba(255,255,255,0.4)" }}>{blurStrength}px</span>
-                            </div>
-                            <input
-                              type="range"
-                              min="0"
-                              max="40"
-                              step="1"
-                              value={blurStrength}
-                              disabled={isOpaque}
-                              onChange={(e) => {
-                                e.stopPropagation();
-                                setBlurStrength(parseInt(e.target.value));
-                              }}
-                              style={{ flex: 1 }}
-                            />
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-
-                  {/* FOOTER CLOCK */}
-                  <div style={{ marginTop: "auto", display: "flex", alignItems: "flex-end", justifyContent: "space-between", padding: "2px 4px 0" }}>
-                    <div>
-                      <div style={{ fontSize: "34px", fontWeight: 300, letterSpacing: "1px", lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>{timeStr}</div>
-                      <div style={{ fontSize: "11px", color: "rgba(255,255,255,.55)", fontWeight: 600, marginTop: "5px", letterSpacing: ".3px" }}>{dateLong}</div>
-                    </div>
-                    <div style={{ textAlign: "right" }}>
-                      <div style={{ fontSize: "13px", fontWeight: 700 }}>18° Clear</div>
-                      <div style={{ fontSize: "10px", color: "rgba(255,255,255,.5)", fontWeight: 600, marginTop: "3px" }}>Seattle</div>
-                    </div>
-                  </div>
-                </div>
-
               </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+
+              {/* Content */}
+              <div style={{
+                flex: 1,
+                minWidth: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                padding: '0 10px',
+                gap: '2px',
+              }}>
+                <span style={{
+                  fontFamily: t.fonts.sans,
+                  fontSize: '9px',
+                  fontWeight: 600,
+                  color: '#4A4A62',
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                }}>{activeToast.app}</span>
+                <span style={{
+                  fontFamily: t.fonts.sans,
+                  fontSize: '11px',
+                  color: '#9999B0',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}>{activeToast.message}</span>
+              </div>
+
+              {/* Close Button */}
+              <button
+                onClick={() => setActiveToast(null)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: t.colors.textMuted,
+                  cursor: 'pointer',
+                  padding: '14px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  outline: 'none',
+                  transition: 'color 0.15s',
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.color = t.colors.accentRed}
+                onMouseLeave={(e) => e.currentTarget.style.color = t.colors.textMuted}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <line x1="18" y1="6" x2="6" y2="18"/>
+                  <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Expanded — module tabs + content */}
+        <AnimatePresence>
+          {isOpen && (
+            <motion.div
+              key="expanded"
+              variants={expandedVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+               onMouseEnter={() => { isMouseOverRef.current = true }}
+              onMouseLeave={() => {
+                isMouseOverRef.current = false
+                setIsOpen(false)
+              }}
+              layout
+              transition={{
+                layout: { type: 'spring', stiffness: 350, damping: 30 }
+              }}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'stretch',
+                background: t.colors.bgSurface,
+                border: `1px solid ${t.colors.borderDefault}`,
+                clipPath: t.clipPath.default,
+                overflow: 'hidden',
+                width: currentModule === 'music' ? '540px' : currentModule === 'notifications' ? '460px' : '420px',
+              }}
+            >
+              {/* Tab switcher */}
+              <div style={{
+                display: 'flex',
+                width: '100%',
+                background: 'rgba(0, 0, 0, 0.2)',
+                borderBottom: `1px solid ${t.colors.divider}`,
+              }}>
+                {(['music', 'notifications', 'calendar'] as const).map((mod) => {
+                  const labels = { music: '♪ AUDIO', notifications: '◈ ALERTS', calendar: '⊞ CAL' }
+                  const accents = { music: t.colors.accentPurple, notifications: t.colors.accentOrange, calendar: t.colors.accentBlue }
+                  const isActive = currentModule === mod
+                  return (
+                    <button
+                      key={mod}
+                      onClick={() => setActiveModule(mod)}
+                      style={{
+                        flex: 1,
+                        padding: '8px 0',
+                        fontFamily: t.fonts.sans,
+                        fontSize: '9px', fontWeight: 600,
+                        letterSpacing: '0.1em',
+                        color: isActive ? t.colors.textPrimary : t.colors.textMuted,
+                        background: isActive ? 'rgba(255,255,255,0.02)' : 'transparent',
+                        borderBottom: isActive ? `2px solid ${accents[mod]}` : '2px solid transparent',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >{labels[mod]}</button>
+                  )
+                })}
+              </div>
+
+              {/* Module content */}
+              <AnimatePresence mode="wait">
+                {currentModule === 'music' && (
+                  <motion.div key="music"
+                    initial={{ opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.15 }}
+                    style={{ width: '100%' }}
+                  >
+                    <MusicModule
+                      track={track}
+                      onPlayPause={playPause}
+                      onNext={next}
+                      onPrev={prev}
+                      onSeek={seek}
+                    />
+                  </motion.div>
+                )}
+                {currentModule === 'notifications' && (
+                  <motion.div key="notifs"
+                    initial={{ opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.15 }}
+                    style={{ width: '100%' }}
+                  >
+                    <NotificationsModule
+                      notifications={notifications}
+                      onDismiss={handleDismissNotification}
+                      onClearAll={handleClearAllNotifications}
+                    />
+                  </motion.div>
+                )}
+                {currentModule === 'calendar' && (
+                  <motion.div key="calendar"
+                    initial={{ opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.15 }}
+                    style={{ width: '100%' }}
+                  >
+                    <CalendarModule />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          )}
+        </AnimatePresence>      </div>
     </div>
-  );
+  )
 }

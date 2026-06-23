@@ -43,10 +43,11 @@ export function useHotzone(mode: "idle" | "peek" | "expanded") {
         const monitor = await primaryMonitor();
         if (!monitor) return;
 
+        const scale = monitor.scaleFactor || 1.0;
         const screenWidth = monitor.size.width;
         const centerX = screenWidth / 2;
-        const hotZoneHalfWidth = 110; // 220px total
-        const hotZoneHeight = 8;
+        const hotZoneHalfWidth = 110 * scale; // 220px total
+        const hotZoneHeight = 8 * scale;
 
         const inHotzone =
           pos.x >= centerX - hotZoneHalfWidth &&
@@ -59,8 +60,8 @@ export function useHotzone(mode: "idle" | "peek" | "expanded") {
 
         const currentMode = modeRef.current;
         if (currentMode === "expanded") {
-          widgetHeight = 400;
-          widgetHalfWidth = 240;
+          widgetHeight = 420;
+          widgetHalfWidth = 270;
         } else if (currentMode === "peek") {
           widgetHeight = 110;
           widgetHalfWidth = 190;
@@ -69,18 +70,21 @@ export function useHotzone(mode: "idle" | "peek" | "expanded") {
           widgetHalfWidth = 130;
         }
 
+        const physicalWidgetHeight = widgetHeight * scale;
+        const physicalWidgetHalfWidth = widgetHalfWidth * scale;
+
         // Stay open while cursor is within the active widget area
         const inWidget =
-          pos.x >= centerX - widgetHalfWidth &&
-          pos.x <= centerX + widgetHalfWidth &&
-          pos.y <= widgetHeight;
+          pos.x >= centerX - physicalWidgetHalfWidth &&
+          pos.x <= centerX + physicalWidgetHalfWidth &&
+          pos.y <= physicalWidgetHeight;
 
         if (inHotzone && !isOpenRef.current) {
           if (!timerRef.current) {
             timerRef.current = setTimeout(() => {
               timerRef.current = null;
               setIsOpen(true);
-            }, 50);
+            }, 10);
           }
           if (closeTimerRef.current) {
             clearTimeout(closeTimerRef.current);
@@ -91,7 +95,7 @@ export function useHotzone(mode: "idle" | "peek" | "expanded") {
             closeTimerRef.current = setTimeout(() => {
               closeTimerRef.current = null;
               setIsOpen(false);
-            }, 800);
+            }, 10);
           }
           if (timerRef.current) {
             clearTimeout(timerRef.current);
@@ -112,7 +116,7 @@ export function useHotzone(mode: "idle" | "peek" | "expanded") {
       } catch (_) {}
     };
 
-    interval = setInterval(checkCursor, 100);
+    interval = setInterval(checkCursor, 20);
 
     return () => {
       clearInterval(interval);
@@ -121,5 +125,5 @@ export function useHotzone(mode: "idle" | "peek" | "expanded") {
     };
   }, []);
 
-  return { isOpen };
+  return { isOpen, setIsOpen };
 }

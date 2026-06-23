@@ -1,4 +1,5 @@
 mod media;
+mod notifications;
 
 use tauri::Manager;
 
@@ -12,6 +13,9 @@ pub fn run() {
             media::media_next,
             media::media_prev,
             media::media_seek,
+            notifications::get_windows_notifications,
+            notifications::dismiss_notification,
+            notifications::clear_all_notifications,
         ])
         .setup(|app| {
             let window = app.get_webview_window("notch-widget").unwrap();

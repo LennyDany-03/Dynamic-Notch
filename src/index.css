@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
 
 * {
   margin: 0;
@@ -13,79 +13,47 @@ html, body, #root {
   overflow: hidden;
   user-select: none;
   -webkit-user-select: none;
-  font-family: 'Manrope', system-ui, -apple-system, sans-serif;
-  color: #fff;
-  -webkit-font-smoothing: antialiased;
+  font-family: 'Space Grotesk', sans-serif;
 }
 
-@keyframes breath {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.014); }
+/* NO border-radius anywhere — enforced globally */
+* {
+  border-radius: 0 !important;
 }
 
-@keyframes wave {
-  0%, 100% { transform: scaleY(0.26); }
-  50% { transform: scaleY(1); }
+/* Exception only for clip-path elements */
+.clip-allowed {
+  border-radius: unset !important;
 }
 
-@keyframes floatA {
-  0%, 100% { transform: translate(0, 0); }
-  50% { transform: translate(50px, 34px); }
-}
-
-@keyframes floatB {
-  0%, 100% { transform: translate(0, 0); }
-  50% { transform: translate(-46px, 26px); }
-}
-
-@keyframes ringpulse {
-  0%, 100% { opacity: 0.55; }
-  50% { opacity: 1; }
-}
-
-/* Custom range input styling */
-input[type="range"] {
-  -webkit-appearance: none;
-  appearance: none;
-  background: transparent;
+button {
   cursor: pointer;
-  width: 100%;
+  border: none;
+  background: transparent;
+  font-family: inherit;
 }
 
-input[type="range"]:focus {
-  outline: none;
+::-webkit-scrollbar { display: none; }
+
+@keyframes waveAnim {
+  0%, 100% { transform: scaleY(1); opacity: 0.5; }
+  50%       { transform: scaleY(1.8); opacity: 1; }
 }
 
-input[type="range"]::-webkit-slider-runnable-track {
-  background: rgba(255, 255, 255, 0.1);
-  height: 6px;
-  border-radius: 3px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+@keyframes scanline {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
 }
 
-input[type="range"]::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  margin-top: -5px; /* Centers the thumb on the track */
-  background: linear-gradient(135deg, var(--acc), var(--acc2));
-  height: 16px;
-  width: 16px;
-  border-radius: 50%;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
-  transition: transform 0.1s ease;
+.scanline-effect {
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background: linear-gradient(
+    to bottom,
+    rgba(255,255,255,0),
+    rgba(167,139,250,0.15) 50%,
+    rgba(255,255,255,0) 100%
+  );
+  animation: scanline 4s linear infinite;
+  pointer-events: none;
 }
-
-input[type="range"]::-webkit-slider-thumb:hover {
-  transform: scale(1.15);
-}
-
-input[type="range"]:disabled::-webkit-slider-runnable-track {
-  background: rgba(255, 255, 255, 0.03);
-}
-
-input[type="range"]:disabled::-webkit-slider-thumb {
-  background: rgba(255, 255, 255, 0.3);
-  cursor: not-allowed;
-  transform: none;
-}
-
