@@ -136,7 +136,7 @@ export default function NotchWidget() {
       try {
         const win = getCurrentWindow();
         if (mode === "expanded") {
-          await win.setSize(new LogicalSize(560, 320));
+          await win.setSize(new LogicalSize(560, 390));
         } else if (mode === "peek") {
           await win.setSize(new LogicalSize(560, 100));
         } else {
@@ -279,7 +279,7 @@ export default function NotchWidget() {
   const dims = {
     idle: [224, 34, 17],
     peek: [348, 60, 24],
-    expanded: [438, 276, 26]
+    expanded: [438, 340, 26]
   }[mode];
   const [w, hh, r] = dims;
 
@@ -423,37 +423,10 @@ export default function NotchWidget() {
                     </span>
                   </div>
                   {/* center: time */}
-                  <span style={{ fontSize: "16px", fontWeight: 600, letterSpacing: ".5px", fontVariantNumeric: "tabular-nums" }}>
+                  <span style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", fontSize: "16px", fontWeight: 600, letterSpacing: ".5px", fontVariantNumeric: "tabular-nums" }}>
                     {timeStr}
                   </span>
-                  {/* right: timer ring + notif dot */}
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                    <svg width="16" height="16" viewBox="0 0 16 16" style={{ transform: "rotate(-90deg)" }}>
-                      <circle cx="8" cy="8" r="6" fill="none" stroke="rgba(255,255,255,.18)" strokeWidth="2" />
-                      <circle
-                        cx="8"
-                        cy="8"
-                        r="6"
-                        fill="none"
-                        stroke="var(--acc)"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeDasharray={circMini}
-                        strokeDashoffset={miniRingOffset}
-                        style={{ transition: "stroke-dashoffset 0.5s ease" }}
-                      />
-                    </svg>
-                    <span
-                      style={{
-                        width: "7px",
-                        height: "7px",
-                        borderRadius: "50%",
-                        background: "#60a5fa",
-                        boxShadow: "0 0 8px #60a5fa",
-                        animation: "ringpulse 2.4s ease-in-out infinite",
-                      }}
-                    />
-                  </div>
+
                 </div>
 
                 {/* ---- PEEK LAYER (notification) ---- */}
@@ -514,7 +487,7 @@ export default function NotchWidget() {
                     left: "50%",
                     transform: "translateX(-50%)",
                     width: "438px",
-                    height: "276px",
+                    height: "340px",
                     padding: "14px 15px",
                     opacity: mode === "expanded" ? 1 : 0,
                     transition: "opacity .35s ease .05s",
