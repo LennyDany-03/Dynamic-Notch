@@ -32,8 +32,8 @@ export default function CollapsedNotch({
     return () => clearInterval(timer)
   }, [])
 
-  // 8 bars for the right-aligned visualizer inside the playing collapsed notch
-  const barHeights = [5, 12, 8, 15, 9, 13, 6, 10]
+  // Compact bar heights to prevent top boundary clipping during wave scale animation
+  const barHeights = [3, 7, 5, 8, 4, 7, 3, 6]
 
   return (
     <div
@@ -80,12 +80,13 @@ export default function CollapsedNotch({
             {timeStr}
           </span>
 
-          {/* Right: Bouncing Visualizer Rhythm Bars (Magenta & Cyan) */}
+          {/* Right: Bouncing Visualizer Rhythm Bars (Magenta & Cyan) aligned cleanly to baseline */}
           <div style={{
             display: 'flex',
-            alignItems: 'center',
+            alignItems: 'flex-end',
             gap: '2px',
-            height: '15px',
+            height: '14px',
+            paddingBottom: '1px',
           }}>
             {barHeights.map((h, i) => {
               const barColor = i % 2 === 0 ? '#ff007f' : '#00f0ff'
