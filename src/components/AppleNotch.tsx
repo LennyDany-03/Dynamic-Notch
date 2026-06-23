@@ -31,34 +31,56 @@ const MOCK_NOTIFS: Notif[] = [
   { id: '3', app: 'System', message: 'AWS S3 storage at 78% capacity', time: '1h', unread: false },
 ]
 
+const toastVariants = {
+  initial: { y: -24, opacity: 0, scale: 0.92 },
+  animate: {
+    y: 0, opacity: 1, scale: 1,
+    transition: { type: 'spring' as const, stiffness: 420, damping: 28, mass: 0.9 },
+  },
+  exit: {
+    y: -16, opacity: 0, scale: 0.92,
+    transition: { type: 'tween' as const, ease: 'easeIn' as const, duration: 0.1 },
+  },
+}
+
+const APP_TOAST_COLORS: Record<string, string> = {
+  Gmail: apple.blue,
+  WhatsApp: apple.green,
+  System: apple.orange,
+}
+
 const isTauri = typeof window !== 'undefined' && !!(window as any).__TAURI_INTERNALS__
 
 const CONTENT_MODULES: Module[] = ['music', 'notif', 'calendar']
 
-// Pill: drop in from top, fade+scale-out (NOT y exit) so it blends into island
+// Pill: fast exit when expanding
 const pillContainerVariants = {
-  initial: { y: -36, opacity: 0, scale: 0.85 },
+  initial: { y: -24, opacity: 0, scale: 0.9 },
   animate: {
     y: 0, opacity: 1, scale: 1,
-    transition: { type: 'spring' as const, stiffness: 500, damping: 36, mass: 1 },
+    transition: { type: 'spring' as const, stiffness: 550, damping: 36, mass: 0.85 },
   },
   exit: {
-    opacity: 0,
-    scale: 0.88,
-    transition: { duration: 0.10, ease: 'easeIn' as const },
+    opacity: 0, scale: 0.9,
+    transition: { duration: 0.06 },
   },
 }
 
-// Island: expands from near-top (y:-16), not from far away (y:-60)
+// Island: expands from top (all-spring, no mixed timing)
 const expandedContainerVariants = {
-  initial: { y: -16, opacity: 0, scale: 0.94 },
+  initial: { opacity: 0, scaleY: 0.5, scaleX: 0.92, y: -4 },
   animate: {
-    y: 0, opacity: 1, scale: 1,
-    transition: { type: 'spring' as const, stiffness: 420, damping: 34, mass: 0.9 },
+    opacity: 1, scaleY: 1, scaleX: 1, y: 0,
+    transition: {
+      type: 'spring' as const,
+      stiffness: 600,
+      damping: 38,
+      mass: 0.8,
+    },
   },
   exit: {
-    y: -16, opacity: 0, scale: 0.94,
-    transition: { duration: 0.10, ease: 'easeIn' as const },
+    opacity: 0, scaleY: 0.6, scaleX: 0.95, y: -4,
+    transition: { duration: 0.08 },
   },
 }
 
@@ -196,6 +218,11 @@ export default function AppleNotch({ currentTemplate, onSwitchTemplate }: Props)
   const [notifications, setNotifications] = useState<Notif[]>(MOCK_NOTIFS)
   const isMouseOverRef = useRef(false)
   const activeModuleRef = useRef<Module>('none')
+  const prevNotificationsRef = useRef<Notif[]>([])
+  const isInitialRef = useRef(true)
+  const isToastHoveredRef = useRef(false)
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [activeToast, setActiveToast] = useState<Notif | null>(null)
 
   useEffect(() => {
     activeModuleRef.current = activeModule
@@ -222,7 +249,18 @@ export default function AppleNotch({ currentTemplate, onSwitchTemplate }: Props)
   }, [isOpen])
 
   useEffect(() => {
-    if (!isTauri) return
+    if (!isTauri) {
+      const timer = setTimeout(() => {
+        setNotifications(prev => [{
+          id: 'mock-new-1',
+          app: 'WhatsApp',
+          message: 'Nandha Kumar: The recruitment module is live! Check it out.',
+          time: 'now',
+          unread: true,
+        }, ...prev])
+      }, 4000)
+      return () => clearTimeout(timer)
+    }
     const fetchN = async () => {
       try {
         const list = await invoke<any[]>('get_windows_notifications')
@@ -240,8 +278,46 @@ export default function AppleNotch({ currentTemplate, onSwitchTemplate }: Props)
     return () => clearInterval(iv)
   }, [])
 
+  // Detect new notifications and show toast
+  useEffect(() => {
+    if (isInitialRef.current) {
+      if (notifications.length > 0 || !isTauri) {
+        isInitialRef.current = false
+        prevNotificationsRef.current = notifications
+      }
+      return
+    }
+
+    const newNotifs = notifications.filter(
+      n => !prevNotificationsRef.current.some(p => p.id === n.id)
+    )
+
+    if (newNotifs.length > 0) {
+      const latest = newNotifs[0]
+      setActiveToast(latest)
+
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
+
+      toastTimerRef.current = setTimeout(() => {
+        if (!isToastHoveredRef.current) {
+          setActiveToast(null)
+        }
+      }, 7000)
+    }
+
+    prevNotificationsRef.current = notifications
+  }, [notifications])
+
+  // Hide toast when panel is expanded
+  useEffect(() => {
+    if (isOpen) {
+      setActiveToast(null)
+    }
+  }, [isOpen])
+
   const handleDismiss = async (id: string) => {
     setNotifications(prev => prev.filter(n => n.id !== id))
+    if (activeToast?.id === id) setActiveToast(null)
     if (isTauri) {
       const num = parseInt(id, 10)
       if (!isNaN(num)) await invoke('dismiss_notification', { id: num }).catch(() => {})
@@ -279,9 +355,9 @@ export default function AppleNotch({ currentTemplate, onSwitchTemplate }: Props)
     }}>
       <div style={{ pointerEvents: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
 
-        {/* Collapsed pill */}
-        <AnimatePresence>
-          {!isOpen && (
+        {/* Pill ↔ Expanded island */}
+        <AnimatePresence mode="popLayout">
+          {!isOpen ? (
             <motion.div
               key="apple-pill"
               variants={pillContainerVariants}
@@ -298,12 +374,7 @@ export default function AppleNotch({ currentTemplate, onSwitchTemplate }: Props)
                 onClick={handlePillClick}
               />
             </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Expanded island card */}
-        <AnimatePresence>
-          {isOpen && (
+          ) : (
             <motion.div
               key="apple-expanded"
               variants={expandedContainerVariants}
@@ -319,6 +390,7 @@ export default function AppleNotch({ currentTemplate, onSwitchTemplate }: Props)
                 background: apple.black,
                 borderRadius: apple.pillRadius,
                 overflow: 'hidden',
+                transformOrigin: 'top center',
                 width: '360px',
                 display: 'flex',
                 flexDirection: 'column',
@@ -419,6 +491,111 @@ export default function AppleNotch({ currentTemplate, onSwitchTemplate }: Props)
                   </motion.div>
                 )}
               </AnimatePresence>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Toast notification — only when collapsed */}
+        <AnimatePresence mode="popLayout">
+          {!isOpen && activeToast && (
+            <motion.div
+              key={activeToast.id}
+              variants={toastVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              onMouseEnter={() => {
+                isToastHoveredRef.current = true
+                if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
+              }}
+              onMouseLeave={() => {
+                isToastHoveredRef.current = false
+                toastTimerRef.current = setTimeout(() => {
+                  setActiveToast(null)
+                }, 4000)
+              }}
+              style={{
+                marginTop: '8px',
+                width: '360px',
+                background: 'rgba(28,28,30,0.95)',
+                borderRadius: apple.pillRadius,
+                border: `1px solid ${apple.sep}`,
+                display: 'flex',
+                alignItems: 'center',
+                padding: '10px 14px',
+                gap: '10px',
+                position: 'relative',
+                zIndex: 100,
+                boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+                backdropFilter: 'blur(20px)',
+              }}
+            >
+              {/* Colored dot */}
+              <div style={{
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                background: APP_TOAST_COLORS[activeToast.app] || apple.purple,
+                flexShrink: 0,
+              }} />
+
+              {/* Content */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{
+                  fontFamily: "'Inter', sans-serif",
+                  fontSize: '10px',
+                  fontWeight: 600,
+                  color: APP_TOAST_COLORS[activeToast.app] || apple.purple,
+                  letterSpacing: '-0.01em',
+                  marginBottom: '1px',
+                }}>
+                  {activeToast.app}
+                </div>
+                <div style={{
+                  fontFamily: "'Inter', sans-serif",
+                  fontSize: '12px',
+                  color: apple.text1,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}>
+                  {activeToast.message}
+                </div>
+              </div>
+
+              {/* Time + Close */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                <span style={{
+                  fontFamily: "'Inter', sans-serif",
+                  fontSize: '10px',
+                  color: apple.text3,
+                }}>
+                  {activeToast.time}
+                </span>
+                <button
+                  onClick={() => setActiveToast(null)}
+                  className="apple-active-feedback"
+                  style={{
+                    color: apple.text3,
+                    width: '20px',
+                    height: '20px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                    borderRadius: '50%',
+                    transition: 'color 0.15s',
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.color = apple.text1}
+                  onMouseLeave={(e) => e.currentTarget.style.color = apple.text3}
+                >
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/>
+                    <line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                </button>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>

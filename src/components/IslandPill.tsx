@@ -67,7 +67,6 @@ export default function IslandPill({
         padding: '0 16px',
         gap: '0px',
         position: 'relative',
-        width: pillWidth,
       }}
     >
       {/* Left: Album art thumbnail when music is playing */}

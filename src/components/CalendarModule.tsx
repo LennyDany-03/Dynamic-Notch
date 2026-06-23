@@ -26,16 +26,13 @@ const EVENTS_BY_DATE: Record<string, CalEvent[]> = {
   "2026-06-30": [
     { id: '7', title: 'Nuke Staging Verification', timeRange: '4:00 PM', stripe: '#A78BFA', badgeLabel: 'MEET', badgeColor: '#A78BFA' },
   ],
-  "2027-07-04": [
-    { id: '8', title: 'Tauri Hackathon Launch', timeRange: '9:00 AM', stripe: '#FB923C', badgeLabel: 'EVENT', badgeColor: '#FB923C' },
-  ]
 }
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 
 export default function CalendarModule() {
   const t = tokens
-  const [currentDate, setCurrentDate] = useState(new Date(2026, 5, 24)) // June 2026
+  const [currentDate, setCurrentDate] = useState(new Date(2026, 5, 24))
   const [selectedDate, setSelectedDate] = useState(new Date(2026, 5, 24))
 
   const year = currentDate.getFullYear()
@@ -43,15 +40,9 @@ export default function CalendarModule() {
 
   const daysInMonth = new Date(year, month + 1, 0).getDate()
   const firstDayIndex = new Date(year, month, 1).getDay()
-  const prevMonthDays = new Date(year, month, 0).getDate()
 
-  const nextMonth = () => {
-    setCurrentDate(new Date(year, month + 1, 1))
-  }
-  
-  const prevMonth = () => {
-    setCurrentDate(new Date(year, month - 1, 1))
-  }
+  const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1))
+  const prevMonth = () => setCurrentDate(new Date(year, month - 1, 1))
 
   const getDateKey = (date: Date) => {
     const y = date.getFullYear()
@@ -64,119 +55,117 @@ export default function CalendarModule() {
 
   const selectedKey = getDateKey(selectedDate)
   const selectedEvents = EVENTS_BY_DATE[selectedKey] || []
-  const eventCountStr = `${selectedEvents.length} EVENT${selectedEvents.length === 1 ? '' : 'S'} ACTIVE`
 
   return (
     <div style={{
       width: '100%',
       height: '100%',
       overflow: 'hidden',
-      padding: '6px 10px',
+      padding: '8px 10px 6px',
       display: 'flex',
       flexDirection: 'column',
-      justifyContent: 'space-between',
       boxSizing: 'border-box',
     }}>
-      {/* Month switcher header */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        height: '22px',
+        height: '24px',
+        marginBottom: '2px',
       }}>
         <button onClick={prevMonth} style={{
           color: '#00f0ff',
-          fontSize: '9px',
-          fontFamily: t.fonts.mono,
-          padding: '1px 4px',
-          background: 'rgba(0, 240, 255, 0.03)',
-          border: '1px solid rgba(0, 240, 255, 0.2)',
+          width: '20px',
+          height: '20px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'rgba(0, 240, 255, 0.04)',
+          border: '1px solid rgba(0, 240, 255, 0.15)',
           cursor: 'pointer',
           outline: 'none',
           transition: 'all 0.2s',
         }}
-        onMouseEnter={(e) => e.currentTarget.style.borderColor = '#00f0ff'}
-        onMouseLeave={(e) => e.currentTarget.style.borderColor = 'rgba(0, 240, 255, 0.2)'}
-        >⟨</button>
+        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(0, 240, 255, 0.12)'; e.currentTarget.style.borderColor = '#00f0ff' }}
+        onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(0, 240, 255, 0.04)'; e.currentTarget.style.borderColor = 'rgba(0, 240, 255, 0.15)' }}
+        >
+          <svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="#00f0ff" strokeWidth="3" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
 
         <span style={{
           fontFamily: t.fonts.sans,
-          fontSize: '9.5px',
+          fontSize: '9px',
           fontWeight: 600,
           color: t.colors.textPrimary,
-          letterSpacing: '0.06em',
+          letterSpacing: '0.12em',
         }}>{monthLabel}</span>
 
         <button onClick={nextMonth} style={{
           color: '#00f0ff',
-          fontSize: '9px',
-          fontFamily: t.fonts.mono,
-          padding: '1px 4px',
-          background: 'rgba(0, 240, 255, 0.03)',
-          border: '1px solid rgba(0, 240, 255, 0.2)',
+          width: '20px',
+          height: '20px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'rgba(0, 240, 255, 0.04)',
+          border: '1px solid rgba(0, 240, 255, 0.15)',
           cursor: 'pointer',
           outline: 'none',
           transition: 'all 0.2s',
         }}
-        onMouseEnter={(e) => e.currentTarget.style.borderColor = '#00f0ff'}
-        onMouseLeave={(e) => e.currentTarget.style.borderColor = 'rgba(0, 240, 255, 0.2)'}
-        >⟩</button>
+        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(0, 240, 255, 0.12)'; e.currentTarget.style.borderColor = '#00f0ff' }}
+        onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(0, 240, 255, 0.04)'; e.currentTarget.style.borderColor = 'rgba(0, 240, 255, 0.15)' }}
+        >
+          <svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="#00f0ff" strokeWidth="3" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
       </div>
 
-      {/* Weekday headers */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(7, 1fr)',
         textAlign: 'center',
         borderBottom: `1px solid ${t.colors.divider}`,
-        paddingBottom: '2px',
-        marginTop: '2px',
+        paddingBottom: '3px',
+        marginBottom: '3px',
       }}>
         {WEEKDAYS.map((day, idx) => (
           <span key={idx} style={{
             fontFamily: t.fonts.mono,
-            fontSize: '8px',
-            fontWeight: 600,
-            color: '#3A3A52',
+            fontSize: '7.5px',
+            fontWeight: 700,
+            color: idx === 0 || idx === 6 ? '#ff007f' : '#3A3A52',
+            letterSpacing: '0.04em',
+            textTransform: 'uppercase',
           }}>{day}</span>
         ))}
       </div>
 
-      {/* Days grid */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(7, 1fr)',
-        gap: '2px',
-        marginTop: '4px',
+        gap: '1px',
         flex: 1,
+        alignContent: 'start',
       }}>
-        {/* Previous Month Pad Days */}
-        {Array.from({ length: firstDayIndex }).map((_, idx) => {
-          return (
-            <div key={`prev-${idx}`} style={{
-              textAlign: 'center',
-              fontSize: '8.5px',
-              fontFamily: t.fonts.mono,
-              color: '#1A1A2E',
-              opacity: 0.25,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              height: '16px',
-            }}>
-              //
-            </div>
-          )
-        })}
+        {Array.from({ length: firstDayIndex }).map((_, idx) => (
+          <div key={`prev-${idx}`} style={{
+            textAlign: 'center',
+            fontSize: '8px',
+            fontFamily: t.fonts.mono,
+            color: '#1A1A2E',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: '18px',
+          }}>
+            {new Date(year, month, 0 - (firstDayIndex - 1 - idx)).getDate()}
+          </div>
+        ))}
 
-        {/* Current Month Days */}
         {Array.from({ length: daysInMonth }).map((_, idx) => {
           const dayNum = idx + 1
           const dayDate = new Date(year, month, dayNum)
-          
-          // Hardcode target today marker relative to mock data
           const isToday = dayNum === 24 && month === 5 && year === 2026
-          
           const isSelected = dayNum === selectedDate.getDate() && month === selectedDate.getMonth() && year === selectedDate.getFullYear()
           const dateKey = getDateKey(dayDate)
           const hasEvents = !!EVENTS_BY_DATE[dateKey]
@@ -186,37 +175,25 @@ export default function CalendarModule() {
               key={`day-${dayNum}`}
               onClick={() => setSelectedDate(dayDate)}
               style={{
-                background: isSelected 
-                  ? 'rgba(0, 240, 255, 0.08)' 
-                  : isToday 
-                  ? 'rgba(255, 0, 127, 0.08)' 
-                  : 'transparent',
-                border: isSelected 
-                  ? '1px solid #00f0ff' 
-                  : isToday 
-                  ? '1px solid #ff007f' 
-                  : '1px solid transparent',
-                color: isSelected 
-                  ? '#00f0ff' 
-                  : isToday 
-                  ? '#ff007f' 
-                  : '#8E8EA8',
+                background: isSelected ? 'rgba(0, 240, 255, 0.1)' : isToday ? 'rgba(255, 0, 127, 0.1)' : 'transparent',
+                border: isSelected ? '1px solid #00f0ff' : isToday ? '1px solid #ff007f' : '1px solid transparent',
+                color: isSelected ? '#00f0ff' : isToday ? '#ff007f' : '#8E8EA8',
                 fontSize: '8.5px',
                 fontFamily: t.fonts.mono,
-                padding: '1px 0',
                 textAlign: 'center',
                 position: 'relative',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                height: '16px',
+                height: '18px',
                 outline: 'none',
-                transition: 'all 0.15s ease',
+                transition: 'all 0.12s ease',
+                fontWeight: isSelected || isToday ? 600 : 400,
               }}
               onMouseEnter={(e) => {
                 if (!isSelected && !isToday) {
-                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)'
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.04)'
                   e.currentTarget.style.color = '#fff'
                 }
               }}
@@ -228,16 +205,24 @@ export default function CalendarModule() {
               }}
             >
               <span>{dayNum}</span>
-              
-              {/* Glowing Event Dot Indicator */}
               {hasEvents && !isSelected && !isToday && (
                 <div style={{
                   position: 'absolute',
                   bottom: '1px',
-                  width: '2.5px',
-                  height: '2.5px',
+                  width: '3px',
+                  height: '3px',
                   background: '#00f0ff',
-                  boxShadow: '0 0 3px #00f0ff',
+                  boxShadow: '0 0 4px #00f0ff',
+                }} />
+              )}
+              {hasEvents && (isSelected || isToday) && (
+                <div style={{
+                  position: 'absolute',
+                  bottom: '1px',
+                  width: '3px',
+                  height: '3px',
+                  background: isSelected ? '#00f0ff' : '#ff007f',
+                  boxShadow: isSelected ? '0 0 4px #00f0ff' : '0 0 4px #ff007f',
                 }} />
               )}
             </button>
@@ -245,7 +230,6 @@ export default function CalendarModule() {
         })}
       </div>
 
-      {/* Selected Day Status Ticker */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
@@ -256,14 +240,17 @@ export default function CalendarModule() {
         color: '#4A4A62',
         letterSpacing: '0.03em',
         borderTop: `1px solid ${t.colors.divider}`,
-        paddingTop: '4px',
+        paddingTop: '3px',
         height: '14px',
       }}>
-        <span>CAL // {selectedDate.toLocaleDateString('en-US', { day: 'numeric', month: 'short' }).toUpperCase()}</span>
+        <span style={{ color: selectedEvents.length > 0 ? '#00f0ff' : '#4A4A62' }}>
+          {'> '}{selectedDate.toLocaleDateString('en-US', { day: 'numeric', month: 'short' }).toUpperCase()}
+        </span>
         <span style={{
-          color: selectedEvents.length > 0 ? '#ff007f' : '#4A4A62',
-          fontWeight: selectedEvents.length > 0 ? 600 : 500,
-        }}>{eventCountStr}</span>
+          color: selectedEvents.length > 0 ? '#ff007f' : '#3A3A52',
+        }}>
+          {selectedEvents.length > 0 ? `${selectedEvents.length} EVENT${selectedEvents.length > 1 ? 'S' : ''}` : 'NO EVENTS'}
+        </span>
       </div>
     </div>
   )

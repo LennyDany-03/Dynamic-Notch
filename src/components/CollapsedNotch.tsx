@@ -50,7 +50,7 @@ export default function CollapsedNotch({
         padding: isPlaying ? '0 12px' : '0 10px',
         position: 'relative',
         boxShadow: isPlaying ? '0 0 10px rgba(0, 240, 255, 0.15)' : 'none',
-        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        transition: 'width 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), border 0.25s ease, box-shadow 0.25s ease, padding 0.25s ease',
         cursor: 'pointer',
       }}
     >

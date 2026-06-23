@@ -33,7 +33,7 @@ const toastVariants = {
   initial: {
     y: -40,
     opacity: 0,
-    scale: 0.95,
+    scale: 0.92,
   },
   animate: {
     y: 0,
@@ -41,18 +41,19 @@ const toastVariants = {
     scale: 1,
     transition: {
       type: 'spring' as const,
-      stiffness: 260,
-      damping: 22,
+      stiffness: 420,
+      damping: 28,
+      mass: 0.9,
     }
   },
   exit: {
-    y: -40,
+    y: -24,
     opacity: 0,
-    scale: 0.95,
+    scale: 0.92,
     transition: {
       type: 'tween' as const,
       ease: 'easeIn' as const,
-      duration: 0.15,
+      duration: 0.12,
     }
   }
 }
@@ -105,53 +106,56 @@ const getSourceIcon = (app: string, color: string) => {
 
 const collapsedVariants = {
   initial: {
-    y: -40,
+    y: -24,
     opacity: 0,
-  },
-  animate: {
-    y: 0,
-    opacity: 1,
-    transition: {
-      type: 'spring' as const,
-      stiffness: 220,
-      damping: 24,
-    }
-  },
-  exit: {
-    y: -40,
-    opacity: 0,
-    transition: {
-      type: 'tween' as const,
-      ease: 'easeIn' as const,
-      duration: 0.1,
-    }
-  }
-}
-
-const expandedVariants = {
-  initial: {
-    y: -120,
-    opacity: 0,
-    scale: 0.96,
+    scale: 0.92,
   },
   animate: {
     y: 0,
     opacity: 1,
     scale: 1,
     transition: {
-      y: { type: 'spring' as const, stiffness: 200, damping: 24 },
-      scale: { type: 'spring' as const, stiffness: 200, damping: 24 },
-      opacity: { duration: 0.2 },
+      type: 'spring' as const,
+      stiffness: 520,
+      damping: 34,
+      mass: 0.85,
     }
   },
   exit: {
-    y: -120,
     opacity: 0,
-    scale: 0.96,
+    scale: 0.9,
     transition: {
-      type: 'tween' as const,
-      ease: 'easeIn' as const,
-      duration: 0.1,
+      duration: 0.06,
+    }
+  }
+}
+
+const expandedVariants = {
+  initial: {
+    opacity: 0,
+    scaleY: 0.45,
+    scaleX: 0.92,
+    y: -4,
+  },
+  animate: {
+    opacity: 1,
+    scaleY: 1,
+    scaleX: 1,
+    y: 0,
+    transition: {
+      type: 'spring' as const,
+      stiffness: 600,
+      damping: 37,
+      mass: 0.8,
+    }
+  },
+  exit: {
+    opacity: 0,
+    scaleY: 0.6,
+    scaleX: 0.95,
+    y: -4,
+    transition: {
+      duration: 0.08,
     }
   }
 }
@@ -326,9 +330,9 @@ export default function NotchWidget({ currentTemplate, onSwitchTemplate }: Props
     }}>
       <div style={{ pointerEvents: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
 
-        {/* Collapsed pill — always visible when not expanded */}
-        <AnimatePresence>
-          {!isOpen && (
+        {/* Main widget: collapsed pill ↔ expanded panel */}
+        <AnimatePresence mode="popLayout">
+          {!isOpen ? (
             <motion.div
               key="collapsed"
               variants={collapsedVariants}
@@ -358,144 +362,21 @@ export default function NotchWidget({ currentTemplate, onSwitchTemplate }: Props
                 }}
               />
             </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Separate Notification Toast popup — pops down below collapsed notch */}
-        <AnimatePresence>
-          {!isOpen && activeToast && (
-            <motion.div
-              key="toast"
-              variants={toastVariants}
-              initial="initial"
-              animate="animate"
-              exit="exit"
-              onMouseEnter={() => {
-                isToastHoveredRef.current = true
-                if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
-              }}
-              onMouseLeave={() => {
-                isToastHoveredRef.current = false
-                toastTimerRef.current = setTimeout(() => {
-                  setActiveToast(null)
-                }, 4000)
-              }}
-              style={{
-                marginTop: '6px',
-                width: '380px',
-                height: '52px',
-                background: t.colors.bgSurface,
-                border: `1px solid ${t.colors.borderDefault}`,
-                clipPath: t.clipPath.default,
-                display: 'flex',
-                alignItems: 'stretch',
-                position: 'relative',
-                boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)',
-              }}
-            >
-              {/* Stripe */}
-              <div style={{
-                width: '2px',
-                flexShrink: 0,
-                background: getSourceColor(activeToast.app),
-                boxShadow: `0 0 6px ${getSourceColor(activeToast.app)}60`,
-              }} />
-
-              {/* App Icon */}
-              <div style={{
-                width: '36px',
-                flexShrink: 0,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}>
-                <div style={{
-                  width: '32px',
-                  height: '32px',
-                  background: 'rgba(255, 255, 255, 0.03)',
-                  border: '1px solid rgba(255, 255, 255, 0.05)',
-                  clipPath: t.clipPath.small,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}>
-                  {getSourceIcon(activeToast.app, getSourceColor(activeToast.app))}
-                </div>
-              </div>
-
-              {/* Content */}
-              <div style={{
-                flex: 1,
-                minWidth: 0,
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'center',
-                padding: '0 10px',
-                gap: '2px',
-              }}>
-                <span style={{
-                  fontFamily: t.fonts.sans,
-                  fontSize: '9px',
-                  fontWeight: 600,
-                  color: '#4A4A62',
-                  letterSpacing: '0.08em',
-                  textTransform: 'uppercase',
-                }}>{activeToast.app}</span>
-                <span style={{
-                  fontFamily: t.fonts.sans,
-                  fontSize: '11px',
-                  color: '#9999B0',
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                }}>{activeToast.message}</span>
-              </div>
-
-              {/* Close Button */}
-              <button
-                onClick={() => setActiveToast(null)}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: t.colors.textMuted,
-                  cursor: 'pointer',
-                  padding: '14px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  outline: 'none',
-                  transition: 'color 0.15s',
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.color = t.colors.accentRed}
-                onMouseLeave={(e) => e.currentTarget.style.color = t.colors.textMuted}
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
-                  stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                  <line x1="18" y1="6" x2="6" y2="18"/>
-                  <line x1="6" y1="6" x2="18" y2="18"/>
-                </svg>
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Expanded — module tabs + content */}
-        <AnimatePresence>
-          {isOpen && (
+          ) : (
             <motion.div
               key="expanded"
               variants={expandedVariants}
               initial="initial"
               animate="animate"
               exit="exit"
+              layout
               onMouseEnter={() => { isMouseOverRef.current = true }}
               onMouseLeave={() => {
                 isMouseOverRef.current = false
                 setIsOpen(false)
               }}
-              layout
               transition={{
-                layout: { type: 'spring', stiffness: 350, damping: 30 }
+                layout: { type: 'spring' as const, stiffness: 500, damping: 35, mass: 0.85 },
               }}
               style={{
                 display: 'flex',
@@ -505,6 +386,7 @@ export default function NotchWidget({ currentTemplate, onSwitchTemplate }: Props
                 border: `1px solid ${t.colors.borderDefault}`,
                 clipPath: t.clipPath.default,
                 overflow: 'hidden',
+                transformOrigin: 'top center',
                 width: currentModule === 'dashboard' ? '520px' : '460px',
               }}
             >
@@ -650,13 +532,13 @@ export default function NotchWidget({ currentTemplate, onSwitchTemplate }: Props
               )}
 
               {/* Module content */}
-              <AnimatePresence mode="wait">
+              <AnimatePresence mode="popLayout">
                 {currentModule === 'dashboard' && (
                   <motion.div key="dashboard"
-                    initial={{ opacity: 0, y: -8 }}
+                    initial={{ opacity: 0, y: -6 }}
                     animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -8 }}
-                    transition={{ duration: 0.15 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    transition={{ duration: 0.18 }}
                     style={{
                       width: '100%',
                       display: 'flex',
@@ -710,10 +592,10 @@ export default function NotchWidget({ currentTemplate, onSwitchTemplate }: Props
                 )}
                 {currentModule === 'notifications' && (
                   <motion.div key="notifs"
-                    initial={{ opacity: 0, y: -8 }}
+                    initial={{ opacity: 0, y: -6 }}
                     animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -8 }}
-                    transition={{ duration: 0.15 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    transition={{ duration: 0.18 }}
                     style={{ width: '100%', height: '210px' }}
                   >
                     <NotificationsModule
@@ -726,7 +608,127 @@ export default function NotchWidget({ currentTemplate, onSwitchTemplate }: Props
               </AnimatePresence>
             </motion.div>
           )}
-        </AnimatePresence>      </div>
+        </AnimatePresence>
+
+        {/* Toast notification — only when collapsed */}
+        <AnimatePresence mode="popLayout">
+          {!isOpen && activeToast && (
+            <motion.div
+              key={activeToast.id}
+              variants={toastVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              onMouseEnter={() => {
+                isToastHoveredRef.current = true
+                if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
+              }}
+              onMouseLeave={() => {
+                isToastHoveredRef.current = false
+                toastTimerRef.current = setTimeout(() => {
+                  setActiveToast(null)
+                }, 4000)
+              }}
+              style={{
+                marginTop: '6px',
+                width: '380px',
+                height: '52px',
+                background: t.colors.bgSurface,
+                border: `1px solid ${t.colors.borderDefault}`,
+                clipPath: t.clipPath.default,
+                display: 'flex',
+                alignItems: 'stretch',
+                position: 'relative',
+                zIndex: 100,
+                boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5)',
+              }}
+            >
+              {/* Stripe */}
+              <div style={{
+                width: '2px',
+                flexShrink: 0,
+                background: getSourceColor(activeToast.app),
+                boxShadow: `0 0 6px ${getSourceColor(activeToast.app)}60`,
+              }} />
+
+              {/* App Icon */}
+              <div style={{
+                width: '36px',
+                flexShrink: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+                <div style={{
+                  width: '32px',
+                  height: '32px',
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  border: '1px solid rgba(255, 255, 255, 0.05)',
+                  clipPath: t.clipPath.small,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                  {getSourceIcon(activeToast.app, getSourceColor(activeToast.app))}
+                </div>
+              </div>
+
+              {/* Content */}
+              <div style={{
+                flex: 1,
+                minWidth: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                padding: '0 10px',
+                gap: '2px',
+              }}>
+                <span style={{
+                  fontFamily: t.fonts.sans,
+                  fontSize: '9px',
+                  fontWeight: 600,
+                  color: '#4A4A62',
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                }}>{activeToast.app}</span>
+                <span style={{
+                  fontFamily: t.fonts.sans,
+                  fontSize: '11px',
+                  color: '#9999B0',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}>{activeToast.message}</span>
+              </div>
+
+              {/* Close Button */}
+              <button
+                onClick={() => setActiveToast(null)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: t.colors.textMuted,
+                  cursor: 'pointer',
+                  padding: '14px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  outline: 'none',
+                  transition: 'color 0.15s',
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.color = t.colors.accentRed}
+                onMouseLeave={(e) => e.currentTarget.style.color = t.colors.textMuted}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <line x1="18" y1="6" x2="6" y2="18"/>
+                  <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   )
 }
