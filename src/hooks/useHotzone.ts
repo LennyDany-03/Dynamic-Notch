@@ -1,11 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import { cursorPosition, primaryMonitor, getCurrentWindow } from "@tauri-apps/api/window";
 
-export function useHotzone() {
+export function useHotzone(mode: "idle" | "peek" | "expanded") {
   const [isOpen, setIsOpen] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isOpenRef = useRef(false);
+  const modeRef = useRef(mode);
+
+  // Keep mode ref in sync
+  useEffect(() => {
+    modeRef.current = mode;
+  }, [mode]);
 
   // Keep ref in sync with state
   useEffect(() => {
@@ -42,11 +48,27 @@ export function useHotzone() {
           pos.x <= centerX + hotZoneHalfWidth &&
           pos.y <= hotZoneHeight;
 
-        // Stay open while cursor is within the widget area
+        // Dynamic boundaries based on widget state
+        let widgetHeight = 90;
+        let widgetHalfWidth = 280;
+
+        const currentMode = modeRef.current;
+        if (currentMode === "expanded") {
+          widgetHeight = 480;
+          widgetHalfWidth = 240;
+        } else if (currentMode === "peek") {
+          widgetHeight = 110;
+          widgetHalfWidth = 190;
+        } else {
+          widgetHeight = 90;
+          widgetHalfWidth = 130;
+        }
+
+        // Stay open while cursor is within the active widget area
         const inWidget =
-          pos.x >= centerX - 280 &&
-          pos.x <= centerX + 280 &&
-          pos.y <= 90;
+          pos.x >= centerX - widgetHalfWidth &&
+          pos.x <= centerX + widgetHalfWidth &&
+          pos.y <= widgetHeight;
 
         if (inHotzone && !isOpenRef.current) {
           if (!timerRef.current) {

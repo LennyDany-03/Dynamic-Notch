@@ -1,3 +1,5 @@
+@import "tailwindcss";
+
 * {
   margin: 0;
   padding: 0;
@@ -11,4 +13,32 @@ html, body, #root {
   overflow: hidden;
   user-select: none;
   -webkit-user-select: none;
+  font-family: 'Manrope', system-ui, -apple-system, sans-serif;
+  color: #fff;
+  -webkit-font-smoothing: antialiased;
+}
+
+@keyframes breath {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.014); }
+}
+
+@keyframes wave {
+  0%, 100% { transform: scaleY(0.26); }
+  50% { transform: scaleY(1); }
+}
+
+@keyframes floatA {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(50px, 34px); }
+}
+
+@keyframes floatB {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(-46px, 26px); }
+}
+
+@keyframes ringpulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
 }

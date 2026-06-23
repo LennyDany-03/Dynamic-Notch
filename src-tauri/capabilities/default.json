@@ -9,6 +9,7 @@
     "core:window:allow-cursor-position",
     "core:window:allow-set-ignore-cursor-events",
     "core:window:allow-primary-monitor",
-    "core:window:allow-set-position"
+    "core:window:allow-set-position",
+    "core:window:allow-set-size"
   ]
 }
