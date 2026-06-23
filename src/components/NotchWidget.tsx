@@ -10,6 +10,12 @@ import NotificationsModule, { Notification } from './NotificationsModule'
 import CalendarModule from './CalendarModule'
 
 type ActiveModule = 'none' | 'dashboard' | 'notifications'
+type Template = 'cyberpunk' | 'apple'
+
+interface Props {
+  currentTemplate: Template
+  onSwitchTemplate: (t: Template) => void
+}
 
 const MOCK_NOTIFICATIONS: Notification[] = [
   { id: '1', app: 'Gmail', message: 'Gowtham: Hey can you push the HRMS build today?', time: '2m', unread: true },
@@ -34,7 +40,7 @@ const toastVariants = {
     opacity: 1,
     scale: 1,
     transition: {
-      type: 'spring',
+      type: 'spring' as const,
       stiffness: 260,
       damping: 22,
     }
@@ -44,8 +50,8 @@ const toastVariants = {
     opacity: 0,
     scale: 0.95,
     transition: {
-      type: 'tween',
-      ease: 'easeIn',
+      type: 'tween' as const,
+      ease: 'easeIn' as const,
       duration: 0.15,
     }
   }
@@ -106,7 +112,7 @@ const collapsedVariants = {
     y: 0,
     opacity: 1,
     transition: {
-      type: 'spring',
+      type: 'spring' as const,
       stiffness: 220,
       damping: 24,
     }
@@ -115,8 +121,8 @@ const collapsedVariants = {
     y: -40,
     opacity: 0,
     transition: {
-      type: 'tween',
-      ease: 'easeIn',
+      type: 'tween' as const,
+      ease: 'easeIn' as const,
       duration: 0.1,
     }
   }
@@ -133,8 +139,8 @@ const expandedVariants = {
     opacity: 1,
     scale: 1,
     transition: {
-      y: { type: 'spring', stiffness: 200, damping: 24 },
-      scale: { type: 'spring', stiffness: 200, damping: 24 },
+      y: { type: 'spring' as const, stiffness: 200, damping: 24 },
+      scale: { type: 'spring' as const, stiffness: 200, damping: 24 },
       opacity: { duration: 0.2 },
     }
   },
@@ -143,8 +149,8 @@ const expandedVariants = {
     opacity: 0,
     scale: 0.96,
     transition: {
-      type: 'tween',
-      ease: 'easeIn',
+      type: 'tween' as const,
+      ease: 'easeIn' as const,
       duration: 0.1,
     }
   }
@@ -152,8 +158,9 @@ const expandedVariants = {
 
 const isTauri = typeof window !== 'undefined' && !!(window as any).__TAURI_INTERNALS__;
 
-export default function NotchWidget() {
+export default function NotchWidget({ currentTemplate, onSwitchTemplate }: Props) {
   const [activeModule, setActiveModule] = useState<ActiveModule>('none')
+  const [showSettings, setShowSettings] = useState(false)
   const [mode, setMode] = useState<'idle' | 'peek' | 'expanded'>('idle')
   const { isOpen, setIsOpen } = useHotzone(mode)
   const { track: rawTrack, isPlaying, progress, duration, playPause, next, prev, seek } = useMediaSession()
@@ -534,26 +541,113 @@ export default function NotchWidget() {
                   })}
                 </div>
 
-                {/* Dashboard active sync status */}
+                {/* Dashboard active sync status + Settings gear */}
                 <div style={{
-                  paddingRight: '14px',
-                  fontFamily: t.fonts.mono,
-                  fontSize: '8px',
-                  color: '#4A4A62',
-                  letterSpacing: '0.08em',
+                  paddingRight: '6px',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '6px',
+                  gap: '8px',
                 }}>
-                  <span>SYS_HUD // ACTIVE</span>
+                  <span style={{
+                    fontFamily: t.fonts.mono,
+                    fontSize: '8px',
+                    color: '#4A4A62',
+                    letterSpacing: '0.08em',
+                  }}>SYS_HUD // ACTIVE</span>
                   <div style={{
                     width: '4px',
                     height: '4px',
                     background: t.colors.accentGreen,
                     boxShadow: t.glow.green,
                   }} />
+                  {/* Template switcher gear */}
+                  <button
+                    onClick={() => setShowSettings(s => !s)}
+                    title="Switch template"
+                    style={{
+                      width: '22px',
+                      height: '22px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: showSettings ? t.colors.accentPurple : '#4A4A62',
+                      background: showSettings ? 'rgba(167,139,250,0.1)' : 'transparent',
+                      border: showSettings ? '1px solid rgba(167,139,250,0.3)' : '1px solid transparent',
+                      transition: 'all 0.15s ease',
+                      outline: 'none',
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.color = t.colors.accentPurple}
+                    onMouseLeave={(e) => e.currentTarget.style.color = showSettings ? t.colors.accentPurple : '#4A4A62'}
+                  >
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                      <circle cx="12" cy="12" r="3" />
+                      <path d="M19.07 4.93A10 10 0 1 0 4.93 19.07" />
+                      <path d="M20.49 16.75A10 10 0 0 1 7.25 3.51" />
+                    </svg>
+                  </button>
                 </div>
               </div>
+
+              {/* Inline settings / template switcher panel */}
+              {showSettings && (
+                <div style={{
+                  padding: '10px 14px 12px',
+                  borderBottom: `1px solid ${t.colors.divider}`,
+                }}>
+                  <div style={{
+                    fontFamily: t.fonts.mono,
+                    fontSize: '7.5px',
+                    color: '#4A4A62',
+                    letterSpacing: '0.08em',
+                    marginBottom: '8px',
+                    textTransform: 'uppercase',
+                  }}>
+                    // SWITCH_TEMPLATE
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    {(['cyberpunk', 'apple'] as Template[]).map(tmpl => {
+                      const isActive = currentTemplate === tmpl
+                      const accent = tmpl === 'cyberpunk' ? '#00f0ff' : t.colors.accentPurple
+                      return (
+                        <button
+                          key={tmpl}
+                          onClick={() => {
+                            onSwitchTemplate(tmpl)
+                            setShowSettings(false)
+                            setIsOpen(false)
+                          }}
+                          style={{
+                            flex: 1,
+                            padding: '7px 10px',
+                            fontFamily: t.fonts.sans,
+                            fontSize: '9px',
+                            fontWeight: 600,
+                            letterSpacing: '0.08em',
+                            textTransform: 'uppercase',
+                            color: isActive ? accent : '#4A4A62',
+                            background: isActive ? 'rgba(255,255,255,0.03)' : 'transparent',
+                            border: isActive ? `1px solid ${accent}40` : '1px solid rgba(255,255,255,0.04)',
+                            clipPath: t.clipPath.button,
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease',
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.color = accent
+                            e.currentTarget.style.borderColor = `${accent}60`
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.color = isActive ? accent : '#4A4A62'
+                            e.currentTarget.style.borderColor = isActive ? `${accent}40` : 'rgba(255,255,255,0.04)'
+                          }}
+                        >
+                          {tmpl === 'cyberpunk' ? '⚡ CYBERPUNK' : '◉ APPLE'}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Module content */}
               <AnimatePresence mode="wait">

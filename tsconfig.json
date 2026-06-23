@@ -14,6 +14,7 @@
     "strict": true,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
+    "allowArbitraryExtensions": true,
     "noFallthroughCasesInSwitch": true
   },
   "include": ["src"]

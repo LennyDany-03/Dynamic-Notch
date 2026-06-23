@@ -19,8 +19,6 @@ export const tokens = {
     sans: "'Space Grotesk', sans-serif",
     mono: "'JetBrains Mono', monospace",
   },
-  // Corner clip CSS — use on ALL main containers
-  // clip-path: polygon(10px 0%, 100% 0%, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0% 100%, 0% 10px)
   clipPath: {
     default: 'polygon(10px 0%, 100% 0%, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0% 100%, 0% 10px)',
     small:   'polygon(6px 0%, 100% 0%, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0% 100%, 0% 6px)',
@@ -32,5 +30,47 @@ export const tokens = {
     green:  '0 0 12px rgba(74,222,128,0.4)',
     orange: '0 0 12px rgba(251,146,60,0.4)',
     red:    '0 0 12px rgba(248,113,113,0.4)',
+  }
+}
+
+export const apple = {
+  // Core
+  black:        '#000000',
+  white:        '#FFFFFF',
+  
+  // Text hierarchy (exact Apple values)
+  text1:        'rgba(255,255,255,1.00)',   // primary
+  text2:        'rgba(255,255,255,0.55)',   // secondary  
+  text3:        'rgba(255,255,255,0.30)',   // tertiary
+  text4:        'rgba(255,255,255,0.18)',   // quaternary
+  
+  // Fills (Apple system fills)
+  fill1:        'rgba(255,255,255,0.20)',
+  fill2:        'rgba(255,255,255,0.14)',
+  fill3:        'rgba(255,255,255,0.08)',
+  fill4:        'rgba(255,255,255,0.05)',
+  
+  // Separators
+  sep:          'rgba(255,255,255,0.10)',
+  sepOpaque:    '#38383A',
+  
+  // System colors (for accents only)
+  blue:         '#0A84FF',
+  green:        '#32D74B',
+  orange:       '#FF9F0A',
+  red:          '#FF453A',
+  purple:       '#BF5AF2',
+  
+  // Pill shape
+  pillRadius:   '26px',
+  innerRadius:  '16px',
+  smallRadius:  '10px',
+  
+  // Springs — type: 'spring' as const is required so Framer Motion TypeScript types accept it
+  spring: {
+    collapse: { type: 'spring' as const, stiffness: 500, damping: 36, mass: 1 },
+    expand:   { type: 'spring' as const, stiffness: 380, damping: 32, mass: 0.9 },
+    content:  { type: 'spring' as const, stiffness: 460, damping: 34, mass: 0.8 },
+    tab:      { duration: 0.18, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] },
   }
 }
