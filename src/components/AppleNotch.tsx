@@ -214,7 +214,7 @@ export default function AppleNotch({ currentTemplate, onSwitchTemplate }: Props)
   const [activeModule, setActiveModule] = useState<Module>('none')
   const [mode, setMode] = useState<'idle' | 'peek' | 'expanded'>('idle')
   const { isOpen, setIsOpen } = useHotzone(mode)
-  const { track: rawTrack, isPlaying, progress, duration, playPause, next, prev, seek } = useMediaSession()
+  const { track: rawTrack, isPlaying, playPause, next, prev } = useMediaSession()
   const [notifications, setNotifications] = useState<Notif[]>(MOCK_NOTIFS)
   const isMouseOverRef = useRef(false)
   const activeModuleRef = useRef<Module>('none')
@@ -232,8 +232,6 @@ export default function AppleNotch({ currentTemplate, onSwitchTemplate }: Props)
     title: rawTrack?.title || 'Nothing Playing',
     artist: rawTrack?.artist || '—',
     albumArt: rawTrack?.albumArt || undefined,
-    progress,
-    duration,
     isPlaying,
   }
 
@@ -466,7 +464,7 @@ export default function AppleNotch({ currentTemplate, onSwitchTemplate }: Props)
               <AnimatePresence mode="wait">
                 {activeModule === 'music' && (
                   <motion.div key="music" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
-                    <MusicIsland track={track} onPlayPause={playPause} onNext={next} onPrev={prev} onSeek={seek} />
+                    <MusicIsland track={track} onPlayPause={playPause} onNext={next} onPrev={prev} />
                   </motion.div>
                 )}
                 {activeModule === 'notif' && (
