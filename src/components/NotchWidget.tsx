@@ -286,11 +286,11 @@ export default function NotchWidget() {
   // Background and translucency styling variables
   const dynamicBackground = isOpaque
     ? "rgba(18, 18, 22, 1)"
-    : `linear-gradient(180deg, rgba(30, 30, 35, ${bgOpacity}), rgba(18, 18, 20, ${bgOpacity * 0.95}))`;
+    : "rgba(0, 0, 0, 0.02)"; // near-transparent; inner glass layer handles the look
 
   const dynamicBackdropFilter = isOpaque
     ? "none"
-    : `blur(${blurStrength}px) saturate(175%)`;
+    : "blur(12px) saturate(160%)"; // bonus: blurs any OS content behind on supporting systems
 
   // Circle timer calculations
   const ts = Math.max(0, timerSec);
@@ -364,6 +364,58 @@ export default function NotchWidget() {
                   animationPlayState: mode === "idle" ? "running" : "paused",
                 }}
               >
+                {/* ---- LIQUID GLASS BACKGROUND (only when not opaque) ---- */}
+                {!isOpaque && (
+                  <>
+                    {/* Base dark translucent layer */}
+                    <div
+                      style={{
+                        position: "absolute",
+                        inset: 0,
+                        background: `linear-gradient(160deg, rgba(24,20,40,${bgOpacity}) 0%, rgba(12,12,22,${bgOpacity * 0.93}) 100%)`,
+                      }}
+                    />
+                    {/* Iridescent color blobs — blurred to create the liquid glass refraction */}
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: "-30%",
+                        left: "-20%",
+                        right: "-20%",
+                        bottom: "-30%",
+                        background: `
+                          radial-gradient(ellipse 55% 45% at 22% 5%, rgba(167,139,250,0.55) 0%, transparent 100%),
+                          radial-gradient(ellipse 45% 40% at 80% 95%, rgba(96,165,250,0.45) 0%, transparent 100%),
+                          radial-gradient(ellipse 38% 55% at 55% 45%, rgba(240,171,252,0.22) 0%, transparent 100%)
+                        `,
+                        filter: `blur(${Math.max(3, blurStrength * 0.65)}px)`,
+                      }}
+                    />
+                    {/* Top specular highlight — simulates light catching the glass edge */}
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        left: "8%",
+                        right: "8%",
+                        height: "1.5px",
+                        background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.65) 30%, rgba(255,255,255,0.55) 70%, transparent)",
+                      }}
+                    />
+                    {/* Subtle bottom rim */}
+                    <div
+                      style={{
+                        position: "absolute",
+                        bottom: 0,
+                        left: "20%",
+                        right: "20%",
+                        height: "1px",
+                        background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.12) 50%, transparent)",
+                      }}
+                    />
+                  </>
+                )}
+
                 {/* hold-to-expand progress */}
                 <div
                   style={{

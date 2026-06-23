@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { cursorPosition, primaryMonitor, getCurrentWindow } from "@tauri-apps/api/window";
 
+const isTauri = () =>
+  !!(window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__;
+
 export function useHotzone(mode: "idle" | "peek" | "expanded") {
   const [isOpen, setIsOpen] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -16,6 +19,7 @@ export function useHotzone(mode: "idle" | "peek" | "expanded") {
   // Keep ref in sync with state
   useEffect(() => {
     isOpenRef.current = isOpen;
+    if (!isTauri()) return;
     const win = getCurrentWindow();
     if (isOpen) {
       win.setIgnoreCursorEvents(false).catch(() => {});
@@ -26,6 +30,7 @@ export function useHotzone(mode: "idle" | "peek" | "expanded") {
 
   // Start as click-through so the transparent window doesn't block the desktop
   useEffect(() => {
+    if (!isTauri()) return;
     getCurrentWindow().setIgnoreCursorEvents(true).catch(() => {});
   }, []);
 
