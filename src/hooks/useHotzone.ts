@@ -10,6 +10,14 @@ export function useHotzone(mode: "idle" | "peek" | "expanded") {
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isOpenRef = useRef(false);
   const modeRef = useRef(mode);
+  const lastIgnoreRef = useRef<boolean | null>(null);
+
+  const setIgnoreEvents = (ignore: boolean) => {
+    if (!isTauri()) return;
+    if (lastIgnoreRef.current === ignore) return;
+    lastIgnoreRef.current = ignore;
+    getCurrentWindow().setIgnoreCursorEvents(ignore).catch(() => {});
+  };
 
   // Keep mode ref in sync
   useEffect(() => {
@@ -19,19 +27,14 @@ export function useHotzone(mode: "idle" | "peek" | "expanded") {
   // Keep ref in sync with state
   useEffect(() => {
     isOpenRef.current = isOpen;
-    if (!isTauri()) return;
-    const win = getCurrentWindow();
     if (isOpen) {
-      win.setIgnoreCursorEvents(false).catch(() => {});
-    } else {
-      win.setIgnoreCursorEvents(true).catch(() => {});
+      setIgnoreEvents(false);
     }
   }, [isOpen]);
 
   // Start as click-through so the transparent window doesn't block the desktop
   useEffect(() => {
-    if (!isTauri()) return;
-    getCurrentWindow().setIgnoreCursorEvents(true).catch(() => {});
+    setIgnoreEvents(true);
   }, []);
 
   useEffect(() => {
@@ -49,12 +52,13 @@ export function useHotzone(mode: "idle" | "peek" | "expanded") {
         const hotZoneHalfWidth = 110 * scale; // 220px total
         const hotZoneHeight = 8 * scale;
 
+        // Hover over the top center edge triggers expansion
         const inHotzone =
           pos.x >= centerX - hotZoneHalfWidth &&
           pos.x <= centerX + hotZoneHalfWidth &&
           pos.y <= hotZoneHeight;
 
-        // Dynamic boundaries based on widget state
+        // Dynamic boundaries for expanded widget
         let widgetHeight = 90;
         let widgetHalfWidth = 280;
 
@@ -73,11 +77,21 @@ export function useHotzone(mode: "idle" | "peek" | "expanded") {
         const physicalWidgetHeight = widgetHeight * scale;
         const physicalWidgetHalfWidth = widgetHalfWidth * scale;
 
-        // Stay open while cursor is within the active widget area
+        // Expanded widget mouse boundaries
         const inWidget =
           pos.x >= centerX - physicalWidgetHalfWidth &&
           pos.x <= centerX + physicalWidgetHalfWidth &&
           pos.y <= physicalWidgetHeight;
+
+        // Collapsed notch boundary (200px wide, 28px high)
+        const inCollapsedArea =
+          pos.x >= centerX - (100 * scale) &&
+          pos.x <= centerX + (100 * scale) &&
+          pos.y <= 28 * scale;
+
+        // The window should accept mouse inputs if it is expanded OR if the cursor is directly over the collapsed notch
+        const shouldAcceptInput = isOpenRef.current ? inWidget : inCollapsedArea;
+        setIgnoreEvents(!shouldAcceptInput);
 
         if (inHotzone && !isOpenRef.current) {
           if (!timerRef.current) {

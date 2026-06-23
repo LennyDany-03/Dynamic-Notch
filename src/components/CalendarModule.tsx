@@ -26,7 +26,7 @@ const EVENTS_BY_DATE: Record<string, CalEvent[]> = {
   "2026-06-30": [
     { id: '7', title: 'Nuke Staging Verification', timeRange: '4:00 PM', stripe: '#A78BFA', badgeLabel: 'MEET', badgeColor: '#A78BFA' },
   ],
-  "2026-07-04": [
+  "2027-07-04": [
     { id: '8', title: 'Tauri Hackathon Launch', timeRange: '9:00 AM', stripe: '#FB923C', badgeLabel: 'EVENT', badgeColor: '#FB923C' },
   ]
 }
@@ -62,50 +62,65 @@ export default function CalendarModule() {
 
   const monthLabel = currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }).toUpperCase()
 
+  const selectedKey = getDateKey(selectedDate)
+  const selectedEvents = EVENTS_BY_DATE[selectedKey] || []
+  const eventCountStr = `${selectedEvents.length} EVENT${selectedEvents.length === 1 ? '' : 'S'} ACTIVE`
+
   return (
     <div style={{
       width: '100%',
-      height: '210px',
+      height: '100%',
       overflow: 'hidden',
-      padding: '12px 16px',
+      padding: '6px 10px',
       display: 'flex',
       flexDirection: 'column',
+      justifyContent: 'space-between',
       boxSizing: 'border-box',
     }}>
-      {/* Header month switcher */}
+      {/* Month switcher header */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        marginBottom: '10px',
+        height: '22px',
       }}>
         <button onClick={prevMonth} style={{
-          color: t.colors.textSecondary,
-          fontSize: '11px',
+          color: '#00f0ff',
+          fontSize: '9px',
           fontFamily: t.fonts.mono,
-          padding: '2px 8px',
-          background: 'rgba(255,255,255,0.02)',
-          border: `1px solid ${t.colors.borderDefault}`,
+          padding: '1px 4px',
+          background: 'rgba(0, 240, 255, 0.03)',
+          border: '1px solid rgba(0, 240, 255, 0.2)',
           cursor: 'pointer',
           outline: 'none',
-        }}>⟨</button>
+          transition: 'all 0.2s',
+        }}
+        onMouseEnter={(e) => e.currentTarget.style.borderColor = '#00f0ff'}
+        onMouseLeave={(e) => e.currentTarget.style.borderColor = 'rgba(0, 240, 255, 0.2)'}
+        >⟨</button>
+
         <span style={{
           fontFamily: t.fonts.sans,
-          fontSize: '11px',
+          fontSize: '9.5px',
           fontWeight: 600,
           color: t.colors.textPrimary,
-          letterSpacing: '0.08em',
+          letterSpacing: '0.06em',
         }}>{monthLabel}</span>
+
         <button onClick={nextMonth} style={{
-          color: t.colors.textSecondary,
-          fontSize: '11px',
+          color: '#00f0ff',
+          fontSize: '9px',
           fontFamily: t.fonts.mono,
-          padding: '2px 8px',
-          background: 'rgba(255,255,255,0.02)',
-          border: `1px solid ${t.colors.borderDefault}`,
+          padding: '1px 4px',
+          background: 'rgba(0, 240, 255, 0.03)',
+          border: '1px solid rgba(0, 240, 255, 0.2)',
           cursor: 'pointer',
           outline: 'none',
-        }}>⟩</button>
+          transition: 'all 0.2s',
+        }}
+        onMouseEnter={(e) => e.currentTarget.style.borderColor = '#00f0ff'}
+        onMouseLeave={(e) => e.currentTarget.style.borderColor = 'rgba(0, 240, 255, 0.2)'}
+        >⟩</button>
       </div>
 
       {/* Weekday headers */}
@@ -114,12 +129,13 @@ export default function CalendarModule() {
         gridTemplateColumns: 'repeat(7, 1fr)',
         textAlign: 'center',
         borderBottom: `1px solid ${t.colors.divider}`,
-        paddingBottom: '4px',
+        paddingBottom: '2px',
+        marginTop: '2px',
       }}>
         {WEEKDAYS.map((day, idx) => (
           <span key={idx} style={{
             fontFamily: t.fonts.mono,
-            fontSize: '9px',
+            fontSize: '8px',
             fontWeight: 600,
             color: '#3A3A52',
           }}>{day}</span>
@@ -130,33 +146,37 @@ export default function CalendarModule() {
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(7, 1fr)',
-        gap: '4px',
-        marginTop: '8px',
+        gap: '2px',
+        marginTop: '4px',
         flex: 1,
       }}>
-        {/* Prefix pad days */}
+        {/* Previous Month Pad Days */}
         {Array.from({ length: firstDayIndex }).map((_, idx) => {
-          const dayNum = prevMonthDays - firstDayIndex + idx + 1
           return (
             <div key={`prev-${idx}`} style={{
               textAlign: 'center',
-              fontSize: '10px',
+              fontSize: '8.5px',
               fontFamily: t.fonts.mono,
-              color: '#1C1C30',
-              padding: '4px 0',
+              color: '#1A1A2E',
               opacity: 0.25,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-            }}>{dayNum}</div>
+              height: '16px',
+            }}>
+              //
+            </div>
           )
         })}
 
-        {/* Month days */}
+        {/* Current Month Days */}
         {Array.from({ length: daysInMonth }).map((_, idx) => {
           const dayNum = idx + 1
           const dayDate = new Date(year, month, dayNum)
-          const isToday = dayNum === 24 && month === 5 && year === 2026 // Today June 24, 2026
+          
+          // Hardcode target today marker relative to mock data
+          const isToday = dayNum === 24 && month === 5 && year === 2026
+          
           const isSelected = dayNum === selectedDate.getDate() && month === selectedDate.getMonth() && year === selectedDate.getFullYear()
           const dateKey = getDateKey(dayDate)
           const hasEvents = !!EVENTS_BY_DATE[dateKey]
@@ -167,30 +187,30 @@ export default function CalendarModule() {
               onClick={() => setSelectedDate(dayDate)}
               style={{
                 background: isSelected 
-                  ? 'rgba(167, 139, 250, 0.12)' 
+                  ? 'rgba(0, 240, 255, 0.08)' 
                   : isToday 
-                  ? 'rgba(74, 222, 128, 0.06)' 
+                  ? 'rgba(255, 0, 127, 0.08)' 
                   : 'transparent',
                 border: isSelected 
-                  ? `1px solid ${t.colors.accentPurple}` 
+                  ? '1px solid #00f0ff' 
                   : isToday 
-                  ? `1px solid ${t.colors.accentGreen}` 
+                  ? '1px solid #ff007f' 
                   : '1px solid transparent',
                 color: isSelected 
-                  ? t.colors.accentPurple 
+                  ? '#00f0ff' 
                   : isToday 
-                  ? t.colors.accentGreen 
+                  ? '#ff007f' 
                   : '#8E8EA8',
-                fontSize: '10.5px',
+                fontSize: '8.5px',
                 fontFamily: t.fonts.mono,
-                padding: '4px 0',
+                padding: '1px 0',
                 textAlign: 'center',
                 position: 'relative',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                height: '22px',
+                height: '16px',
                 outline: 'none',
                 transition: 'all 0.15s ease',
               }}
@@ -208,19 +228,42 @@ export default function CalendarModule() {
               }}
             >
               <span>{dayNum}</span>
-              {/* Event dot */}
-              {hasEvents && !isSelected && (
+              
+              {/* Glowing Event Dot Indicator */}
+              {hasEvents && !isSelected && !isToday && (
                 <div style={{
                   position: 'absolute',
-                  bottom: '2px',
-                  width: '3.5px', height: '3.5px',
-                  background: isToday ? t.colors.accentGreen : t.colors.accentPurple,
-                  boxShadow: isToday ? t.glow.green : t.glow.purple,
+                  bottom: '1px',
+                  width: '2.5px',
+                  height: '2.5px',
+                  background: '#00f0ff',
+                  boxShadow: '0 0 3px #00f0ff',
                 }} />
               )}
             </button>
           )
         })}
+      </div>
+
+      {/* Selected Day Status Ticker */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginTop: '4px',
+        fontFamily: t.fonts.mono,
+        fontSize: '7px',
+        color: '#4A4A62',
+        letterSpacing: '0.03em',
+        borderTop: `1px solid ${t.colors.divider}`,
+        paddingTop: '4px',
+        height: '14px',
+      }}>
+        <span>CAL // {selectedDate.toLocaleDateString('en-US', { day: 'numeric', month: 'short' }).toUpperCase()}</span>
+        <span style={{
+          color: selectedEvents.length > 0 ? '#ff007f' : '#4A4A62',
+          fontWeight: selectedEvents.length > 0 ? 600 : 500,
+        }}>{eventCountStr}</span>
       </div>
     </div>
   )

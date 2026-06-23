@@ -1,12 +1,12 @@
 import { tokens } from '../tokens'
 
 interface Track {
-  title: string
-  artist: string
-  albumArt?: string
-  progress: number
-  duration: number
-  isPlaying: boolean
+  title: string;
+  artist: string;
+  albumArt?: string;
+  progress: number;
+  duration: number;
+  isPlaying: boolean;
 }
 
 interface Props {
@@ -17,25 +17,17 @@ interface Props {
   onSeek: (pos: number) => void
 }
 
-export default function MusicModule({ track, onPlayPause, onNext, onPrev, onSeek }: Props) {
+export default function MusicModule({ track, onPlayPause, onNext, onPrev }: Props) {
   const t = tokens
-  const pct = track.duration > 0 ? (track.progress / track.duration) * 100 : 0
 
-  const formatTime = (seconds: number) => {
-    if (isNaN(seconds) || seconds < 0) return '00:00'
-    const mins = Math.floor(seconds / 60)
-    const secs = Math.floor(seconds % 60)
-    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
-  }
-
-  // Bouncing cyberpunk visualizer wave heights
-  const waveHeights = [8, 18, 12, 22, 10, 16, 9, 14, 6, 12]
+  // 20 bars for the large centered visualizer panel
+  const barHeights = [10, 22, 14, 28, 12, 18, 8, 24, 16, 32, 15, 20, 10, 26, 12, 18, 8, 14, 6, 10]
 
   return (
     <div style={{
       width: '100%',
-      height: '148px',
-      padding: '14px 18px',
+      height: '100%',
+      padding: '12px 14px',
       display: 'flex',
       flexDirection: 'column',
       justifyContent: 'space-between',
@@ -43,35 +35,35 @@ export default function MusicModule({ track, onPlayPause, onNext, onPrev, onSeek
       overflow: 'hidden',
       boxSizing: 'border-box',
     }}>
-      {/* Top light rim specular line */}
+      {/* Upper specular reflection line */}
       <div style={{
         position: 'absolute',
         top: 0, left: 0, right: 0,
         height: '1px',
-        background: 'linear-gradient(90deg, transparent, rgba(167,139,250,0.12), transparent)',
+        background: 'linear-gradient(90deg, transparent, rgba(0, 240, 255, 0.15), transparent)',
       }} />
 
-      {/* Row 1: Album Art + Text Details + Tech Codec Badge */}
+      {/* Row 1: Album Art + Details */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
-        gap: '14px',
+        gap: '10px',
         width: '100%',
       }}>
-        {/* Holographic Album Art Container */}
+        {/* Compact Cyberpunk Album Art Frame with Magenta Accent */}
         <div style={{
-          width: '56px',
-          height: '56px',
-          background: 'linear-gradient(135deg, #160730 0%, #0d041c 100%)',
-          borderLeft: `2.5px solid ${t.colors.accentPurple}`,
-          borderRight: '1px solid rgba(255,255,255,0.03)',
-          borderTop: '1px solid rgba(255,255,255,0.03)',
-          borderBottom: '1px solid rgba(255,255,255,0.03)',
+          width: '46px',
+          height: '46px',
+          background: 'linear-gradient(135deg, #1A051D 0%, #06020F 100%)',
+          borderLeft: '2.5px solid #ff007f', // Hot Magenta left-border
+          borderRight: '1px solid rgba(0, 240, 255, 0.12)',
+          borderTop: '1px solid rgba(0, 240, 255, 0.12)',
+          borderBottom: '1px solid rgba(0, 240, 255, 0.12)',
           clipPath: t.clipPath.small,
           flexShrink: 0,
           position: 'relative',
           overflow: 'hidden',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+          boxShadow: '0 0 8px rgba(255, 0, 127, 0.12)',
         }}>
           {track.albumArt ? (
             <img src={track.albumArt} alt="album"
@@ -81,53 +73,62 @@ export default function MusicModule({ track, onPlayPause, onNext, onPrev, onSeek
               width: '100%', height: '100%',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
-                stroke="rgba(167,139,250,0.3)" strokeWidth="1.5" strokeLinecap="round">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                stroke="#ff007f" strokeWidth="1.8" strokeLinecap="round">
                 <path d="M9 18V5l12-2v13" />
                 <circle cx="6" cy="18" r="3" />
                 <circle cx="18" cy="16" r="3" />
               </svg>
             </div>
           )}
+          {/* Neon corner dot flashing indicator */}
+          <div style={{
+            position: 'absolute',
+            top: '2px',
+            left: '2px',
+            width: '3px',
+            height: '3px',
+            background: '#00f0ff',
+            boxShadow: '0 0 4px #00f0ff',
+          }} />
           {/* Animated Holographic Scanline Overlay */}
           {track.isPlaying && <div className="scanline-effect" />}
         </div>
 
-        {/* Info + Codec details */}
+        {/* Info Column */}
         <div style={{
           flex: 1,
           minWidth: 0,
           display: 'flex',
           flexDirection: 'column',
-          gap: '2px',
+          gap: '1px',
         }}>
-          {/* Decode Info */}
+          {/* Header Decoder Info */}
           <span style={{
             fontFamily: t.fonts.mono,
-            fontSize: '8px',
-            fontWeight: 500,
-            color: t.colors.accentGreen,
-            letterSpacing: '0.12em',
-            textTransform: 'uppercase',
-            textShadow: t.glow.green,
-            marginBottom: '1px',
-          }}>AUDIO // ENGINE: {track.isPlaying ? 'DECODING_PCM_48K' : 'STANDBY'}</span>
+            fontSize: '7.5px',
+            fontWeight: 600,
+            color: '#00f0ff',
+            letterSpacing: '0.08em',
+            textShadow: '0 0 4px rgba(0, 240, 255, 0.3)',
+          }}>{track.isPlaying ? 'RNDR_PCM' : 'STANDBY'}</span>
 
           <span style={{
             fontFamily: t.fonts.sans,
-            fontSize: '14px',
+            fontSize: '11.5px',
             fontWeight: 600,
             color: t.colors.textPrimary,
             whiteSpace: 'nowrap',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
-            letterSpacing: '-0.01em',
+            marginTop: '1px',
           }}>{track.title || 'Nothing playing'}</span>
 
           <span style={{
-            fontFamily: t.fonts.sans,
-            fontSize: '11.5px',
-            color: t.colors.textSecondary,
+            fontFamily: t.fonts.mono,
+            fontSize: '9px',
+            color: '#00f0ff',
+            opacity: 0.8,
             whiteSpace: 'nowrap',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
@@ -135,203 +136,202 @@ export default function MusicModule({ track, onPlayPause, onNext, onPrev, onSeek
         </div>
       </div>
 
-      {/* Row 2: Progress Scrubber with Monospace Time labels */}
+      {/* Row 2: Holographic Equalizer Screen Viewport (Centered Visualizer) */}
       <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '10px',
         width: '100%',
-        marginTop: '2px',
+        height: '66px',
+        background: 'rgba(0, 240, 255, 0.01)',
+        border: '1px solid rgba(0, 240, 255, 0.08)',
+        position: 'relative',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: '6px 8px',
+        boxSizing: 'border-box',
+        overflow: 'hidden',
       }}>
-        {/* Current Time */}
-        <span style={{
-          fontFamily: t.fonts.mono,
-          fontSize: '9px',
-          color: '#555570',
-          width: '32px',
-          textAlign: 'left',
-          fontVariantNumeric: 'tabular-nums',
-        }}>{formatTime(track.progress)}</span>
+        {/* Holographic grid scanline effect inside the frame */}
+        {track.isPlaying && <div className="scanline-effect" />}
 
-        {/* Track Progress Bar */}
-        <div
-          onClick={(e) => {
-            const rect = e.currentTarget.getBoundingClientRect()
-            onSeek(((e.clientX - rect.left) / rect.width) * track.duration)
-          }}
-          style={{
-            flex: 1,
-            height: '2px',
-            background: 'rgba(255,255,255,0.06)',
-            cursor: 'pointer',
-            position: 'relative',
-          }}
-        >
-          {/* Filled Bar */}
-          <div style={{
-            width: `${pct}%`,
-            height: '100%',
-            background: t.colors.accentPurple,
-            boxShadow: '0 0 6px rgba(167,139,250,0.6)',
-          }} />
-          {/* Cyberpunk Rectangular Scrubber Knob */}
-          <div style={{
-            position: 'absolute',
-            left: `${pct}%`,
-            top: '-3px',
-            width: '4px',
-            height: '8px',
-            background: t.colors.accentPurple,
-            boxShadow: `0 0 6px ${t.colors.accentPurple}`,
-            transform: 'translateX(-50%)',
-            transition: 'left 0.1s linear',
-          }} />
+        {/* Screen Status Info overlays */}
+        <div style={{
+          position: 'absolute',
+          top: '3px',
+          left: '6px',
+          fontFamily: t.fonts.mono,
+          fontSize: '6.5px',
+          color: '#3A3A52',
+          letterSpacing: '0.05em',
+        }}>
+          SYS_EQ // FFT_20
+        </div>
+        <div style={{
+          position: 'absolute',
+          top: '3px',
+          right: '6px',
+          fontFamily: t.fonts.mono,
+          fontSize: '6.5px',
+          color: track.isPlaying ? '#ff007f' : '#3A3A52',
+          letterSpacing: '0.05em',
+        }}>
+          {track.isPlaying ? 'GAIN: -11.4dB' : 'STANDBY'}
         </div>
 
-        {/* Total Duration */}
-        <span style={{
-          fontFamily: t.fonts.mono,
-          fontSize: '9px',
-          color: '#555570',
-          width: '32px',
-          textAlign: 'right',
-          fontVariantNumeric: 'tabular-nums',
-        }}>{formatTime(track.duration)}</span>
+        {/* 20-bar visualizer centered */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'flex-end',
+          justifyContent: 'center',
+          gap: '2.5px',
+          height: '36px',
+          marginTop: '6px',
+        }}>
+          {barHeights.map((h, i) => {
+            const barColor = i % 2 === 0 ? '#ff007f' : '#00f0ff'
+            const anim = track.isPlaying
+              ? `waveAnim 1s ease-in-out ${i * 0.05}s infinite`
+              : 'none'
+            return (
+              <div
+                key={i}
+                style={{
+                  width: '3.5px',
+                  height: track.isPlaying ? `${h}px` : '4px',
+                  background: track.isPlaying ? barColor : 'rgba(255, 255, 255, 0.06)',
+                  boxShadow: track.isPlaying ? `0 0 5px ${barColor}60` : 'none',
+                  animation: anim,
+                  transformOrigin: 'bottom',
+                  transition: 'all 0.25s ease',
+                }}
+              />
+            )
+          })}
+        </div>
       </div>
 
-      {/* Row 3: Visualizer Waveform + Cyberpunk Controls Center */}
+      {/* Row 3: Playback Controls balanced by sub-row details */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         width: '100%',
-        height: '28px',
+        height: '24px',
       }}>
-        {/* Left: Waveform visualizer */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '2.5px',
-          height: '22px',
+        {/* Left: Codec diagnostic info */}
+        <span style={{
+          fontFamily: t.fonts.mono,
+          fontSize: '7.5px',
+          color: '#3A3A52',
+          letterSpacing: '0.05em',
           width: '70px',
-        }}>
-          {waveHeights.map((h, i) => (
-            <div key={i} style={{
-              width: '2px',
-              height: `${h}px`,
-              background: t.colors.accentPurple,
-              opacity: track.isPlaying ? 0.65 : 0.15,
-              animation: track.isPlaying
-                ? `waveAnim 1.2s ease-in-out ${i * 0.08}s infinite`
-                : 'none',
-              transition: 'all 0.3s ease',
-            }} />
-          ))}
-        </div>
+        }}>DECODER: PCM</span>
 
-        {/* Center: Holographic Controls */}
+        {/* Center: Controls HUD Panel */}
         <div style={{
           display: 'flex',
           alignItems: 'center',
-          gap: '6px',
+          gap: '3px',
         }}>
-          {/* Previous Track button */}
+          {/* Previous Button */}
           <button
             onClick={onPrev}
             style={{
-              width: '28px',
-              height: '28px',
+              width: '22px',
+              height: '22px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: t.colors.textSecondary,
+              color: '#555570',
               transition: 'color 0.2s',
               outline: 'none',
             }}
-            onMouseEnter={(e) => e.currentTarget.style.color = '#fff'}
-            onMouseLeave={(e) => e.currentTarget.style.color = t.colors.textSecondary}
+            onMouseEnter={(e) => e.currentTarget.style.color = '#ff007f'}
+            onMouseLeave={(e) => e.currentTarget.style.color = '#555570'}
           >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
               <polygon points="19 20 9 12 19 4 19 20" fill="currentColor" fillOpacity="0.1" />
               <line x1="5" y1="19" x2="5" y2="5" />
             </svg>
           </button>
 
-          {/* Play/Pause Button */}
+          {/* Play/Pause Button with neon borders & no border radius */}
           <button
             onClick={onPlayPause}
             style={{
-              width: '32px',
-              height: '32px',
+              width: '28px',
+              height: '22px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              background: 'rgba(167,139,250,0.06)',
-              border: `1px solid rgba(167,139,250,0.25)`,
+              background: 'rgba(0, 240, 255, 0.05)',
+              border: '1px solid rgba(0, 240, 255, 0.25)',
               clipPath: t.clipPath.button,
-              color: t.colors.accentPurple,
-              boxShadow: t.glow.purple,
+              color: '#00f0ff',
+              boxShadow: '0 0 6px rgba(0, 240, 255, 0.15)',
               transition: 'all 0.2s',
               outline: 'none',
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'rgba(167,139,250,0.14)'
-              e.currentTarget.style.borderColor = 'rgba(167,139,250,0.45)'
+              e.currentTarget.style.background = 'rgba(0, 240, 255, 0.12)'
+              e.currentTarget.style.borderColor = '#00f0ff'
+              e.currentTarget.style.color = '#fff'
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'rgba(167,139,250,0.06)'
-              e.currentTarget.style.borderColor = 'rgba(167,139,250,0.25)'
+              e.currentTarget.style.background = 'rgba(0, 240, 255, 0.05)'
+              e.currentTarget.style.borderColor = 'rgba(0, 240, 255, 0.25)'
+              e.currentTarget.style.color = '#00f0ff'
             }}
           >
             {track.isPlaying ? (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <rect x="6" y="4" width="4" height="16" fill="currentColor" fillOpacity="0.1" />
-                <rect x="14" y="4" width="4" height="16" fill="currentColor" fillOpacity="0.1" />
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <rect x="6" y="4" width="3" height="16" fill="currentColor" fillOpacity="0.1" />
+                <rect x="15" y="4" width="3" height="16" fill="currentColor" fillOpacity="0.1" />
               </svg>
             ) : (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                 <polygon points="6 3 20 12 6 21 6 3" fill="currentColor" fillOpacity="0.15" />
               </svg>
             )}
           </button>
 
-          {/* Next Track button */}
+          {/* Next Button */}
           <button
             onClick={onNext}
             style={{
-              width: '28px',
-              height: '28px',
+              width: '22px',
+              height: '22px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: t.colors.textSecondary,
+              color: '#555570',
               transition: 'color 0.2s',
               outline: 'none',
             }}
-            onMouseEnter={(e) => e.currentTarget.style.color = '#fff'}
-            onMouseLeave={(e) => e.currentTarget.style.color = t.colors.textSecondary}
+            onMouseEnter={(e) => e.currentTarget.style.color = '#ff007f'}
+            onMouseLeave={(e) => e.currentTarget.style.color = '#555570'}
           >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
               <polygon points="5 4 15 12 5 20 5 4" fill="currentColor" fillOpacity="0.1" />
               <line x1="19" y1="5" x2="19" y2="19" />
             </svg>
           </button>
         </div>
 
-        {/* Right: Technical Mode details */}
+        {/* Right: Sound Channel Detail */}
         <span style={{
           fontFamily: t.fonts.mono,
-          fontSize: '8px',
+          fontSize: '7.5px',
           color: '#3A3A52',
-          letterSpacing: '0.08em',
+          letterSpacing: '0.05em',
           textTransform: 'uppercase',
           width: '70px',
           textAlign: 'right',
-        }}>MODE // STEREO</span>
+        }}>STEREO</span>
       </div>
     </div>
   )

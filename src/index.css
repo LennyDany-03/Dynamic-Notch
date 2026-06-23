@@ -57,3 +57,35 @@ button {
   animation: scanline 4s linear infinite;
   pointer-events: none;
 }
+
+@keyframes marquee {
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(-100%); }
+}
+
+.marquee-content {
+  display: inline-block;
+  white-space: nowrap;
+  animation: marquee 12s linear infinite;
+}
+
+@keyframes pulseNeon {
+  0%, 100% { opacity: 0.35; box-shadow: 0 0 4px #ff007f; }
+  50% { opacity: 0.95; box-shadow: 0 0 10px #ff007f; }
+}
+
+.pulse-neon-magenta {
+  animation: pulseNeon 2s infinite ease-in-out;
+}
+
+@keyframes holographicGlitch {
+  0% { clip-path: inset(0 0 0 0); transform: skew(0deg); }
+  10% { clip-path: inset(10% 0 80% 0); transform: skew(0.8deg); }
+  20% { clip-path: inset(80% 0 5% 0); transform: skew(-0.5deg); }
+  30% { clip-path: inset(0 0 0 0); transform: skew(0deg); }
+  100% { clip-path: inset(0 0 0 0); transform: skew(0deg); }
+}
+
+.glow-glitch-active {
+  animation: holographicGlitch 5s infinite linear;
+}

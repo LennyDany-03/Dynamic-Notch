@@ -9,7 +9,7 @@ import MusicModule from './MusicModule'
 import NotificationsModule, { Notification } from './NotificationsModule'
 import CalendarModule from './CalendarModule'
 
-type ActiveModule = 'none' | 'music' | 'notifications' | 'calendar'
+type ActiveModule = 'none' | 'dashboard' | 'notifications'
 
 const MOCK_NOTIFICATIONS: Notification[] = [
   { id: '1', app: 'Gmail', message: 'Gowtham: Hey can you push the HRMS build today?', time: '2m', unread: true },
@@ -293,11 +293,11 @@ export default function NotchWidget() {
     }
   }
 
-  // Auto show music when opened if music is active, otherwise default to music module tab
+  // Auto show dashboard when opened
   const currentModule: ActiveModule = !isOpen
     ? 'none'
     : activeModule === 'none'
-    ? (isPlaying ? 'music' : 'music')
+    ? 'dashboard'
     : activeModule
 
   const t = tokens
@@ -333,6 +333,22 @@ export default function NotchWidget() {
                 isPlaying={isPlaying}
                 notifCount={notifications.filter(n => n.unread).length}
                 eventCount={MOCK_EVENTS.length}
+                trackTitle={rawTrack?.title}
+                trackArtist={rawTrack?.artist}
+                onPlayPauseToggle={(e) => {
+                  e.stopPropagation()
+                  playPause()
+                }}
+                onOpenDashboard={(e) => {
+                  e.stopPropagation()
+                  setActiveModule('dashboard')
+                  setIsOpen(true)
+                }}
+                onOpenAlerts={(e) => {
+                  e.stopPropagation()
+                  setActiveModule('notifications')
+                  setIsOpen(true)
+                }}
               />
             </motion.div>
           )}
@@ -465,7 +481,7 @@ export default function NotchWidget() {
               initial="initial"
               animate="animate"
               exit="exit"
-               onMouseEnter={() => { isMouseOverRef.current = true }}
+              onMouseEnter={() => { isMouseOverRef.current = true }}
               onMouseLeave={() => {
                 isMouseOverRef.current = false
                 setIsOpen(false)
@@ -482,7 +498,7 @@ export default function NotchWidget() {
                 border: `1px solid ${t.colors.borderDefault}`,
                 clipPath: t.clipPath.default,
                 overflow: 'hidden',
-                width: currentModule === 'music' ? '540px' : currentModule === 'notifications' ? '460px' : '420px',
+                width: currentModule === 'dashboard' ? '520px' : '460px',
               }}
             >
               {/* Tab switcher */}
@@ -491,48 +507,111 @@ export default function NotchWidget() {
                 width: '100%',
                 background: 'rgba(0, 0, 0, 0.2)',
                 borderBottom: `1px solid ${t.colors.divider}`,
+                alignItems: 'center',
+                justifyContent: 'space-between',
               }}>
-                {(['music', 'notifications', 'calendar'] as const).map((mod) => {
-                  const labels = { music: '♪ AUDIO', notifications: '◈ ALERTS', calendar: '⊞ CAL' }
-                  const accents = { music: t.colors.accentPurple, notifications: t.colors.accentOrange, calendar: t.colors.accentBlue }
-                  const isActive = currentModule === mod
-                  return (
-                    <button
-                      key={mod}
-                      onClick={() => setActiveModule(mod)}
-                      style={{
-                        flex: 1,
-                        padding: '8px 0',
-                        fontFamily: t.fonts.sans,
-                        fontSize: '9px', fontWeight: 600,
-                        letterSpacing: '0.1em',
-                        color: isActive ? t.colors.textPrimary : t.colors.textMuted,
-                        background: isActive ? 'rgba(255,255,255,0.02)' : 'transparent',
-                        borderBottom: isActive ? `2px solid ${accents[mod]}` : '2px solid transparent',
-                        transition: 'all 0.15s ease',
-                      }}
-                    >{labels[mod]}</button>
-                  )
-                })}
+                <div style={{ display: 'flex' }}>
+                  {(['dashboard', 'notifications'] as const).map((mod) => {
+                    const labels = { dashboard: '⚡ DASHBOARD', notifications: '◈ ALERTS' }
+                    const accents = { dashboard: '#00f0ff', notifications: t.colors.accentOrange }
+                    const isActive = currentModule === mod
+                    return (
+                      <button
+                        key={mod}
+                        onClick={() => setActiveModule(mod)}
+                        style={{
+                          padding: '8px 16px',
+                          fontFamily: t.fonts.sans,
+                          fontSize: '9px', fontWeight: 600,
+                          letterSpacing: '0.1em',
+                          color: isActive ? t.colors.textPrimary : t.colors.textMuted,
+                          background: isActive ? 'rgba(255,255,255,0.02)' : 'transparent',
+                          borderBottom: isActive ? `2px solid ${accents[mod]}` : '2px solid transparent',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >{labels[mod]}</button>
+                    )
+                  })}
+                </div>
+
+                {/* Dashboard active sync status */}
+                <div style={{
+                  paddingRight: '14px',
+                  fontFamily: t.fonts.mono,
+                  fontSize: '8px',
+                  color: '#4A4A62',
+                  letterSpacing: '0.08em',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}>
+                  <span>SYS_HUD // ACTIVE</span>
+                  <div style={{
+                    width: '4px',
+                    height: '4px',
+                    background: t.colors.accentGreen,
+                    boxShadow: t.glow.green,
+                  }} />
+                </div>
               </div>
 
               {/* Module content */}
               <AnimatePresence mode="wait">
-                {currentModule === 'music' && (
-                  <motion.div key="music"
+                {currentModule === 'dashboard' && (
+                  <motion.div key="dashboard"
                     initial={{ opacity: 0, y: -8 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -8 }}
                     transition={{ duration: 0.15 }}
-                    style={{ width: '100%' }}
+                    style={{
+                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'stretch',
+                      height: '210px',
+                    }}
                   >
-                    <MusicModule
-                      track={track}
-                      onPlayPause={playPause}
-                      onNext={next}
-                      onPrev={prev}
-                      onSeek={seek}
-                    />
+                    {/* Left Column: Music */}
+                    <div style={{ width: '265px', flexShrink: 0 }}>
+                      <MusicModule
+                        track={track}
+                        onPlayPause={playPause}
+                        onNext={next}
+                        onPrev={prev}
+                        onSeek={seek}
+                      />
+                    </div>
+
+                    {/* Middle: Dotted Divider Line */}
+                    <div style={{
+                      width: '1px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      position: 'relative',
+                      background: 'linear-gradient(180deg, rgba(0,240,255,0) 0%, rgba(0,240,255,0.2) 20%, rgba(0,240,255,0.2) 80%, rgba(0,240,255,0) 100%)',
+                    }}>
+                      <div style={{
+                        position: 'absolute',
+                        top: '50%',
+                        left: '50%',
+                        transform: 'translate(-50%, -50%) rotate(-90deg)',
+                        background: t.colors.bgSurface,
+                        border: `1px solid rgba(0, 240, 255, 0.25)`,
+                        padding: '1px 4px',
+                        fontFamily: t.fonts.mono,
+                        fontSize: '6.5px',
+                        color: '#00f0ff',
+                        whiteSpace: 'nowrap',
+                        letterSpacing: '0.05em',
+                      }}>
+                        SYS_LINK
+                      </div>
+                    </div>
+
+                    {/* Right Column: Calendar */}
+                    <div style={{ flex: 1 }}>
+                      <CalendarModule />
+                    </div>
                   </motion.div>
                 )}
                 {currentModule === 'notifications' && (
@@ -541,24 +620,13 @@ export default function NotchWidget() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -8 }}
                     transition={{ duration: 0.15 }}
-                    style={{ width: '100%' }}
+                    style={{ width: '100%', height: '210px' }}
                   >
                     <NotificationsModule
                       notifications={notifications}
                       onDismiss={handleDismissNotification}
                       onClearAll={handleClearAllNotifications}
                     />
-                  </motion.div>
-                )}
-                {currentModule === 'calendar' && (
-                  <motion.div key="calendar"
-                    initial={{ opacity: 0, y: -8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -8 }}
-                    transition={{ duration: 0.15 }}
-                    style={{ width: '100%' }}
-                  >
-                    <CalendarModule />
                   </motion.div>
                 )}
               </AnimatePresence>

@@ -1,115 +1,123 @@
+import { useState, useEffect } from 'react'
 import { tokens } from '../tokens'
 
 interface Props {
   isPlaying: boolean
   notifCount: number
   eventCount: number
+  trackTitle?: string
+  trackArtist?: string
+  onPlayPauseToggle: (e: React.MouseEvent) => void
+  onOpenDashboard: (e: React.MouseEvent) => void
+  onOpenAlerts: (e: React.MouseEvent) => void
 }
 
-export default function CollapsedNotch({ isPlaying, notifCount, eventCount }: Props) {
+export default function CollapsedNotch({
+  isPlaying,
+  onOpenDashboard
+}: Props) {
   const t = tokens
+  const [timeStr, setTimeStr] = useState('')
+
+  // Live clock updates
+  useEffect(() => {
+    const updateTime = () => {
+      const now = new Date()
+      setTimeStr(now.toLocaleTimeString('en-US', {
+        hour: '2-digit', minute: '2-digit', hour12: false
+      }))
+    }
+    updateTime()
+    const timer = setInterval(updateTime, 1000)
+    return () => clearInterval(timer)
+  }, [])
+
+  // 8 bars for the right-aligned visualizer inside the playing collapsed notch
+  const barHeights = [5, 12, 8, 15, 9, 13, 6, 10]
 
   return (
-    <div style={{
-      width: '280px',
-      height: '28px',
-      background: t.colors.bgSurface,
-      border: `1px solid ${t.colors.borderDefault}`,
-      clipPath: t.clipPath.default,
-      display: 'flex',
-      alignItems: 'center',
-      padding: '0 14px',
-      gap: '8px',
-      position: 'relative',
-    }}>
-      {/* Left accent glow line */}
+    <div
+      onClick={onOpenDashboard}
+      style={{
+        width: isPlaying ? '180px' : '120px',
+        height: '28px',
+        background: t.colors.bgSurface,
+        border: isPlaying ? '1px solid rgba(0, 240, 255, 0.3)' : `1px solid ${t.colors.borderDefault}`,
+        clipPath: t.clipPath.default,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: isPlaying ? 'space-between' : 'center',
+        padding: isPlaying ? '0 12px' : '0 10px',
+        position: 'relative',
+        boxShadow: isPlaying ? '0 0 10px rgba(0, 240, 255, 0.15)' : 'none',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        cursor: 'pointer',
+      }}
+    >
+      {/* Left accent color beacon line */}
       <div style={{
         position: 'absolute',
         left: 0,
         top: 0,
-        width: '1px',
+        width: '1.5px',
         height: '100%',
-        background: t.colors.accentPurple,
-        boxShadow: t.glow.purple,
-        opacity: 0.6,
+        background: isPlaying ? '#00f0ff' : t.colors.accentPurple,
+        boxShadow: isPlaying ? '0 0 6px #00f0ff' : t.glow.purple,
+        opacity: 0.8,
+        transition: 'background 0.3s',
       }} />
 
-      {/* Diamond + LIVE */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-        <div style={{
-          width: '5px', height: '5px',
-          background: t.colors.accentPurple,
-          boxShadow: t.glow.purple,
-          transform: 'rotate(45deg)',
-        }} />
-        <span style={{
-          fontFamily: t.fonts.sans,
-          fontSize: '9px',
-          fontWeight: 600,
-          color: t.colors.textSecondary,
-          letterSpacing: '0.1em',
-        }}>LIVE</span>
-      </div>
-
-      {/* Separator */}
-      <div style={{ width: '1px', height: '14px', background: t.colors.divider }} />
-
-      {/* Music icon with playing indicator */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
-          stroke={isPlaying ? t.colors.accentPurple : 'rgba(167,139,250,0.4)'}
-          strokeWidth="1.8" strokeLinecap="round">
-          <path d="M9 18V5l12-2v13"/>
-          <circle cx="6" cy="18" r="3"/>
-          <circle cx="18" cy="16" r="3"/>
-        </svg>
-      </div>
-
-      {/* Separator */}
-      <div style={{ width: '1px', height: '14px', background: t.colors.divider }} />
-
-      {/* Notif dot */}
-      {notifCount > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <div style={{
-            width: '4px', height: '4px',
-            background: t.colors.accentOrange,
-            boxShadow: t.glow.orange,
-          }} />
+      {isPlaying ? (
+        <>
+          {/* Left: Time clock */}
           <span style={{
             fontFamily: t.fonts.mono,
-            fontSize: '9px',
-            color: t.colors.textMuted,
-          }}>{notifCount}</span>
-        </div>
+            fontSize: '10px',
+            fontWeight: 500,
+            color: t.colors.textPrimary,
+            letterSpacing: '0.05em',
+          }}>
+            {timeStr}
+          </span>
+
+          {/* Right: Bouncing Visualizer Rhythm Bars (Magenta & Cyan) */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '2px',
+            height: '15px',
+          }}>
+            {barHeights.map((h, i) => {
+              const barColor = i % 2 === 0 ? '#ff007f' : '#00f0ff'
+              return (
+                <div
+                  key={i}
+                  style={{
+                    width: '2px',
+                    height: `${h}px`,
+                    background: barColor,
+                    boxShadow: `0 0 3px ${barColor}40`,
+                    animation: 'waveAnim 1s ease-in-out infinite',
+                    animationDelay: `${i * 0.08}s`,
+                    transformOrigin: 'bottom',
+                  }}
+                />
+              )
+            })}
+          </div>
+        </>
+      ) : (
+        // Center: Simple Clock Time in Standby
+        <span style={{
+          fontFamily: t.fonts.mono,
+          fontSize: '11px',
+          fontWeight: 500,
+          color: t.colors.textPrimary,
+          letterSpacing: '0.08em',
+        }}>
+          {timeStr}
+        </span>
       )}
-
-      {/* Separator */}
-      <div style={{ width: '1px', height: '14px', background: t.colors.divider }} />
-
-      {/* Calendar icon */}
-      <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
-        stroke="rgba(96,165,250,0.6)" strokeWidth="1.8" strokeLinecap="round">
-        <rect x="3" y="4" width="18" height="18" rx="0"/>
-        <line x1="16" y1="2" x2="16" y2="6"/>
-        <line x1="8" y1="2" x2="8" y2="6"/>
-        <line x1="3" y1="10" x2="21" y2="10"/>
-      </svg>
-
-      {/* Separator */}
-      <div style={{ width: '1px', height: '14px', background: t.colors.divider }} />
-
-      {/* Clock */}
-      <span style={{
-        fontFamily: t.fonts.mono,
-        fontSize: '11px',
-        color: '#6B6B88',
-        marginLeft: 'auto',
-      }}>
-        {new Date().toLocaleTimeString('en-US', {
-          hour: '2-digit', minute: '2-digit', hour12: false
-        })}
-      </span>
     </div>
   )
 }
