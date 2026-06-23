@@ -33,6 +33,45 @@ export const tokens = {
   }
 }
 
+export const glassmorphism = {
+  bg:         'rgba(10, 25, 65, 0.58)',
+  bgCard:     'rgba(255, 255, 255, 0.07)',
+  bgHover:    'rgba(56, 189, 248, 0.14)',
+  border:     'rgba(100, 180, 255, 0.22)',
+  borderTop:  'rgba(200, 235, 255, 0.40)',
+  blur:       'blur(28px) saturate(160%)',
+  text1:      'rgba(255, 255, 255, 0.95)',
+  text2:      'rgba(180, 215, 255, 0.65)',
+  text3:      'rgba(130, 175, 255, 0.40)',
+  accent:     '#38BDF8',
+  accent2:    '#818CF8',
+  accentGlow: 'rgba(56, 189, 248, 0.30)',
+  today:      '#0EA5E9',
+  radius:     '22px',
+  pillRadius: '50px',
+  font:       "'Inter', system-ui, sans-serif",
+  spring:     { type: 'spring' as const, stiffness: 440, damping: 30, mass: 0.9 },
+}
+
+export const win11 = {
+  bg:         'rgba(22, 22, 32, 0.88)',
+  bgCard:     'rgba(255, 255, 255, 0.05)',
+  bgHover:    'rgba(255, 255, 255, 0.08)',
+  bgAccent:   'rgba(96, 205, 255, 0.12)',
+  border:     'rgba(255, 255, 255, 0.10)',
+  borderTop:  'rgba(255, 255, 255, 0.18)',
+  blur:       'blur(40px) saturate(160%)',
+  text1:      'rgba(255, 255, 255, 0.95)',
+  text2:      'rgba(255, 255, 255, 0.55)',
+  text3:      'rgba(255, 255, 255, 0.30)',
+  accent:     '#60CDFF',
+  accentGlow: 'rgba(96, 205, 255, 0.28)',
+  today:      '#0078D4',
+  radius:     '12px',
+  font:       "'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif",
+  spring:     { type: 'spring' as const, stiffness: 360, damping: 28, mass: 1 },
+}
+
 export const apple = {
   // Core
   black:        '#000000',

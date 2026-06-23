@@ -12,7 +12,7 @@ import NotifIsland from './NotifIsland'
 import CalendarIsland from './CalendarIsland'
 
 type Module = 'none' | 'music' | 'notif' | 'calendar' | 'settings'
-type Template = 'cyberpunk' | 'apple'
+type Template = 'cyberpunk' | 'apple' | 'glass' | 'win11'
 
 interface Props {
   currentTemplate: Template
@@ -86,7 +86,7 @@ const expandedContainerVariants = {
   },
 }
 
-function TemplateSwitcherPanel({
+export function TemplateSwitcherPanel({
   current,
   onSelect,
 }: {
@@ -96,6 +96,8 @@ function TemplateSwitcherPanel({
   const options: { id: Template; name: string; desc: string; accent: string; dot: string }[] = [
     { id: 'apple', name: 'Dynamic Island', desc: 'Apple iOS pill — spring physics', accent: '#FFFFFF', dot: '#32D74B' },
     { id: 'cyberpunk', name: 'Cyberpunk OS', desc: 'Neon HUD overlay — sci-fi theme', accent: '#00f0ff', dot: '#ff007f' },
+    { id: 'glass', name: 'Glassmorphism', desc: 'Frosted glass, blur, translucent layers', accent: '#7DD3FC', dot: '#C4B5FD' },
+    { id: 'win11', name: 'Windows 11 Native', desc: 'Mica material, acrylic blur, fluent design', accent: '#60CDFF', dot: '#60CDFF' },
   ]
 
   return (
@@ -158,6 +160,19 @@ function TemplateSwitcherPanel({
                     stroke={apple.text2} strokeWidth="2" strokeLinecap="round">
                     <rect x="5" y="2" width="14" height="20" rx="4" />
                     <line x1="12" y1="6" x2="12" y2="6" strokeWidth="3" />
+                  </svg>
+                ) : opt.id === 'glass' ? (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke={apple.text2} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="12,2 20,7 20,17 12,22 4,17 4,7" />
+                    <polygon points="12,7 16,9.5 16,14.5 12,17 8,14.5 8,9.5" />
+                  </svg>
+                ) : opt.id === 'win11' ? (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill={apple.text2}>
+                    <rect x="3" y="3" width="8" height="8" rx="1" />
+                    <rect x="13" y="3" width="8" height="8" rx="1" />
+                    <rect x="3" y="13" width="8" height="8" rx="1" />
+                    <rect x="13" y="13" width="8" height="8" rx="1" />
                   </svg>
                 ) : (
                   <span style={{ fontSize: '14px' }}>⚡</span>

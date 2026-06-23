@@ -10,7 +10,7 @@ import NotificationsModule, { Notification } from './NotificationsModule'
 import CalendarModule from './CalendarModule'
 
 type ActiveModule = 'none' | 'dashboard' | 'notifications'
-type Template = 'cyberpunk' | 'apple'
+type Template = 'cyberpunk' | 'apple' | 'glass' | 'win11'
 
 interface Props {
   currentTemplate: Template
@@ -487,10 +487,14 @@ export default function NotchWidget({ currentTemplate, onSwitchTemplate }: Props
                   }}>
                     // SWITCH_TEMPLATE
                   </div>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    {(['cyberpunk', 'apple'] as Template[]).map(tmpl => {
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                    {([
+                      { id: 'cyberpunk', label: '⚡ CYBERPUNK', accent: '#00f0ff' },
+                      { id: 'apple',     label: '◉ APPLE',     accent: t.colors.accentPurple },
+                      { id: 'glass',     label: '◈ GLASS',     accent: '#7DD3FC' },
+                      { id: 'win11',     label: '⊞ WIN11',     accent: '#60CDFF' },
+                    ] as { id: Template; label: string; accent: string }[]).map(({ id: tmpl, label, accent }) => {
                       const isActive = currentTemplate === tmpl
-                      const accent = tmpl === 'cyberpunk' ? '#00f0ff' : t.colors.accentPurple
                       return (
                         <button
                           key={tmpl}
@@ -500,7 +504,7 @@ export default function NotchWidget({ currentTemplate, onSwitchTemplate }: Props
                             setIsOpen(false)
                           }}
                           style={{
-                            flex: 1,
+                            flex: '1 1 calc(50% - 4px)',
                             padding: '7px 10px',
                             fontFamily: t.fonts.sans,
                             fontSize: '9px',
@@ -523,7 +527,7 @@ export default function NotchWidget({ currentTemplate, onSwitchTemplate }: Props
                             e.currentTarget.style.borderColor = isActive ? `${accent}40` : 'rgba(255,255,255,0.04)'
                           }}
                         >
-                          {tmpl === 'cyberpunk' ? '⚡ CYBERPUNK' : '◉ APPLE'}
+                          {label}
                         </button>
                       )
                     })}

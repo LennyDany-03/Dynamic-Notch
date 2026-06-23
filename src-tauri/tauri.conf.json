@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "windows_dynamic_noich",
+  "productName": "Crest",
   "version": "0.1.0",
-  "identifier": "com.lenny.windows_dynamic_noich",
+  "identifier": "com.lenny.crest",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",

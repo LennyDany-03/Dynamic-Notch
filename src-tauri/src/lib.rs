@@ -4,10 +4,13 @@ mod notifications;
 use tauri::{Emitter, Manager};
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent};
+use tauri_plugin_autostart::MacosLauncher;
+use tauri_plugin_autostart::ManagerExt;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None))
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             media::get_current_media,
@@ -20,6 +23,9 @@ pub fn run() {
             notifications::clear_all_notifications,
         ])
         .setup(|app| {
+            // Enable autostart on Windows login
+            let _ = app.autolaunch().enable();
+
             let window = app.get_webview_window("notch-widget").unwrap();
 
             // Center the window horizontally on the primary monitor
@@ -56,7 +62,7 @@ pub fn run() {
             TrayIconBuilder::new()
                 .icon(icon)
                 .menu(&menu)
-                .tooltip("Dynamic Notch")
+                .tooltip("Crest")
                 .on_menu_event(|app, event| {
                     let window = app.get_webview_window("notch-widget");
                     match event.id.as_ref() {
