@@ -36,7 +36,7 @@ export function useMediaSession() {
 
   useEffect(() => {
     fetchMedia();
-    intervalRef.current = setInterval(fetchMedia, 1000);
+    intervalRef.current = setInterval(fetchMedia, 500);
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };

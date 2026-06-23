@@ -54,7 +54,7 @@ export function useHotzone(mode: "idle" | "peek" | "expanded") {
 
         const currentMode = modeRef.current;
         if (currentMode === "expanded") {
-          widgetHeight = 480;
+          widgetHeight = 340;
           widgetHalfWidth = 240;
         } else if (currentMode === "peek") {
           widgetHeight = 110;

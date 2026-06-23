@@ -2,8 +2,42 @@ import React, { useEffect, useRef, useState } from "react";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import { useHotzone } from "../hooks/useHotzone";
 import { useMediaSession } from "../hooks/useMediaSession";
-import { Music2, Play, Pause, SkipBack, SkipForward } from "lucide-react";
+import { Music2, Play, Pause, SkipBack, SkipForward, Settings } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+
+const Toggle = ({ checked, onChange }: { checked: boolean; onChange: () => void }) => (
+  <div
+    onClick={(e) => {
+      e.stopPropagation();
+      onChange();
+    }}
+    style={{
+      width: "36px",
+      height: "20px",
+      borderRadius: "10px",
+      background: checked ? "linear-gradient(90deg, var(--acc), var(--acc2))" : "rgba(255, 255, 255, 0.15)",
+      border: "1px solid rgba(255, 255, 255, 0.1)",
+      position: "relative",
+      cursor: "pointer",
+      transition: "background 0.3s ease",
+      flexShrink: 0,
+    }}
+  >
+    <div
+      style={{
+        width: "14px",
+        height: "14px",
+        borderRadius: "50%",
+        background: "#fff",
+        position: "absolute",
+        top: "2px",
+        left: checked ? "18px" : "2px",
+        transition: "left 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+        boxShadow: "0 1px 3px rgba(0, 0, 0, 0.4)",
+      }}
+    />
+  </div>
+);
 
 const MOCK_TRACKS = [
   {
@@ -23,6 +57,32 @@ export default function NotchWidget() {
   const [holding, setHolding] = useState(false);
   const [timerSec, setTimerSec] = useState(766); // 12m 46s
   const [now, setNow] = useState(new Date());
+
+  // Settings states with localStorage persistence
+  const [isOpaque, setIsOpaque] = useState(() => {
+    return localStorage.getItem("notch_isOpaque") === "true";
+  });
+  const [bgOpacity, setBgOpacity] = useState(() => {
+    const val = localStorage.getItem("notch_bgOpacity");
+    return val ? parseFloat(val) : 0.75;
+  });
+  const [blurStrength, setBlurStrength] = useState(() => {
+    const val = localStorage.getItem("notch_blurStrength");
+    return val ? parseInt(val, 10) : 28;
+  });
+  const [showSettings, setShowSettings] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem("notch_isOpaque", String(isOpaque));
+  }, [isOpaque]);
+
+  useEffect(() => {
+    localStorage.setItem("notch_bgOpacity", String(bgOpacity));
+  }, [bgOpacity]);
+
+  useEffect(() => {
+    localStorage.setItem("notch_blurStrength", String(blurStrength));
+  }, [blurStrength]);
   
   // Simulated playback state for fallback if SMTC has nothing playing
   const [simIsPlaying, setSimIsPlaying] = useState(true);
@@ -76,7 +136,7 @@ export default function NotchWidget() {
       try {
         const win = getCurrentWindow();
         if (mode === "expanded") {
-          await win.setSize(new LogicalSize(560, 500));
+          await win.setSize(new LogicalSize(560, 320));
         } else if (mode === "peek") {
           await win.setSize(new LogicalSize(560, 100));
         } else {
@@ -148,13 +208,14 @@ export default function NotchWidget() {
     holdTimeoutRef.current = setTimeout(() => {
       setMode("expanded");
       setHolding(false);
-    }, 1500);
+    }, 300);
   };
 
   const onLeave = () => {
     if (holdTimeoutRef.current) clearTimeout(holdTimeoutRef.current);
     setHolding(false);
     setMode("idle");
+    setShowSettings(false); // Reset settings panel on collapse
   };
 
   // Media controls wrapper
@@ -218,9 +279,18 @@ export default function NotchWidget() {
   const dims = {
     idle: [224, 34, 17],
     peek: [348, 60, 24],
-    expanded: [438, 464, 30]
+    expanded: [438, 276, 26]
   }[mode];
   const [w, hh, r] = dims;
+
+  // Background and translucency styling variables
+  const dynamicBackground = isOpaque
+    ? "rgba(18, 18, 22, 1)"
+    : `linear-gradient(180deg, rgba(30, 30, 35, ${bgOpacity}), rgba(18, 18, 20, ${bgOpacity * 0.95}))`;
+
+  const dynamicBackdropFilter = isOpaque
+    ? "none"
+    : `blur(${blurStrength}px) saturate(175%)`;
 
   // Circle timer calculations
   const ts = Math.max(0, timerSec);
@@ -283,11 +353,11 @@ export default function NotchWidget() {
                   width: `${w}px`,
                   height: `${hh}px`,
                   borderRadius: `${r}px`,
-                  background: "linear-gradient(180deg, rgba(255,255,255,.15), rgba(255,255,255,.055))",
-                  backdropFilter: "blur(28px) saturate(175%)",
-                  WebkitBackdropFilter: "blur(28px) saturate(175%)",
-                  border: "1px solid rgba(255,255,255,.2)",
-                  boxShadow: "inset 0 1px 0 rgba(255,255,255,.5), inset 0 -1px 0 rgba(255,255,255,.06), 0 14px 50px rgba(0,0,0,.55)",
+                  background: dynamicBackground,
+                  backdropFilter: dynamicBackdropFilter,
+                  WebkitBackdropFilter: dynamicBackdropFilter,
+                  border: "1px solid rgba(255,255,255,.15)",
+                  boxShadow: "inset 0 1px 0 rgba(255,255,255,.2), inset 0 -1px 0 rgba(255,255,255,.06), 0 14px 50px rgba(0,0,0,.55)",
                   overflow: "hidden",
                   transition: "width .7s cubic-bezier(.34,1.45,.5,1), height .7s cubic-bezier(.34,1.45,.5,1), border-radius .5s ease",
                   animation: "breath 6s ease-in-out infinite",
@@ -304,7 +374,7 @@ export default function NotchWidget() {
                     width: holding ? "100%" : "0%",
                     background: "linear-gradient(90deg, var(--acc), var(--acc2))",
                     boxShadow: "0 0 8px var(--acc)",
-                    transition: holding ? "width 1.5s linear" : "width 0.15s ease",
+                    transition: holding ? "width 0.3s linear" : "width 0.15s ease",
                     zIndex: 9,
                   }}
                 />
@@ -444,7 +514,7 @@ export default function NotchWidget() {
                     left: "50%",
                     transform: "translateX(-50%)",
                     width: "438px",
-                    height: "464px",
+                    height: "276px",
                     padding: "14px 15px",
                     opacity: mode === "expanded" ? 1 : 0,
                     transition: "opacity .35s ease .05s",
@@ -454,172 +524,246 @@ export default function NotchWidget() {
                     gap: "9px",
                   }}
                 >
+                  {/* Top center pill handle */}
                   <div style={{ width: "38px", height: "4px", borderRadius: "3px", background: "rgba(255,255,255,.28)", margin: "1px auto 2px" }} />
 
-                  {/* MUSIC HERO */}
-                  <div
-                    style={{
-                      borderRadius: "18px",
-                      padding: "12px",
-                      background: "linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.035))",
-                      border: "1px solid rgba(255,255,255,.1)",
-                      boxShadow: "inset 0 1px 0 rgba(255,255,255,.14)",
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                      <div
-                        style={{
-                          width: "56px",
-                          height: "56px",
-                          borderRadius: "14px",
-                          background: "linear-gradient(135deg, var(--acc), var(--acc2) 52%, #60a5fa)",
-                          flex: "none",
-                          boxShadow: "0 6px 18px rgba(167,139,250,.4), inset 0 1px 0 rgba(255,255,255,.4)",
-                          position: "relative",
-                          overflow: "hidden",
-                        }}
-                      >
-                        {track?.albumArt ? (
-                          <img src={track.albumArt} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                        ) : (
-                          <div style={{ position: "absolute", inset: 0, background: "radial-gradient(60% 60% at 30% 25%, rgba(255,255,255,.5), transparent 60%)" }} />
-                        )}
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: "15px", fontWeight: 700, letterSpacing: "-.2px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                          {activeTrackTitle}
-                        </div>
-                        <div style={{ fontSize: "12px", color: "rgba(255,255,255,.58)", fontWeight: 500 }}>
-                          {activeTrackArtist}
-                        </div>
-                      </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                        <button
-                          onClick={handlePrev}
-                          style={{ background: "none", border: "none", padding: "6px", cursor: "pointer", display: "flex", borderRadius: "50%" }}
-                        >
-                          <SkipBack size={17} color="rgba(255,255,255,.85)" />
-                        </button>
-                        <button
-                          onClick={handlePlayPause}
-                          style={{
-                            width: "38px",
-                            height: "38px",
-                            borderRadius: "50%",
-                            border: "none",
-                            cursor: "pointer",
-                            background: "linear-gradient(180deg,#fff,#e6dcff)",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            boxShadow: "0 4px 14px rgba(167,139,250,.5), inset 0 1px 0 rgba(255,255,255,.8)",
-                          }}
-                        >
-                          {activeIsPlaying ? (
-                            <Pause size={15} color="#241046" />
-                          ) : (
-                            <Play size={15} color="#241046" style={{ transform: "translateX(1px)" }} />
-                          )}
-                        </button>
-                        <button
-                          onClick={handleNext}
-                          style={{ background: "none", border: "none", padding: "6px", cursor: "pointer", display: "flex", borderRadius: "50%" }}
-                        >
-                          <SkipForward size={17} color="rgba(255,255,255,.85)" />
-                        </button>
-                      </div>
-                    </div>
-                    {/* waveform */}
-                    <div style={{ display: "flex", alignItems: "flex-end", gap: "2px", height: "26px", margin: "11px 2px 9px" }}>
-                      {waveBars.map((bar, idx) => (
-                        <span
-                          key={idx}
-                          style={{
-                            flex: 1,
-                            height: "100%",
-                            borderRadius: "2px",
-                            background: "linear-gradient(180deg, var(--acc), var(--acc2))",
-                            transformOrigin: "bottom",
-                            opacity: .85,
-                            animation: "wave .95s ease-in-out infinite",
-                            animationDelay: `${bar.d}s`,
-                            animationPlayState: activeIsPlaying ? "running" : "paused",
-                          }}
-                        />
-                      ))}
-                    </div>
-                    {/* progress */}
-                    <div
+                  {/* Header Row with Settings toggle button */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", padding: "0 4px" }}>
+                    <span style={{ fontSize: "11px", fontWeight: 800, letterSpacing: "1.2px", color: "rgba(255,255,255,.45)", textTransform: "uppercase" }}>
+                      {showSettings ? "Settings" : "Now Playing"}
+                    </span>
+                    <button
                       onClick={(e) => {
-                        if (activeDuration > 0) {
-                          const rect = e.currentTarget.getBoundingClientRect();
-                          const ratio = (e.clientX - rect.left) / rect.width;
-                          seek(ratio * activeDuration);
-                        }
+                        e.stopPropagation();
+                        setShowSettings(!showSettings);
                       }}
                       style={{
-                        position: "relative",
-                        height: "4px",
-                        borderRadius: "3px",
-                        background: "rgba(255,255,255,.16)",
-                        margin: "0 2px",
+                        background: "none",
+                        border: "none",
+                        padding: "4px",
                         cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        borderRadius: "50%",
+                        transition: "background 0.2s",
                       }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.08)"}
+                      onMouseLeave={(e) => e.currentTarget.style.background = "none"}
                     >
-                      <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${progL}%`, borderRadius: "3px", background: "linear-gradient(90deg,var(--acc),var(--acc2))" }} />
-                      <div style={{ position: "absolute", top: "50%", left: `${progL}%`, width: "11px", height: "11px", borderRadius: "50%", background: "#fff", transform: "translate(-50%,-50%)", boxShadow: "0 2px 6px rgba(0,0,0,.4)" }} />
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "10px", fontWeight: 600, color: "rgba(255,255,255,.45)", margin: "6px 2px 0", fontVariantNumeric: "tabular-nums" }}>
-                      <span>{formatTime(activeProgress)}</span>
-                      <span>{formatTime(activeDuration)}</span>
-                    </div>
+                      <Settings
+                        size={15}
+                        color="rgba(255,255,255,0.6)"
+                        style={{
+                          transform: showSettings ? "rotate(45deg)" : "rotate(0deg)",
+                          transition: "transform 0.3s ease",
+                        }}
+                      />
+                    </button>
                   </div>
 
-                  {/* TILE ROW: calendar + timer */}
-                  <div style={{ display: "flex", gap: "9px" }}>
-                    {/* calendar */}
-                    <div style={{ flex: 1.35, borderRadius: "16px", padding: "11px 12px", background: "linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.03))", border: "1px solid rgba(255,255,255,.09)" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                        <span style={{ fontSize: "9.5px", fontWeight: 800, letterSpacing: "1.4px", color: "var(--acc)", textTransform: "uppercase" }}>Next up</span>
-                        <span style={{ display: "flex", flexDirection: "column", alignItems: "center", lineHeight: 1, background: "rgba(255,255,255,.1)", border: "1px solid rgba(255,255,255,.12)", borderRadius: "8px", padding: "3px 7px" }}>
-                          <span style={{ fontSize: "8px", fontWeight: 800, letterSpacing: ".8px", color: "rgba(255,255,255,.55)" }}>{monthAbbr}</span>
-                          <span style={{ fontSize: "14px", fontWeight: 700, marginTop: "1px" }}>{dayNum}</span>
-                        </span>
-                      </div>
-                      <div style={{ fontSize: "14px", fontWeight: 700, marginTop: "7px", letterSpacing: "-.2px" }}>Design Review</div>
-                      <div style={{ fontSize: "11px", color: "rgba(255,255,255,.6)", marginTop: "2px", fontWeight: 500 }}>5:30 PM · <span style={{ color: "var(--acc2)" }}>in 25 min</span></div>
-                      <div style={{ height: "1px", background: "rgba(255,255,255,.08)", margin: "9px 0 7px" }}></div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
-                        <div style={{ display: "flex", gap: "8px", fontSize: "10.5px", color: "rgba(255,255,255,.5)", alignItems: "center" }}><span style={{ width: "5px", height: "5px", borderRadius: "50%", background: "#60a5fa" }}></span>6:15 Standup sync</div>
-                        <div style={{ display: "flex", gap: "8px", fontSize: "10.5px", color: "rgba(255,255,255,.5)", alignItems: "center" }}><span style={{ width: "5px", height: "5px", borderRadius: "50%", background: "#f0abfc" }}></span>7:00 Dinner — Mara</div>
-                      </div>
-                    </div>
-                    {/* timer */}
-                    <div style={{ flex: 1, borderRadius: "16px", padding: "11px", background: "linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.03))", border: "1px solid rgba(255,255,255,.09)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "6px" }}>
-                      <div style={{ position: "relative", width: "84px", height: "84px" }}>
-                        <svg width="84" height="84" viewBox="0 0 84 84" style={{ transform: "rotate(-90deg)" }}>
-                          <circle cx="42" cy="42" r="34" fill="none" stroke="rgba(255,255,255,.14)" strokeWidth="6"></circle>
-                          <circle cx="42" cy="42" r="34" fill="none" stroke="var(--acc)" stroke-width="6" stroke-linecap="round" strokeDasharray={circExp} style={{ strokeDashoffset: ringOffset, transition: "stroke-dashoffset 1s linear", filter: "drop-shadow(0 0 5px rgba(167,139,250,.6))" }}></circle>
-                        </svg>
-                        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "17px", fontWeight: 700, letterSpacing: "-.5px", fontVariantNumeric: "tabular-nums" }}>{timerStr}</div>
-                      </div>
-                      <span style={{ fontSize: "9.5px", fontWeight: 700, letterSpacing: "1.2px", color: "rgba(255,255,255,.5)", textTransform: "uppercase" }}>Focus</span>
-                    </div>
-                  </div>
+                  {/* Content: Music Hero OR Settings Panel with cross-fade transition */}
+                  <div style={{ position: "relative", height: "154px" }}>
+                    <AnimatePresence mode="wait">
+                      {!showSettings ? (
+                        <motion.div
+                          key="music-hero"
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -10 }}
+                          transition={{ duration: 0.2 }}
+                          style={{
+                            borderRadius: "18px",
+                            padding: "12px",
+                            background: "linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.035))",
+                            border: "1px solid rgba(255,255,255,.1)",
+                            boxShadow: "inset 0 1px 0 rgba(255,255,255,.14)",
+                            height: "154px",
+                            display: "flex",
+                            flexDirection: "column",
+                            justifyContent: "space-between",
+                          }}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                            <div
+                              style={{
+                                width: "56px",
+                                height: "56px",
+                                borderRadius: "14px",
+                                background: "linear-gradient(135deg, var(--acc), var(--acc2) 52%, #60a5fa)",
+                                flex: "none",
+                                boxShadow: "0 6px 18px rgba(167,139,250,.4), inset 0 1px 0 rgba(255,255,255,.4)",
+                                position: "relative",
+                                overflow: "hidden",
+                              }}
+                            >
+                              {track?.albumArt ? (
+                                <img src={track.albumArt} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                              ) : (
+                                <div style={{ position: "absolute", inset: 0, background: "radial-gradient(60% 60% at 30% 25%, rgba(255,255,255,.5), transparent 60%)" }} />
+                              )}
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: "15px", fontWeight: 700, letterSpacing: "-.2px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                {activeTrackTitle}
+                              </div>
+                              <div style={{ fontSize: "12px", color: "rgba(255,255,255,.58)", fontWeight: 500 }}>
+                                {activeTrackArtist}
+                              </div>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                              <button
+                                onClick={handlePrev}
+                                style={{ background: "none", border: "none", padding: "6px", cursor: "pointer", display: "flex", borderRadius: "50%" }}
+                              >
+                                <SkipBack size={17} color="rgba(255,255,255,.85)" />
+                              </button>
+                              <button
+                                onClick={handlePlayPause}
+                                style={{
+                                  width: "38px",
+                                  height: "38px",
+                                  borderRadius: "50%",
+                                  border: "none",
+                                  cursor: "pointer",
+                                  background: "linear-gradient(180deg,#fff,#e6dcff)",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  boxShadow: "0 4px 14px rgba(167,139,250,.5), inset 0 1px 0 rgba(255,255,255,.8)",
+                                }}
+                              >
+                                {activeIsPlaying ? (
+                                  <Pause size={15} color="#241046" />
+                                ) : (
+                                  <Play size={15} color="#241046" style={{ transform: "translateX(1px)" }} />
+                                )}
+                              </button>
+                              <button
+                                onClick={handleNext}
+                                style={{ background: "none", border: "none", padding: "6px", cursor: "pointer", display: "flex", borderRadius: "50%" }}
+                              >
+                                <SkipForward size={17} color="rgba(255,255,255,.85)" />
+                              </button>
+                            </div>
+                          </div>
+                          {/* waveform */}
+                          <div style={{ display: "flex", alignItems: "flex-end", gap: "2px", height: "26px", margin: "11px 2px 9px" }}>
+                            {waveBars.map((bar, idx) => (
+                              <span
+                                key={idx}
+                                style={{
+                                  flex: 1,
+                                  height: "100%",
+                                  borderRadius: "2px",
+                                  background: "linear-gradient(180deg, var(--acc), var(--acc2))",
+                                  transformOrigin: "bottom",
+                                  opacity: .85,
+                                  animation: "wave .95s ease-in-out infinite",
+                                  animationDelay: `${bar.d}s`,
+                                  animationPlayState: activeIsPlaying ? "running" : "paused",
+                                }}
+                              />
+                            ))}
+                          </div>
+                          {/* progress */}
+                          <div
+                            onClick={(e) => {
+                              if (activeDuration > 0) {
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                const ratio = (e.clientX - rect.left) / rect.width;
+                                seek(ratio * activeDuration);
+                              }
+                            }}
+                            style={{
+                              position: "relative",
+                              height: "4px",
+                              borderRadius: "3px",
+                              background: "rgba(255,255,255,.16)",
+                              margin: "0 2px",
+                              cursor: "pointer",
+                            }}
+                          >
+                            <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${progL}%`, borderRadius: "3px", background: "linear-gradient(90deg,var(--acc),var(--acc2))" }} />
+                            <div style={{ position: "absolute", top: "50%", left: `${progL}%`, width: "11px", height: "11px", borderRadius: "50%", background: "#fff", transform: "translate(-50%,-50%)", boxShadow: "0 2px 6px rgba(0,0,0,.4)" }} />
+                          </div>
+                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "10px", fontWeight: 600, color: "rgba(255,255,255,.45)", margin: "6px 2px 0", fontVariantNumeric: "tabular-nums" }}>
+                            <span>{formatTime(activeProgress)}</span>
+                            <span>{formatTime(activeDuration)}</span>
+                          </div>
+                        </motion.div>
+                      ) : (
+                        <motion.div
+                          key="settings-panel"
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -10 }}
+                          transition={{ duration: 0.2 }}
+                          style={{
+                            borderRadius: "18px",
+                            padding: "12px 16px",
+                            background: "linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.035))",
+                            border: "1px solid rgba(255,255,255,.1)",
+                            boxShadow: "inset 0 1px 0 rgba(255,255,255,.14)",
+                            height: "154px",
+                            display: "flex",
+                            flexDirection: "column",
+                            justifyContent: "space-between",
+                          }}
+                        >
+                          {/* ROW 1: SOLID OPAQUE BACKGROUND */}
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", height: "36px" }}>
+                            <div style={{ display: "flex", flexDirection: "column" }}>
+                              <span style={{ fontSize: "12.5px", fontWeight: 700 }}>Opaque Background</span>
+                              <span style={{ fontSize: "10px", color: "rgba(255,255,255,0.4)" }}>Disable glass translucency</span>
+                            </div>
+                            <Toggle checked={isOpaque} onChange={() => setIsOpaque(!isOpaque)} />
+                          </div>
 
-                  {/* NOTIFICATIONS */}
-                  <div style={{ position: "relative" }}>
-                    <div style={{ position: "absolute", left: "8px", right: "8px", top: "6px", height: "30px", borderRadius: "14px", background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.06)" }}></div>
-                    <div style={{ position: "relative", display: "flex", alignItems: "center", gap: "10px", borderRadius: "14px", padding: "9px 11px", background: "linear-gradient(180deg,rgba(255,255,255,.09),rgba(255,255,255,.04))", border: "1px solid rgba(255,255,255,.1)" }}>
-                      <span style={{ width: "30px", height: "30px", borderRadius: "9px", background: "linear-gradient(135deg,#10b981,#059669)", display: "flex", alignItems: "center", justifyContent: "center", flex: "none", boxShadow: "0 3px 8px rgba(16,185,129,.35)" }}>
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="#fff"><path d="M4 5h16v10H7l-3 3z"></path></svg>
-                      </span>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: "12px", fontWeight: 700 }}>Team · #design</div>
-                        <div style={{ fontSize: "11px", color: "rgba(255,255,255,.58)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Reviewing the notch concept now 👀</div>
-                      </div>
-                      <span style={{ fontSize: "9.5px", fontWeight: 700, color: "rgba(255,255,255,.4)" }}>+2</span>
-                    </div>
+                          {/* ROW 2: OPACITY SLIDER */}
+                          <div style={{ display: "flex", alignItems: "center", gap: "16px", height: "36px", opacity: isOpaque ? 0.4 : 1, transition: "opacity 0.2s" }}>
+                            <div style={{ display: "flex", flexDirection: "column", width: "120px", flexShrink: 0 }}>
+                              <span style={{ fontSize: "12.5px", fontWeight: 700 }}>Opacity</span>
+                              <span style={{ fontSize: "10px", color: "rgba(255,255,255,0.4)" }}>{Math.round(bgOpacity * 100)}%</span>
+                            </div>
+                            <input
+                              type="range"
+                              min="0.1"
+                              max="0.98"
+                              step="0.02"
+                              value={bgOpacity}
+                              disabled={isOpaque}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                setBgOpacity(parseFloat(e.target.value));
+                              }}
+                              style={{ flex: 1 }}
+                            />
+                          </div>
+
+                          {/* ROW 3: BLUR STRENGTH SLIDER */}
+                          <div style={{ display: "flex", alignItems: "center", gap: "16px", height: "36px", opacity: isOpaque ? 0.4 : 1, transition: "opacity 0.2s" }}>
+                            <div style={{ display: "flex", flexDirection: "column", width: "120px", flexShrink: 0 }}>
+                              <span style={{ fontSize: "12.5px", fontWeight: 700 }}>Blur Strength</span>
+                              <span style={{ fontSize: "10px", color: "rgba(255,255,255,0.4)" }}>{blurStrength}px</span>
+                            </div>
+                            <input
+                              type="range"
+                              min="0"
+                              max="40"
+                              step="1"
+                              value={blurStrength}
+                              disabled={isOpaque}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                setBlurStrength(parseInt(e.target.value));
+                              }}
+                              style={{ flex: 1 }}
+                            />
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
 
                   {/* FOOTER CLOCK */}
