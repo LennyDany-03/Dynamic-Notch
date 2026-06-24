@@ -17,7 +17,9 @@
 
 ## Demo
 
-<video src="assets/Crust.mp4" autoplay loop muted playsinline width="100%"></video>
+<a href="https://youtu.be/FET55w-s7z0">
+  <img src="https://img.youtube.com/vi/FET55w-s7z0/maxresdefault.jpg" alt="Crest Demo" width="100%" />
+</a>
 
 ---
 
