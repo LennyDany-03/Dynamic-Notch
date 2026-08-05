@@ -10,6 +10,7 @@ use windows::Storage::Streams::{DataReader, IRandomAccessStream};
 use windows::Foundation::TimeSpan;
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct MediaInfo {
     pub title: String,
     pub artist: String,
@@ -17,6 +18,9 @@ pub struct MediaInfo {
     pub progress_ms: u64,
     pub duration_ms: u64,
     pub is_playing: bool,
+    /// AUMID of the app that owns the session, e.g. "Spotify.exe" or "msedge.exe".
+    /// Used to pick the source mark; the design shows one per playing app.
+    pub source_app_id: String,
 }
 
 fn timespan_to_ms(ts: TimeSpan) -> u64 {
@@ -78,6 +82,11 @@ pub async fn get_current_media() -> Result<MediaInfo, String> {
         .map(|s| s == GlobalSystemMediaTransportControlsSessionPlaybackStatus::Playing)
         .unwrap_or(false);
 
+    let source_app_id = session
+        .SourceAppUserModelId()
+        .map(|s| s.to_string())
+        .unwrap_or_default();
+
     Ok(MediaInfo {
         title,
         artist,
@@ -85,6 +94,7 @@ pub async fn get_current_media() -> Result<MediaInfo, String> {
         progress_ms,
         duration_ms,
         is_playing,
+        source_app_id,
     })
 }
 

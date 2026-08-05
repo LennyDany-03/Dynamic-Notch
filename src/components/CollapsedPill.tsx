@@ -1,12 +1,17 @@
+import type { MediaSession } from '../hooks/useMediaSession'
 import { color } from '../tokens'
 
 /**
- * The 200×32 collapsed pill — state 01 in the design export.
+ * The 200×32 collapsed pill — design state 01.
  *
- * Placeholder for now: the equalizer animates unconditionally and the label is
- * static. It gets wired to the real media session in feature 2.
+ * Shows the live track title rather than a static label; the equalizer only
+ * animates while something is actually playing.
  */
-export default function CollapsedPill() {
+export default function CollapsedPill({ session }: { session: MediaSession }) {
+  const { media } = session
+  const isPlaying = media?.isPlaying ?? false
+  const label = media ? media.title || 'Now playing' : 'Nothing playing'
+
   return (
     <div
       style={{
@@ -19,17 +24,21 @@ export default function CollapsedPill() {
       }}
     >
       {/* Equalizer — the one place accentBright is used. */}
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2.5, height: 13 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2.5, height: 13, flex: 'none' }}>
         {[0, 0.2, 0.4].map((delay) => (
           <span
             key={delay}
-            className="eq"
+            className={isPlaying ? 'eq' : undefined}
             style={{
               width: 2.5,
               height: 13,
               borderRadius: 2,
               background: color.accentBright,
               animationDelay: `${delay}s`,
+              // Paused: bars rest low instead of freezing at a random phase.
+              transform: isPlaying ? undefined : 'scaleY(0.3)',
+              transformOrigin: 'bottom',
+              opacity: media ? 1 : 0.35,
             }}
           />
         ))}
@@ -47,7 +56,7 @@ export default function CollapsedPill() {
           textOverflow: 'ellipsis',
         }}
       >
-        Now playing
+        {label}
       </span>
 
       <span
@@ -57,6 +66,7 @@ export default function CollapsedPill() {
           height: 6,
           borderRadius: 99,
           background: color.accent,
+          opacity: isPlaying ? 1 : 0.35,
         }}
       />
     </div>

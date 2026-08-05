@@ -2,6 +2,9 @@ import { AnimatePresence, motion } from 'framer-motion'
 import CollapsedPill from './CollapsedPill'
 import ModulePlaceholder from './ModulePlaceholder'
 import NavDots from './NavDots'
+import MediaControls from './media/MediaControls'
+import FilesModule from './modules/FilesModule'
+import type { MediaSession } from '../hooks/useMediaSession'
 import { CARD_TOP, NAV_ROW_TOP, cardSize } from '../layout'
 import { radius, spring } from '../tokens'
 import type { NotchModule, NotchState } from '../types/notch'
@@ -10,6 +13,19 @@ interface Props {
   state: NotchState
   activeModule: NotchModule
   onSelectModule: (module: NotchModule) => void
+  session: MediaSession
+}
+
+function ModuleContent({ module, session }: { module: NotchModule; session: MediaSession }) {
+  switch (module) {
+    case 'media':
+      return <MediaControls session={session} />
+    case 'files':
+      return <FilesModule />
+    default:
+      // Launcher and clipboard are features 3 and 4.
+      return <ModulePlaceholder module={module} />
+  }
 }
 
 /**
@@ -20,7 +36,7 @@ interface Props {
  * the card and the nav dots, so the transparent canvas never eats a click that
  * belongs to the desktop.
  */
-export default function NotchShell({ state, activeModule, onSelectModule }: Props) {
+export default function NotchShell({ state, activeModule, onSelectModule, session }: Props) {
   const { width, height } = cardSize(state, activeModule)
   const isExpanded = state === 'expanded'
 
@@ -56,7 +72,11 @@ export default function NotchShell({ state, activeModule, onSelectModule }: Prop
                     transition={{ duration: 0.12 }}
                     style={{ width: '100%', height: '100%' }}
                   >
-                    {isExpanded ? <ModulePlaceholder module={activeModule} /> : <CollapsedPill />}
+                    {isExpanded ? (
+                      <ModuleContent module={activeModule} session={session} />
+                    ) : (
+                      <CollapsedPill session={session} />
+                    )}
                   </motion.div>
                 </AnimatePresence>
               </div>

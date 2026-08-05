@@ -1,119 +1,101 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { invoke } from '@tauri-apps/api/core'
+import type { MediaInfo } from '../types/media'
 
-interface Track {
-  title: string;
-  artist: string;
-  albumArt: string | null;
-}
+/**
+ * Now-playing state from `GlobalSystemMediaTransportControlsSessionManager`.
+ *
+ * That one WinRT API already aggregates every app that registers a transport
+ * session — Spotify, browser tabs, native players — so there are no per-app
+ * integrations here.
+ *
+ * Polling only runs while `active`, so a hidden notch costs nothing. Between
+ * polls the position is interpolated locally, which keeps the scrub bar moving
+ * smoothly at 1 poll/sec instead of visibly stepping.
+ */
 
-export function useMediaSession() {
-  const [track, setTrack] = useState<Track | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const lastUpdatedRef = useRef<number>(Date.now());
-  const isSeekingRef = useRef(false);
-  const seekTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+const POLL_MS = 1000
+const INTERPOLATE_MS = 250
 
-  const fetchMedia = useCallback(async () => {
+const isTauri = () => !!(window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__
+
+export function useMediaSession(active: boolean) {
+  const [media, setMedia] = useState<MediaInfo | null>(null)
+  const [loaded, setLoaded] = useState(false)
+
+  // Position at the moment of the last poll, plus when that poll landed.
+  const baseRef = useRef({ progressMs: 0, at: 0 })
+  const [, tick] = useState(0)
+
+  const poll = useCallback(async () => {
+    if (!isTauri()) {
+      setLoaded(true)
+      return
+    }
     try {
-      const info = await invoke<any>("get_current_media");
-      const b64 = info.album_art_base64 ?? null;
-      setTrack({
-        title: info.title ?? "",
-        artist: info.artist ?? "",
-        albumArt: b64 ? `data:image/jpeg;base64,${b64}` : null,
-      });
-      setIsPlaying(info.is_playing ?? false);
-      setDuration(info.duration_ms ?? 0);
-      
-      // Only update progress from Windows if we are not actively seeking
-      if (!isSeekingRef.current) {
-        setProgress(info.progress_ms ?? 0);
-      }
-      lastUpdatedRef.current = Date.now();
+      const info = await invoke<MediaInfo>('get_current_media')
+      setMedia(info)
+      baseRef.current = { progressMs: info.progressMs, at: Date.now() }
     } catch {
-      setTrack(null);
-      setIsPlaying(false);
-      setProgress(0);
-      setDuration(0);
+      // "No active media session" is the normal idle case, not an error worth
+      // surfacing — nothing is playing.
+      setMedia(null)
+    } finally {
+      setLoaded(true)
     }
-  }, []);
+  }, [])
 
-  // Poll for media session metadata changes
   useEffect(() => {
-    fetchMedia();
-    intervalRef.current = setInterval(fetchMedia, 1000);
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [fetchMedia]);
+    if (!active) return
+    poll()
+    const id = setInterval(poll, POLL_MS)
+    return () => clearInterval(id)
+  }, [active, poll])
 
-  // Smooth local timeline ticker running at 60fps when playing
+  // Re-render between polls so the interpolated position advances.
   useEffect(() => {
-    if (!isPlaying) return;
+    if (!active || !media?.isPlaying) return
+    const id = setInterval(() => tick((n) => n + 1), INTERPOLATE_MS)
+    return () => clearInterval(id)
+  }, [active, media?.isPlaying])
 
-    let frameId: number;
-    const tick = () => {
-      const now = Date.now();
-      const elapsed = now - lastUpdatedRef.current;
-      lastUpdatedRef.current = now;
+  const progressMs = (() => {
+    if (!media) return 0
+    if (!media.isPlaying) return media.progressMs
+    const elapsed = Date.now() - baseRef.current.at
+    return Math.min(baseRef.current.progressMs + elapsed, media.durationMs || Infinity)
+  })()
 
-      // Only advance progress locally if we are not seeking
-      if (!isSeekingRef.current) {
-        setProgress((prev) => {
-          const nextVal = prev + elapsed;
-          return nextVal > duration ? duration : nextVal;
-        });
+  const run = useCallback(
+    async (command: string, args?: Record<string, unknown>) => {
+      if (!isTauri()) return
+      try {
+        await invoke(command, args)
+      } catch (err) {
+        console.error(`media: ${command} failed`, err)
       }
+      // Re-poll immediately so the UI reflects the new state without waiting out
+      // the interval.
+      poll()
+    },
+    [poll],
+  )
 
-      frameId = requestAnimationFrame(tick);
-    };
+  const playPause = useCallback(() => run('media_play_pause'), [run])
+  const next = useCallback(() => run('media_next'), [run])
+  const previous = useCallback(() => run('media_prev'), [run])
+  const seek = useCallback(
+    (positionMs: number) => {
+      // Move the bar right away; the poll will confirm.
+      baseRef.current = { progressMs: positionMs, at: Date.now() }
+      tick((n) => n + 1)
+      return run('media_seek', { positionMs: Math.round(positionMs) })
+    },
+    [run],
+  )
 
-    lastUpdatedRef.current = Date.now();
-    frameId = requestAnimationFrame(tick);
-
-    return () => {
-      cancelAnimationFrame(frameId);
-    };
-  }, [isPlaying, duration]);
-
-  const playPause = useCallback(async () => {
-    await invoke("media_play_pause").catch(() => {});
-    fetchMedia();
-  }, [fetchMedia]);
-
-  const next = useCallback(async () => {
-    await invoke("media_next").catch(() => {});
-    setTimeout(fetchMedia, 300);
-  }, [fetchMedia]);
-
-  const prev = useCallback(async () => {
-    await invoke("media_prev").catch(() => {});
-    setTimeout(fetchMedia, 300);
-  }, [fetchMedia]);
-
-  const seek = useCallback(async (positionMs: number) => {
-    // Clear existing seek timer
-    if (seekTimerRef.current) {
-      clearTimeout(seekTimerRef.current);
-    }
-
-    // Set seeking lock and update local progress state immediately (optimistic UI)
-    isSeekingRef.current = true;
-    setProgress(positionMs);
-    lastUpdatedRef.current = Date.now();
-
-    // Call WinRT to change position
-    await invoke("media_seek", { position_ms: Math.round(positionMs) }).catch(() => {});
-
-    // Maintain the lock for 1.2s to prevent poll overwrite while Windows updates
-    seekTimerRef.current = setTimeout(() => {
-      isSeekingRef.current = false;
-    }, 1200);
-  }, []);
-
-  return { track, isPlaying, progress, duration, playPause, next, prev, seek };
+  return { media, progressMs, loaded, playPause, next, previous, seek }
 }
+
+/** Shared session object, owned by App and passed to the pill and the media card. */
+export type MediaSession = ReturnType<typeof useMediaSession>

@@ -57,6 +57,9 @@ export const color = {
   /** Inactive nav dot. */
   dotIdle: 'rgba(255,255,255,.2)',
 
+  /** Unfilled portion of the media scrub bar. */
+  scrubTrack: 'rgba(255,255,255,.15)',
+
   /** Album-art placeholder. */
   artGradient: 'linear-gradient(135deg,#4b3f6b,#241d38)',
 } as const
