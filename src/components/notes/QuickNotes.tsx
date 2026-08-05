@@ -1,6 +1,19 @@
 import { useEffect, useRef } from 'react'
+import { getCurrentWindow } from '@tauri-apps/api/window'
 import { color, radius, sectionLabel } from '../../tokens'
 import { useQuickNotes } from '../../hooks/useQuickNotes'
+
+const isTauri = () => !!(window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__
+
+/**
+ * The overlay window is created with `focus: false` so it never steals activation
+ * from whatever the user is working in. That also means it does not receive
+ * keystrokes until something asks for focus — which typing into a note requires.
+ */
+const requestWindowFocus = () => {
+  if (!isTauri()) return
+  getCurrentWindow().setFocus().catch(() => {})
+}
 
 /**
  * Quick Notes — the right pane of the File Shelf + Notes card (design state 04).
@@ -70,6 +83,7 @@ export default function QuickNotes() {
         ref={inputRef}
         value={activeNote?.body ?? ''}
         onChange={(e) => updateActive(e.target.value)}
+        onPointerDown={requestWindowFocus}
         disabled={!loaded}
         placeholder={loaded ? 'Jot something down…' : ''}
         spellCheck={false}
