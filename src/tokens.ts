@@ -94,18 +94,22 @@ export const sectionLabel = {
 } as const
 
 /**
- * Card dimensions per state, straight from the design export.
+ * Card dimensions per state.
  *
- * The section headings in the design file label state 02 as "380 × 110" and
- * state 04 as "440 × 180", but the actual card elements measure 380×124 and
- * 440×180. Where heading and element disagree, the element wins — those are the
- * real rendered boxes.
+ * Widths are the design export's. Heights are the design's content height plus
+ * `navStripHeight`, because the nav row now lives inside the card (see layout.ts).
+ *
+ * Media is the exception: the design labels state 02 "380 × 110" and draws the
+ * card at 124, but its own contents measure ~104px and the card only offers 96
+ * after padding — so the design file overflows itself and clips the transport
+ * row. 138 is the smallest content height that fits the design's own margins with
+ * a little slack. Everything else is unchanged.
  */
 export const size = {
   peek: { width: 200, height: 32 },
-  media: { width: 380, height: 124 },
-  launcher: { width: 400, height: 320 },
-  files: { width: 440, height: 180 },
+  media: { width: 380, height: 164 },
+  launcher: { width: 400, height: 346 },
+  files: { width: 440, height: 206 },
 } as const
 
 /** Springs — NOT from the design export (it is static). Tuned for Fluent motion. */

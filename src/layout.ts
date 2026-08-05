@@ -16,38 +16,38 @@ import type { NotchModule, NotchState, Rect } from './types/notch'
 /** Cards are pinned flush to the top edge of the screen. */
 export const CARD_TOP = 0
 
-/** Vertical gap between the tallest card and the nav dots row. */
-export const NAV_GAP = 16
-
-/** Hit height reserved for the nav row — the dots themselves are only 4px tall. */
-export const NAV_ROW_HEIGHT = 20
+/**
+ * Height of the nav row, which sits *inside* the Mica card along its bottom edge.
+ *
+ * The design export draws the dots on bare wallpaper below the card, but that is
+ * an artefact of each mockup being framed in its own preview box — the gap varies
+ * from 96px to 128px across the three states. Rendered literally, the dots land
+ * a couple of hundred pixels below a short card in the middle of the desktop,
+ * where they are effectively invisible and the other modules are unreachable.
+ */
+export const NAV_STRIP_HEIGHT = 26
 
 const cardHeights = [size.media.height, size.launcher.height, size.files.height]
 const cardWidths = [size.media.width, size.launcher.width, size.files.width]
 
-const MAX_CARD_HEIGHT = Math.max(...cardHeights)
-const MAX_CARD_WIDTH = Math.max(...cardWidths)
-
-/**
- * Nav dots sit at a fixed y for every module rather than tracking each card's
- * bottom edge. If they moved with the card, switching from the 320px launcher to
- * the 124px media card would yank the dot out from under the cursor and trip the
- * exit grace timer the instant you clicked it.
- */
-export const NAV_ROW_TOP = CARD_TOP + MAX_CARD_HEIGHT + NAV_GAP
-
 /**
  * Interactive bounds while expanded are deliberately constant across modules —
- * full width and height of the largest layout. A rect that shrank under a
- * stationary cursor would collapse the notch mid-interaction.
+ * the largest card in each axis. A rect that shrank under a stationary cursor
+ * would collapse the notch the instant you clicked a nav dot to switch to a
+ * shorter module.
  */
 const EXPANDED_BOUNDS = {
-  width: MAX_CARD_WIDTH,
-  height: NAV_ROW_TOP + NAV_ROW_HEIGHT,
+  width: Math.max(...cardWidths),
+  height: Math.max(...cardHeights),
 }
 
 export function cardSize(state: NotchState, module: NotchModule) {
   return state === 'expanded' ? size[module] : size.peek
+}
+
+/** Height available to module content, once the nav row is accounted for. */
+export function contentHeight(module: NotchModule) {
+  return size[module].height - NAV_STRIP_HEIGHT
 }
 
 /**

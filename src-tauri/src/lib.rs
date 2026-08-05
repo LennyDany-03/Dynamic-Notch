@@ -1,3 +1,4 @@
+mod launcher;
 mod media;
 mod notes;
 mod notifications;
@@ -21,6 +22,10 @@ pub fn run() {
             media::media_seek,
             notes::read_notes,
             notes::write_notes,
+            launcher::list_installed_apps,
+            launcher::launch_app,
+            launcher::read_pinned,
+            launcher::write_pinned,
             notifications::get_windows_notifications,
             notifications::dismiss_notification,
             notifications::clear_all_notifications,

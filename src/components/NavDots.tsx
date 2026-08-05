@@ -26,6 +26,7 @@ export default function NavDots({ active, onSelect }: Props) {
             key={module}
             type="button"
             aria-label={LABELS[module]}
+            title={LABELS[module]}
             aria-current={isActive}
             onClick={() => onSelect(module)}
             style={{
