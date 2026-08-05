@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useHotzone } from './useHotzone'
 import { contentRect } from '../layout'
 import { timing } from '../tokens'
-import type { NotchModule, NotchState } from '../types/notch'
+import { MODULES, type NotchModule, type NotchState } from '../types/notch'
 
 /**
  * The notch visibility state machine — the single source of truth for whether the
@@ -111,5 +111,19 @@ export function useNotchState() {
     setState('expanded')
   }, [])
 
-  return { state, activeModule, showModule }
+  /** Step through the modules, wrapping at both ends. */
+  const cycleModule = useCallback((direction: 1 | -1) => {
+    clearGrace()
+    clearDwell()
+    setActiveModule((current) => {
+      const index = MODULES.indexOf(current)
+      return MODULES[(index + direction + MODULES.length) % MODULES.length]
+    })
+    setState('expanded')
+  }, [])
+
+  const nextModule = useCallback(() => cycleModule(1), [cycleModule])
+  const previousModule = useCallback(() => cycleModule(-1), [cycleModule])
+
+  return { state, activeModule, showModule, nextModule, previousModule }
 }

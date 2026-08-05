@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import CollapsedPill from './CollapsedPill'
 import ModulePlaceholder from './ModulePlaceholder'
-import NavDots from './NavDots'
+import NavArrows from './NavArrows'
 import MediaControls from './media/MediaControls'
 import FilesModule from './modules/FilesModule'
 import LauncherModule from './modules/LauncherModule'
@@ -13,7 +13,8 @@ import type { NotchModule, NotchState } from '../types/notch'
 interface Props {
   state: NotchState
   activeModule: NotchModule
-  onSelectModule: (module: NotchModule) => void
+  onPreviousModule: () => void
+  onNextModule: () => void
   session: MediaSession
 }
 
@@ -38,7 +39,13 @@ function ModuleContent({ module, session }: { module: NotchModule; session: Medi
  * the card, so the transparent canvas never eats a click that belongs to the
  * desktop.
  */
-export default function NotchShell({ state, activeModule, onSelectModule, session }: Props) {
+export default function NotchShell({
+  state,
+  activeModule,
+  onPreviousModule,
+  onNextModule,
+  session,
+}: Props) {
   const { width, height } = cardSize(state, activeModule)
   const isExpanded = state === 'expanded'
   const peek = cardSize('peek', activeModule)
@@ -104,7 +111,11 @@ export default function NotchShell({ state, activeModule, onSelectModule, sessio
                       justifyContent: 'center',
                     }}
                   >
-                    <NavDots active={activeModule} onSelect={onSelectModule} />
+                    <NavArrows
+                      active={activeModule}
+                      onPrev={onPreviousModule}
+                      onNext={onNextModule}
+                    />
                   </div>
                 )}
               </div>

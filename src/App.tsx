@@ -3,7 +3,7 @@ import { useNotchState } from './hooks/useNotchState'
 import { useMediaSession } from './hooks/useMediaSession'
 
 export default function App() {
-  const { state, activeModule, showModule } = useNotchState()
+  const { state, activeModule, nextModule, previousModule } = useNotchState()
 
   // One poll shared by the collapsed pill and the media card. Stops entirely
   // while hidden, so an idle notch costs nothing.
@@ -13,7 +13,8 @@ export default function App() {
     <NotchShell
       state={state}
       activeModule={activeModule}
-      onSelectModule={showModule}
+      onPreviousModule={previousModule}
+      onNextModule={nextModule}
       session={session}
     />
   )
