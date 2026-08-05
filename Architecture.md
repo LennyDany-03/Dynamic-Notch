@@ -114,10 +114,19 @@ Each command should be added only when its corresponding feature is being built 
   window is click-through (`setIgnoreCursorEvents(true)`) the webview receives no
   mouse events at all, so `mousemove` cannot drive the state machine. `useHotzone`
   polls at ~60Hz and caches monitor/window geometry, refreshing it every 2s.
-- **Nav dots sit at a fixed y, not glued to each card's bottom edge.** Cards range
-  from 124px to 320px tall. If the dots tracked the card, switching from the
-  launcher to the media card would move the dot out from under a stationary cursor
-  and trip the exit grace timer the instant it was clicked.
+- **Nav lives inside the Mica card, and is arrows rather than dots.** The design
+  export draws a dot row on bare wallpaper below the card, but that is an artefact
+  of each mockup being framed in its own preview box — the gap runs 96px to 128px
+  across the three states with no consistent rule. Rendered literally the dots
+  landed a couple of hundred pixels below a short card, in the middle of the
+  desktop, where they were invisible and every module except media was
+  unreachable. Dots also answered neither "which panel am I on" nor "how do I
+  move", so the bottom strip now carries a chevron either side of the panel name
+  and position.
+- **Card heights are the design's content height plus the nav strip.** Media is
+  the exception: design state 02 draws a 124px card whose own contents measure
+  ~104px against 96px of available space, so the export overflows itself and clips
+  the transport row. Its content height is 138.
 - **Interactive bounds while expanded are constant across modules** (the largest
   card's width and height, plus the nav row) for the same reason — a hit rect that
   shrinks under a stationary cursor collapses the notch mid-interaction.
