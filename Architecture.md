@@ -43,6 +43,9 @@ src/
     useAppLauncher.ts
   types/
     notch.ts                  — shared types (NotchState, MediaSession, ClipboardEntry, etc.)
+  layout.ts                    — card sizes + cursor-interactive bounds, shared by the state
+                                  machine (hit-testing) and the shell (rendering) so the two
+                                  cannot drift apart
   tokens.ts                    — design tokens (colors, radii, durations) — already exists, extend, don't duplicate
 
 src-tauri/
@@ -98,8 +101,33 @@ Each command should be added only when its corresponding feature is being built 
 4. Clipboard History (needs a listener + a privacy decision on sensitive content)
 5. File Shelf (hardest — native drag source, do last)
 
+## Decisions made
+
+- **The OS window is never resized; cards animate inside a fixed canvas.** The
+  overlay is a fixed 560×420 transparent window pinned top-center at y=0, and each
+  state's card is animated within it. Spring-resizing a transparent always-on-top
+  window on Windows forces the `backdrop-filter` to re-sample every frame, which
+  tears. Switching modules still morphs the card A→B directly rather than
+  collapsing first, which is the behaviour the spec asks for. Revisit only if the
+  canvas turns out to be too small for a future module.
+- **Cursor position is polled from the OS, not read from DOM events.** While the
+  window is click-through (`setIgnoreCursorEvents(true)`) the webview receives no
+  mouse events at all, so `mousemove` cannot drive the state machine. `useHotzone`
+  polls at ~60Hz and caches monitor/window geometry, refreshing it every 2s.
+- **Nav dots sit at a fixed y, not glued to each card's bottom edge.** Cards range
+  from 124px to 320px tall. If the dots tracked the card, switching from the
+  launcher to the media card would move the dot out from under a stationary cursor
+  and trip the exit grace timer the instant it was clicked.
+- **Interactive bounds while expanded are constant across modules** (the largest
+  card's width and height, plus the nav row) for the same reason — a hit rect that
+  shrinks under a stationary cursor collapses the notch mid-interaction.
+
 ## Open decisions (fill in as they're made)
 
 - [ ] Notes persistence: SQLite vs JSON — **TBD**
 - [ ] Clipboard sensitive-content handling — **TBD**
 - [ ] Whether idle pill shows persistently or only on hover (settings toggle vs fixed behavior) — **TBD**
+- [ ] `Dynamic_Notch_v2_dc.html` is referenced above as the visual source of truth
+      but is **not currently in the repo** — it has only been passed in as a chat
+      attachment. Drop the original file at the repo root so future sessions can
+      read it rather than working from a transcription.

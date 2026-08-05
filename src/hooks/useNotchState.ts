@@ -103,8 +103,11 @@ export function useNotchState() {
   }, [])
 
   const showModule = useCallback((module: NotchModule) => {
+    // Selecting a module is an explicit intent to stay open, so it beats a step
+    // down that the poll loop may already have armed in the preceding frame.
+    clearGrace()
+    clearDwell()
     setActiveModule(module)
-    // Selecting a module is an explicit intent to stay open.
     setState('expanded')
   }, [])
 
