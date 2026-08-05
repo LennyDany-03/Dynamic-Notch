@@ -1,4 +1,5 @@
 mod media;
+mod notes;
 mod notifications;
 
 use tauri::{Emitter, Manager};
@@ -18,6 +19,8 @@ pub fn run() {
             media::media_next,
             media::media_prev,
             media::media_seek,
+            notes::read_notes,
+            notes::write_notes,
             notifications::get_windows_notifications,
             notifications::dismiss_notification,
             notifications::clear_all_notifications,
