@@ -12,8 +12,12 @@
 #   3. git tag v0.2.0 && git push origin main --tags
 #
 # Required repository secrets (Settings → Secrets and variables → Actions):
-#   TAURI_SIGNING_PRIVATE_KEY           contents of ~/.tauri/crest.key
-#   TAURI_SIGNING_PRIVATE_KEY_PASSWORD  the key's password ("" if none)
+#   TAURI_SIGNING_PRIVATE_KEY  contents of ~/.tauri/crest.key
+#
+# There is deliberately no TAURI_SIGNING_PRIVATE_KEY_PASSWORD secret. The key was
+# generated without one, and GitHub refuses to store an empty secret value — so
+# the reference below resolves to "", which is the correct password for this key.
+# Do not "fix" the missing secret by inventing a value.
 
 name: Release
 
