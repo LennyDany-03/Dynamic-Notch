@@ -1,10 +1,13 @@
 import QuickLauncher from '../launcher/QuickLauncher'
+import ClipboardHistory from '../clipboard/ClipboardHistory'
 import { useAppLauncher } from '../../hooks/useAppLauncher'
+import { useClipboardHistory } from '../../hooks/useClipboardHistory'
 import { color, sectionLabel } from '../../tokens'
 
 /** Design state 03 — quick launcher above, clipboard history below. */
 export default function LauncherModule({ active }: { active: boolean }) {
   const launcher = useAppLauncher(active)
+  const clipboard = useClipboardHistory(active)
   const searching = launcher.query.trim().length > 0
 
   return (
@@ -23,32 +26,33 @@ export default function LauncherModule({ active }: { active: boolean }) {
       {/* Hidden while searching so results get the full card. */}
       {!searching && (
         <>
-          <div style={{ ...sectionLabel, margin: '14px 2px 4px', flex: 'none' }}>
-            Clipboard history
-          </div>
           <div
             style={{
-              flex: 1,
-              minHeight: 0,
+              ...sectionLabel,
+              margin: '14px 2px 4px',
+              flex: 'none',
               display: 'flex',
+              justifyContent: 'space-between',
               alignItems: 'center',
-              justifyContent: 'center',
             }}
           >
-            <span
-              style={{
-                fontSize: 11,
-                color: color.text.muted,
-                textAlign: 'center',
-                lineHeight: 1.5,
-                padding: '0 8px',
-              }}
-            >
-              Not capturing yet — waiting on a decision
-              <br />
-              about how to handle passwords.
-            </span>
+            <span>Clipboard history</span>
+            {clipboard.entries.length > 0 && (
+              <button
+                type="button"
+                onClick={clipboard.clear}
+                title="Clear clipboard history"
+                style={{ ...sectionLabel, padding: 0, color: color.text.muted }}
+              >
+                Clear
+              </button>
+            )}
           </div>
+          <ClipboardHistory
+            entries={clipboard.entries}
+            loaded={clipboard.loaded}
+            onCopy={clipboard.copy}
+          />
         </>
       )}
     </div>

@@ -1,3 +1,4 @@
+mod clipboard;
 mod launcher;
 mod media;
 mod notes;
@@ -27,6 +28,9 @@ pub fn run() {
             launcher::launch_app,
             launcher::read_pinned,
             launcher::write_pinned,
+            clipboard::get_clipboard_history,
+            clipboard::copy_to_clipboard,
+            clipboard::clear_clipboard_history,
             shelf::read_shelf,
             shelf::write_shelf,
             notifications::get_windows_notifications,
@@ -36,6 +40,8 @@ pub fn run() {
         .setup(|app| {
             // Enable autostart on Windows login
             let _ = app.autolaunch().enable();
+
+            clipboard::start_listener();
 
             let window = app.get_webview_window("notch-widget").unwrap();
 

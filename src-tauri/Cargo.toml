@@ -25,6 +25,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["full"] }
 base64 = "0.22"
+arboard = "3"
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.58", features = [
@@ -35,5 +36,9 @@ windows = { version = "0.58", features = [
   "UI_Notifications",
   "UI_Notifications_Management",
   "ApplicationModel",
+  # Foreground-window lookup, for clipboard capture exclusion.
+  "Win32_Foundation",
+  "Win32_UI_WindowsAndMessaging",
+  "Win32_System_Threading",
 ] }
 
