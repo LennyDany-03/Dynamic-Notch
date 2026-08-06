@@ -93,6 +93,24 @@ export default function NotchShell({
                   flexDirection: 'column',
                 }}
               >
+                {isExpanded && (
+                  <div
+                    style={{
+                      height: NAV_STRIP_HEIGHT,
+                      flex: 'none',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <NavArrows
+                      active={activeModule}
+                      onPrev={onPreviousModule}
+                      onNext={onNextModule}
+                    />
+                  </div>
+                )}
+
                 <div style={{ flex: 1, minHeight: 0 }}>
                   <AnimatePresence mode="wait">
                     <motion.div
@@ -111,24 +129,6 @@ export default function NotchShell({
                     </motion.div>
                   </AnimatePresence>
                 </div>
-
-                {isExpanded && (
-                  <div
-                    style={{
-                      height: NAV_STRIP_HEIGHT,
-                      flex: 'none',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <NavArrows
-                      active={activeModule}
-                      onPrev={onPreviousModule}
-                      onNext={onNextModule}
-                    />
-                  </div>
-                )}
               </div>
             </motion.div>
           )}

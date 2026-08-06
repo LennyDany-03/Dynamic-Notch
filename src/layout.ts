@@ -17,7 +17,7 @@ import type { NotchModule, NotchState, Rect } from './types/notch'
 export const CARD_TOP = 0
 
 /**
- * Height of the nav row, which sits *inside* the Mica card along its bottom edge.
+ * Height of the nav row, which sits *inside* the Mica card along its top edge.
  *
  * The design export draws the dots on bare wallpaper below the card, but that is
  * an artefact of each mockup being framed in its own preview box — the gap varies

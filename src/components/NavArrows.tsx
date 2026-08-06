@@ -65,7 +65,7 @@ function Chevron({
 }
 
 /**
- * Bottom nav shared by every expanded module.
+ * Top nav shared by every expanded module.
  *
  * Replaces the design export's dot row. Dots said nothing about which module you
  * were on, and at 4px tall they were effectively invisible — the other modules
