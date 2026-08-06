@@ -1,15 +1,17 @@
+import { useRef } from 'react'
 import type { FileShelfState } from '../../hooks/useFileShelf'
 import { color, radius, sectionLabel } from '../../tokens'
 
 /**
  * File Shelf — left pane of design state 04.
  *
- * Drop-in works. Dragging an item back *out* into another app still does not:
- * that needs a real OLE drag source (`IDropSource`/`IDataObject`) driven from a
- * native thread, which the webview cannot provide at all.
+ * The shelf stores references: drag a tile to another desktop app to transfer
+ * the original file, or click it to open it.
  */
 export default function FileShelf({ shelf }: { shelf: FileShelfState }) {
-  const { items, dragging, remove, open } = shelf
+  const { items, dragging, remove, open, startDrag } = shelf
+  const nativeDragStarted = useRef(false)
+  const pointerOrigin = useRef<{ x: number; y: number } | null>(null)
 
   return (
     <div
@@ -66,8 +68,26 @@ export default function FileShelf({ shelf }: { shelf: FileShelfState }) {
             <div key={item.path} style={{ width: 48, flex: 'none', textAlign: 'center' }}>
               <button
                 type="button"
-                title={`${item.path}\n\nClick to open · right-click to remove`}
-                onClick={() => open(item)}
+                title={`${item.path}\n\nDrag to another app · click to open · right-click to remove`}
+                onPointerDown={(event) => {
+                  if (event.button === 0) pointerOrigin.current = { x: event.clientX, y: event.clientY }
+                }}
+                onPointerMove={(event) => {
+                  const origin = pointerOrigin.current
+                  if (!origin || nativeDragStarted.current || !(event.buttons & 1)) return
+                  // Preserve a normal click-to-open; hand off only after the
+                  // pointer has moved far enough to be an intentional drag.
+                  if (Math.hypot(event.clientX - origin.x, event.clientY - origin.y) < 5) return
+                  nativeDragStarted.current = true
+                  startDrag(item).finally(() => {
+                    pointerOrigin.current = null
+                    window.setTimeout(() => { nativeDragStarted.current = false }, 0)
+                  })
+                }}
+                onPointerUp={() => { pointerOrigin.current = null }}
+                onClick={() => {
+                  if (!nativeDragStarted.current) open(item)
+                }}
                 onContextMenu={(e) => {
                   e.preventDefault()
                   remove(item.path)

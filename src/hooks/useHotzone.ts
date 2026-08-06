@@ -43,6 +43,7 @@ export function useHotzone(getContentRect: () => Rect | null) {
   // Only push a click-through change when it actually flips, to avoid a stream of
   // redundant IPC calls at 60Hz.
   const lastIgnoreRef = useRef<boolean | null>(null)
+  const nativeFileDragRef = useRef(false)
 
   useEffect(() => {
     let cancelled = false
@@ -54,6 +55,15 @@ export function useHotzone(getContentRect: () => Rect | null) {
         .setIgnoreCursorEvents(ignore)
         .catch(() => {})
     }
+
+    // A shell file drag continues outside this tiny overlay window. Keep this
+    // window interactive for the full native drag; otherwise the cursor poller
+    // switches it to click-through as soon as the cursor crosses the card edge.
+    const onNativeFileDrag = (event: Event) => {
+      nativeFileDragRef.current = (event as CustomEvent<boolean>).detail
+      if (nativeFileDragRef.current) setIgnoreEvents(false)
+    }
+    window.addEventListener('native-file-drag', onNativeFileDrag)
 
     /** Hit-test a point already converted to window-local CSS pixels. */
     const evaluate = (localX: number, localY: number, windowWidth: number) => {
@@ -71,7 +81,7 @@ export function useHotzone(getContentRect: () => Rect | null) {
       setInContent(content)
 
       // Accept clicks only while the cursor is genuinely over content.
-      setIgnoreEvents(!content)
+      if (!nativeFileDragRef.current) setIgnoreEvents(!content)
     }
 
     // ── Browser fallback ──────────────────────────────────────────────────────
@@ -88,6 +98,7 @@ export function useHotzone(getContentRect: () => Rect | null) {
       return () => {
         window.removeEventListener('mousemove', onMove)
         document.removeEventListener('mouseleave', onLeave)
+        window.removeEventListener('native-file-drag', onNativeFileDrag)
       }
     }
 
@@ -144,6 +155,7 @@ export function useHotzone(getContentRect: () => Rect | null) {
     return () => {
       cancelled = true
       clearInterval(interval)
+      window.removeEventListener('native-file-drag', onNativeFileDrag)
     }
   }, [])
 

@@ -2,6 +2,62 @@ use std::fs;
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
 
+/// Start a real Windows shell drag for a shelf item. Browser drag events cannot
+/// give Explorer or other desktop programs a filesystem object.
+#[cfg(windows)]
+#[tauri::command]
+pub fn start_file_drag(path: String) -> Result<(), String> {
+    // Tauri commands normally execute on a worker thread that can be MTA. OLE
+    // drag/drop requires its own STA, otherwise Windows quietly rejects the
+    // drag when it leaves the WebView. A dedicated thread gives it that STA.
+    std::thread::spawn(move || start_file_drag_on_sta(path))
+        .join()
+        .map_err(|_| "The file drag thread stopped unexpectedly.".to_string())?
+}
+
+#[cfg(windows)]
+fn start_file_drag_on_sta(path: String) -> Result<(), String> {
+    use windows::core::PCWSTR;
+    use windows::Win32::System::Com::{CoInitializeEx, CoUninitialize, IDataObject, COINIT_APARTMENTTHREADED};
+    use windows::Win32::System::Ole::DROPEFFECT_COPY;
+    use windows::Win32::UI::Shell::{ILCreateFromPathW, ILFree, SHCreateDataObject, SHDoDragDrop};
+
+    if !PathBuf::from(&path).exists() {
+        return Err("The shelved item no longer exists.".to_string());
+    }
+
+    unsafe {
+        CoInitializeEx(None, COINIT_APARTMENTTHREADED)
+            .ok()
+            .map_err(|e| format!("Could not initialize Windows drag-and-drop: {e}"))?;
+        let drag_result = (|| -> Result<(), String> {
+        let wide: Vec<u16> = path.encode_utf16().chain(Some(0)).collect();
+        let pidl = ILCreateFromPathW(PCWSTR(wide.as_ptr()));
+        if pidl.is_null() {
+            return Err(format!("Could not prepare {path} for dragging."));
+        }
+
+        let pidls = [pidl as *const _];
+        let result: windows::core::Result<IDataObject> = SHCreateDataObject(None, Some(&pidls), None);
+        ILFree(Some(pidl));
+        let data = result.map_err(|e| format!("Could not create file drag data: {e}"))?;
+        // SHDoDragDrop supplies the shell's default drop source when `None` is
+        // passed, including the standard escape/right-button cancellation rules.
+        SHDoDragDrop(None, &data, None, DROPEFFECT_COPY)
+            .map_err(|e| format!("File drag failed: {e}"))?;
+        Ok(())
+        })();
+        CoUninitialize();
+        drag_result
+    }
+}
+
+#[cfg(not(windows))]
+#[tauri::command]
+pub fn start_file_drag(_path: String) -> Result<(), String> {
+    Err("Dragging files out of the shelf is available on Windows only.".to_string())
+}
+
 /// File Shelf persistence.
 ///
 /// The shelf stores *references*, not copies — dropping a file onto the notch

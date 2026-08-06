@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import Fuse from 'fuse.js'
 
@@ -24,15 +24,9 @@ export function useAppLauncher(active: boolean) {
   const [pinnedPaths, setPinnedPaths] = useState<string[]>([])
   const [query, setQuery] = useState('')
   const [loaded, setLoaded] = useState(false)
-  // Deliberately a ref, not state. As state, flipping it re-ran this effect,
-  // which fired the previous run's cleanup, which set `cancelled` — so the
-  // in-flight scan discarded its own results and the index stayed empty.
-  const scanned = useRef(false)
-
   // Scan lazily: nothing happens until the launcher is actually opened.
   useEffect(() => {
-    if (!active || scanned.current) return
-    scanned.current = true
+    if (!active) return
 
     let cancelled = false
     const load = async () => {
@@ -54,6 +48,9 @@ export function useAppLauncher(active: boolean) {
         if (!cancelled) setLoaded(true)
       }
     }
+    // React Strict Mode runs effects twice in development. Each setup needs to
+    // start its own request: the first cleanup cancels its result, while the
+    // second request is the one that must be allowed to populate the launcher.
     load()
     return () => {
       cancelled = true

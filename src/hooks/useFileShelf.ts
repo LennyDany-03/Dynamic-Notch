@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
+import { getCurrentWindow } from '@tauri-apps/api/window'
 
 export interface ShelfItem {
   path: string
@@ -101,6 +102,22 @@ export function useFileShelf(onDragOver: () => void) {
     }
   }, [])
 
+  const startDrag = useCallback(async (item: ShelfItem) => {
+    if (!isTauri()) return
+    window.dispatchEvent(new CustomEvent<boolean>('native-file-drag', { detail: true }))
+    try {
+      // OLE drag/drop only begins from the foreground source window. The notch
+      // normally avoids focus so it stays unobtrusive; make this one gesture an
+      // explicit exception before handing it to Windows.
+      await getCurrentWindow().setFocus()
+      await invoke('start_file_drag', { path: item.path })
+    } catch (err) {
+      console.error('shelf: could not start file drag', err)
+    } finally {
+      window.dispatchEvent(new CustomEvent<boolean>('native-file-drag', { detail: false }))
+    }
+  }, [])
+
   useEffect(() => {
     if (!isTauri()) return
     let unlisten: (() => void) | undefined
@@ -136,7 +153,7 @@ export function useFileShelf(onDragOver: () => void) {
     }
   }, [addPaths])
 
-  return { items, dragging, addPaths, remove, clear, open }
+  return { items, dragging, addPaths, remove, clear, open, startDrag }
 }
 
 export type FileShelfState = ReturnType<typeof useFileShelf>

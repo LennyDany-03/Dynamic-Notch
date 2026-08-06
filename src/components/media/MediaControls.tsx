@@ -27,7 +27,7 @@ export default function MediaControls({ session }: { session: MediaSession }) {
   const isSpotify = media.sourceAppId.toLowerCase().includes('spotify')
 
   return (
-    <div style={{ width: '100%', height: '100%', padding: '14px 16px', display: 'flex', gap: 14 }}>
+    <div style={{ width: '100%', height: '100%', padding: '14px 16px', display: 'flex', gap: 14, color: color.text.strong }}>
       {/* Album art */}
       <div
         style={{
@@ -88,6 +88,7 @@ export default function MediaControls({ session }: { session: MediaSession }) {
               style={{
                 fontSize: 14,
                 fontWeight: 600,
+                color: color.text.strong,
                 letterSpacing: '-.01em',
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',

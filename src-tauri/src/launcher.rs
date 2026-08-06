@@ -1,7 +1,11 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fs;
+#[cfg(windows)]
+use std::process::Stdio;
 use std::path::{Path, PathBuf};
+#[cfg(windows)]
+use std::time::{Duration, Instant};
 use tauri::{AppHandle, Manager};
 
 /// Quick Launcher app index.
@@ -44,6 +48,8 @@ const NOISE: [&str; 6] = [
 
 #[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+#[cfg(windows)]
+const START_APPS_TIMEOUT: Duration = Duration::from_secs(5);
 
 fn is_noise(name: &str) -> bool {
     let lower = name.to_lowercase();
@@ -55,16 +61,44 @@ fn is_noise(name: &str) -> bool {
 fn scan_start_apps() -> Option<Vec<AppEntry>> {
     use std::os::windows::process::CommandExt;
 
-    let output = std::process::Command::new("powershell")
+    // Get-StartApps belongs to the inbox StartMenu module and may be absent
+    // when a separately installed PowerShell is first on PATH.
+    let powershell = std::env::var("WINDIR")
+        .map(|dir| PathBuf::from(dir).join(r"System32\WindowsPowerShell\v1.0\powershell.exe"))
+        .ok()
+        .filter(|path| path.exists())
+        .unwrap_or_else(|| PathBuf::from("powershell.exe"));
+    let mut child = std::process::Command::new(powershell)
         .args([
             "-NoProfile",
             "-NonInteractive",
             "-Command",
-            "Get-StartApps | Select-Object Name,AppID | ConvertTo-Json -Compress",
+            "$ErrorActionPreference='Stop'; Get-StartApps | Select-Object Name,AppID | ConvertTo-Json -Compress",
         ])
+        // `spawn` inherits stdout by default. Capture it explicitly: otherwise
+        // wait_with_output returns an empty string and every successful scan is
+        // mistaken for an empty app list.
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
         .creation_flags(CREATE_NO_WINDOW)
-        .output()
+        .spawn()
         .ok()?;
+
+    // The StartMenu PowerShell module can hang while Windows is rebuilding its
+    // index. Never leave the launcher stuck on “Indexing…” because of that.
+    let started = Instant::now();
+    loop {
+        if child.try_wait().ok()?.is_some() {
+            break;
+        }
+        if started.elapsed() >= START_APPS_TIMEOUT {
+            let _ = child.kill();
+            let _ = child.wait();
+            return None;
+        }
+        std::thread::sleep(Duration::from_millis(25));
+    }
+    let output = child.wait_with_output().ok()?;
 
     if !output.status.success() {
         return None;
@@ -158,9 +192,81 @@ fn scan_shortcuts() -> Vec<AppEntry> {
     apps
 }
 
+/// Applications installed outside the Start Menu (notably Brave and many VS
+/// Code installs) register their executable under App Paths. This registry is
+/// readable without elevation and provides a directly launchable file path.
+#[cfg(windows)]
+fn scan_registered_apps() -> Vec<AppEntry> {
+    use std::os::windows::process::CommandExt;
+
+    let output = std::process::Command::new("reg.exe")
+        .args(["query", r"HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths", "/s"])
+        .creation_flags(CREATE_NO_WINDOW)
+        .output();
+    let Ok(output) = output else { return Vec::new() };
+
+    let mut apps = Vec::new();
+    let mut current_name: Option<String> = None;
+    for line in String::from_utf8_lossy(&output.stdout).lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("HKEY_") {
+            current_name = trimmed
+                .rsplit('\\')
+                .next()
+                .and_then(|name| name.strip_suffix(".exe"))
+                .map(|name| name.replace(['_', '-'], " "));
+            continue;
+        }
+        if !trimmed.starts_with("(Default)") {
+            continue;
+        }
+        let Some(name) = current_name.clone() else { continue };
+        let Some((_, value)) = trimmed.split_once("REG_SZ")
+            .or_else(|| trimmed.split_once("REG_EXPAND_SZ")) else { continue };
+        let path = value.trim().trim_matches('"');
+        if path.is_empty() || !PathBuf::from(path).exists() {
+            continue;
+        }
+        apps.push(AppEntry { name, path: path.to_string() });
+    }
+    apps
+}
+
+#[cfg(not(windows))]
+fn scan_registered_apps() -> Vec<AppEntry> {
+    Vec::new()
+}
+
+/// A few popular per-user applications do not create an App Paths registry
+/// entry. Include their documented locations so launcher search remains useful.
+fn scan_known_apps() -> Vec<AppEntry> {
+    let mut candidates: Vec<(String, PathBuf)> = Vec::new();
+    if let Ok(local) = std::env::var("LOCALAPPDATA") {
+        let local = PathBuf::from(local);
+        candidates.push(("Visual Studio Code".to_string(), local.join(r"Programs\Microsoft VS Code\Code.exe")));
+        candidates.push(("Spotify".to_string(), local.join(r"Microsoft\WindowsApps\Spotify.exe")));
+    }
+    if let Ok(appdata) = std::env::var("APPDATA") {
+        candidates.push(("Spotify".to_string(), PathBuf::from(appdata).join(r"Spotify\Spotify.exe")));
+    }
+    if let Ok(program_files) = std::env::var("ProgramFiles") {
+        candidates.push(("Visual Studio Code".to_string(), PathBuf::from(program_files).join(r"Microsoft VS Code\Code.exe")));
+    }
+    candidates
+        .into_iter()
+        .filter(|(_, path)| path.exists())
+        .map(|(name, path)| AppEntry { name, path: path.to_string_lossy().to_string() })
+        .collect()
+}
+
 #[tauri::command]
 pub fn list_installed_apps() -> Result<Vec<AppEntry>, String> {
-    let mut apps = scan_start_apps().unwrap_or_else(scan_shortcuts);
+    // Get-StartApps can be incomplete; merging shortcuts keeps both packaged
+    // and classic desktop apps visible.
+    let mut apps = scan_start_apps().unwrap_or_default();
+    apps.extend(scan_shortcuts());
+    apps.extend(scan_registered_apps());
+    apps.extend(scan_known_apps());
 
     let mut seen = HashSet::new();
     apps.retain(|app| seen.insert(app.name.to_lowercase()));
