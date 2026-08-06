@@ -111,15 +111,21 @@ export default function NotchShell({
                   </div>
                 )}
 
-                <div style={{ flex: 1, minHeight: 0 }}>
-                  <AnimatePresence mode="wait">
+                {/* Panels cross-fade in place. `mode="wait"` used to hold the
+                    incoming panel back until the outgoing one had finished
+                    fading, so switching cost two 120ms fades end to end and read
+                    as lag; overlapping them costs one. Absolute positioning is
+                    what lets both occupy the box at once, and .mica clips the
+                    outgoing panel while the card springs to its new size. */}
+                <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+                  <AnimatePresence initial={false}>
                     <motion.div
                       key={isExpanded ? activeModule : 'peek'}
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
                       transition={{ duration: 0.12 }}
-                      style={{ width: '100%', height: '100%' }}
+                      style={{ position: 'absolute', inset: 0 }}
                     >
                       {isExpanded ? (
                         <ModuleContent module={activeModule} session={session} shelf={shelf} />
