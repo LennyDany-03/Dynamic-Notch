@@ -8,6 +8,15 @@ const host = process.env.TAURI_DEV_HOST;
 export default defineConfig(async () => ({
   plugins: [react(), tailwindcss()],
 
+  css: {
+    // Tailwind is wired in above as a Vite plugin, so this app needs no PostCSS
+    // config at all. Left unset, Vite searches parent directories and finds the
+    // Next.js site's postcss.config.mjs at the repo root, which pulls in
+    // `@tailwindcss/postcss` — a root dependency that a product-only install
+    // (i.e. CI) never has. An inline empty config stops the search here.
+    postcss: {},
+  },
+
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //
   // 1. prevent Vite from obscuring rust errors
