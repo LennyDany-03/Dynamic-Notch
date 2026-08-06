@@ -1,4 +1,5 @@
 mod clipboard;
+mod icons;
 mod launcher;
 mod media;
 mod notes;
@@ -57,6 +58,7 @@ pub fn run() {
             launcher::launch_app,
             launcher::read_pinned,
             launcher::write_pinned,
+            icons::app_icon,
             clipboard::get_clipboard_history,
             clipboard::copy_to_clipboard,
             clipboard::clear_clipboard_history,

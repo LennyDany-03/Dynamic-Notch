@@ -1,4 +1,5 @@
-import { useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { invoke } from '@tauri-apps/api/core'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import type { AppEntry } from '../../hooks/useAppLauncher'
 import { useAppLauncher } from '../../hooks/useAppLauncher'
@@ -12,12 +13,64 @@ const requestWindowFocus = () => {
 }
 
 /**
- * Quick Launcher — search field and pinned tiles (design state 03, upper half).
+ * Resolved icons, kept outside React so remounting the launcher does not re-fetch
+ * what is already known.
  *
- * App marks are initials rather than real icons. Extracting a shortcut's icon
- * means `SHGetFileInfo` plus an HICON→PNG conversion on the Rust side; that is
- * its own piece of work, and a wrong-but-recognisable logo would be worse than
- * an honest initial.
+ * Only successes are stored. The shell's imaging pipeline fails occasionally when
+ * it is busy, and remembering that would pin an app to its initial for the rest of
+ * the session; leaving it unrecorded means reopening the launcher tries again.
+ */
+const iconCache = new Map<string, string>()
+
+/** An app's real icon, falling back to its initial until one arrives. */
+function AppIcon({ app, px }: { app: AppEntry; px: number }) {
+  const [icon, setIcon] = useState<string | null>(() => iconCache.get(app.path) ?? null)
+
+  useEffect(() => {
+    if (!isTauri()) return
+    const cached = iconCache.get(app.path)
+    if (cached !== undefined) {
+      setIcon(cached)
+      return
+    }
+
+    let cancelled = false
+    invoke<string | null>('app_icon', { path: app.path })
+      .then((data) => {
+        if (data) iconCache.set(app.path, data)
+        if (!cancelled) setIcon(data ?? null)
+      })
+      .catch(() => {})
+
+    return () => {
+      cancelled = true
+    }
+  }, [app.path])
+
+  // The initial is the fallback, not the default: it shows for the frame or two
+  // before the icon resolves, and permanently for apps that have none.
+  if (!icon) {
+    return (
+      <span style={{ fontSize: 16, fontWeight: 600, color: color.text.strong }}>
+        {app.name.charAt(0).toUpperCase()}
+      </span>
+    )
+  }
+
+  return (
+    <img
+      src={icon}
+      alt=""
+      width={px}
+      height={px}
+      draggable={false}
+      style={{ display: 'block', objectFit: 'contain' }}
+    />
+  )
+}
+
+/**
+ * Quick Launcher — search field and pinned tiles (design state 03, upper half).
  */
 export default function QuickLauncher({ launcher }: { launcher: ReturnType<typeof useAppLauncher> }) {
   const { pinned, pinnedPaths, results, query, setQuery, loaded, launch, togglePin, maxPinned } =
@@ -47,9 +100,7 @@ export default function QuickLauncher({ launcher }: { launcher: ReturnType<typeo
         minWidth: 0,
       }}
     >
-      <span style={{ fontSize: 16, fontWeight: 600, color: color.text.strong }}>
-        {app.name.charAt(0).toUpperCase()}
-      </span>
+      <AppIcon app={app} px={32} />
     </button>
   )
 

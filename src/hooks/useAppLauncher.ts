@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
+import { listen } from '@tauri-apps/api/event'
 import Fuse from 'fuse.js'
 
 export interface AppEntry {
@@ -15,9 +16,13 @@ const isTauri = () => !!(window as unknown as { __TAURI_INTERNALS__?: unknown })
 /**
  * Start Menu index plus fuzzy search.
  *
- * The index is scanned once on mount and held in memory — it is a few hundred
+ * The index is fetched once on mount and held in memory — it is a few hundred
  * entries and only changes when something is installed, so re-scanning per
  * keystroke would be wasted work.
+ *
+ * Rust answers from a cached index, so this normally resolves immediately rather
+ * than waiting on a scan. When that cache is stale it re-scans in the background
+ * and pushes the new list up through `apps-reindexed`.
  */
 export function useAppLauncher(active: boolean) {
   const [apps, setApps] = useState<AppEntry[]>([])
@@ -56,6 +61,26 @@ export function useAppLauncher(active: boolean) {
       cancelled = true
     }
   }, [active])
+
+  // A background re-scan found a different set of apps than the cached list this
+  // opened with. Rare, and only fires when something was installed or removed.
+  useEffect(() => {
+    if (!isTauri()) return
+    let unlisten: (() => void) | undefined
+    let cancelled = false
+
+    listen<AppEntry[]>('apps-reindexed', (event) => setApps(event.payload))
+      .then((fn) => {
+        if (cancelled) fn()
+        else unlisten = fn
+      })
+      .catch((err) => console.error('launcher: could not watch re-index', err))
+
+    return () => {
+      cancelled = true
+      unlisten?.()
+    }
+  }, [])
 
   const fuse = useMemo(
     () =>
