@@ -7,8 +7,8 @@ import FilesModule from './modules/FilesModule'
 import LauncherModule from './modules/LauncherModule'
 import type { MediaSession } from '../hooks/useMediaSession'
 import type { FileShelfState } from '../hooks/useFileShelf'
-import { CARD_TOP, NAV_STRIP_HEIGHT, cardSize } from '../layout'
-import { radius, spring } from '../tokens'
+import { NAV_STRIP_HEIGHT } from '../layout'
+import { radius } from '../tokens'
 import type { NotchModule, NotchState } from '../types/notch'
 
 interface Props {
@@ -42,12 +42,12 @@ function ModuleContent({
 }
 
 /**
- * The outer window frame: the Mica surface, its spring sizing, and whatever
- * content the current state calls for.
+ * Card contents.
  *
- * Nothing at all renders while hidden. Pointer events are off everywhere except
- * the card, so the transparent canvas never eats a click that belongs to the
- * desktop.
+ * The native window *is* the card — it is resized and hidden by `useNotchWindow`,
+ * because Mica is a whole-window backdrop and cannot be scoped to a region. So
+ * there is no size animation here and no centring to do: this simply fills the
+ * window, and the size transition is the window's own.
  */
 export default function NotchShell({
   state,
@@ -57,82 +57,64 @@ export default function NotchShell({
   session,
   shelf,
 }: Props) {
-  const { width, height } = cardSize(state, activeModule)
   const isExpanded = state === 'expanded'
-  const peek = cardSize('peek', activeModule)
+
+  if (state === 'hidden') return null
 
   return (
-    <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none' }}>
+    <div
+      className="mica"
+      style={{
+        width: '100%',
+        height: '100%',
+        borderRadius: radius.shell,
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      {/* Sits above .mica::before (noise) and .mica::after (hairline). */}
       <div
         style={{
-          position: 'absolute',
-          top: CARD_TOP,
-          left: '50%',
-          transform: 'translateX(-50%)',
+          position: 'relative',
+          zIndex: 1,
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
         }}
       >
-        <AnimatePresence>
-          {state !== 'hidden' && (
+        <div style={{ flex: 1, minHeight: 0 }}>
+          <AnimatePresence mode="wait">
             <motion.div
-              key="card"
-              className="mica"
-              initial={{ width: peek.width, height: peek.height, opacity: 0, y: -8 }}
-              animate={{ width, height, opacity: 1, y: 0 }}
-              exit={{ width: peek.width, height: peek.height, opacity: 0, y: -8 }}
-              transition={isExpanded ? spring.expand : spring.peek}
-              style={{ borderRadius: radius.shell, pointerEvents: 'auto' }}
+              key={isExpanded ? activeModule : 'peek'}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.12 }}
+              style={{ width: '100%', height: '100%' }}
             >
-              {/* Sits above .mica::before (noise) and .mica::after (hairline). */}
-              <div
-                style={{
-                  position: 'relative',
-                  zIndex: 1,
-                  width: '100%',
-                  height: '100%',
-                  display: 'flex',
-                  flexDirection: 'column',
-                }}
-              >
-                <div style={{ flex: 1, minHeight: 0 }}>
-                  <AnimatePresence mode="wait">
-                    <motion.div
-                      key={isExpanded ? activeModule : 'peek'}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.12 }}
-                      style={{ width: '100%', height: '100%' }}
-                    >
-                      {isExpanded ? (
-                        <ModuleContent module={activeModule} session={session} shelf={shelf} />
-                      ) : (
-                        <CollapsedPill session={session} />
-                      )}
-                    </motion.div>
-                  </AnimatePresence>
-                </div>
-
-                {isExpanded && (
-                  <div
-                    style={{
-                      height: NAV_STRIP_HEIGHT,
-                      flex: 'none',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <NavArrows
-                      active={activeModule}
-                      onPrev={onPreviousModule}
-                      onNext={onNextModule}
-                    />
-                  </div>
-                )}
-              </div>
+              {isExpanded ? (
+                <ModuleContent module={activeModule} session={session} shelf={shelf} />
+              ) : (
+                <CollapsedPill session={session} />
+              )}
             </motion.div>
-          )}
-        </AnimatePresence>
+          </AnimatePresence>
+        </div>
+
+        {isExpanded && (
+          <div
+            style={{
+              height: NAV_STRIP_HEIGHT,
+              flex: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <NavArrows active={activeModule} onPrev={onPreviousModule} onNext={onNextModule} />
+          </div>
+        )}
       </div>
     </div>
   )

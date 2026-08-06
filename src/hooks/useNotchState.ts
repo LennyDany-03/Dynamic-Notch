@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useHotzone } from './useHotzone'
-import { contentRect } from '../layout'
+import { useNotchWindow } from './useNotchWindow'
 import { timing } from '../tokens'
 import { MODULES, type NotchModule, type NotchState } from '../types/notch'
 
@@ -31,12 +31,12 @@ export function useNotchState() {
   const moduleRef = useRef(activeModule)
   moduleRef.current = activeModule
 
-  const getContentRect = useCallback(
-    () => contentRect(stateRef.current, moduleRef.current, window.innerWidth),
-    [],
-  )
+  // The native window is resized to match the card, so "over content" is simply
+  // "over the window" — see useHotzone.
+  const geometryToken = useNotchWindow(state, activeModule)
+  const hasContent = useCallback(() => stateRef.current !== 'hidden', [])
 
-  const { inHotzone, inContent } = useHotzone(getContentRect)
+  const { inHotzone, inContent } = useHotzone(hasContent, geometryToken)
   const inside = inHotzone || inContent
 
   const dwellRef = useRef<ReturnType<typeof setTimeout> | null>(null)

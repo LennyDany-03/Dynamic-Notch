@@ -4,6 +4,7 @@ mod media;
 mod notes;
 mod notifications;
 mod shelf;
+mod shell;
 
 use tauri::{Emitter, Manager};
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
@@ -31,6 +32,8 @@ pub fn run() {
             clipboard::get_clipboard_history,
             clipboard::copy_to_clipboard,
             clipboard::clear_clipboard_history,
+            shell::resize_notch,
+            shell::set_notch_visible,
             shelf::read_shelf,
             shelf::write_shelf,
             notifications::get_windows_notifications,
@@ -44,6 +47,9 @@ pub fn run() {
             clipboard::start_listener();
 
             let window = app.get_webview_window("notch-widget").unwrap();
+
+            // Real Mica + rounded corners. The frontend drives size and visibility.
+            shell::apply_backdrop(&window);
 
             // Center the window horizontally on the primary monitor
             if let Some(monitor) = window.primary_monitor()? {
