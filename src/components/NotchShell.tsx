@@ -6,6 +6,7 @@ import MediaControls from './media/MediaControls'
 import FilesModule from './modules/FilesModule'
 import LauncherModule from './modules/LauncherModule'
 import type { MediaSession } from '../hooks/useMediaSession'
+import type { FileShelfState } from '../hooks/useFileShelf'
 import { CARD_TOP, NAV_STRIP_HEIGHT, cardSize } from '../layout'
 import { radius, spring } from '../tokens'
 import type { NotchModule, NotchState } from '../types/notch'
@@ -16,14 +17,23 @@ interface Props {
   onPreviousModule: () => void
   onNextModule: () => void
   session: MediaSession
+  shelf: FileShelfState
 }
 
-function ModuleContent({ module, session }: { module: NotchModule; session: MediaSession }) {
+function ModuleContent({
+  module,
+  session,
+  shelf,
+}: {
+  module: NotchModule
+  session: MediaSession
+  shelf: FileShelfState
+}) {
   switch (module) {
     case 'media':
       return <MediaControls session={session} />
     case 'files':
-      return <FilesModule />
+      return <FilesModule shelf={shelf} />
     case 'launcher':
       return <LauncherModule active />
     default:
@@ -45,6 +55,7 @@ export default function NotchShell({
   onPreviousModule,
   onNextModule,
   session,
+  shelf,
 }: Props) {
   const { width, height } = cardSize(state, activeModule)
   const isExpanded = state === 'expanded'
@@ -93,7 +104,7 @@ export default function NotchShell({
                       style={{ width: '100%', height: '100%' }}
                     >
                       {isExpanded ? (
-                        <ModuleContent module={activeModule} session={session} />
+                        <ModuleContent module={activeModule} session={session} shelf={shelf} />
                       ) : (
                         <CollapsedPill session={session} />
                       )}

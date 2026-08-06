@@ -2,6 +2,7 @@ mod launcher;
 mod media;
 mod notes;
 mod notifications;
+mod shelf;
 
 use tauri::{Emitter, Manager};
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
@@ -26,6 +27,8 @@ pub fn run() {
             launcher::launch_app,
             launcher::read_pinned,
             launcher::write_pinned,
+            shelf::read_shelf,
+            shelf::write_shelf,
             notifications::get_windows_notifications,
             notifications::dismiss_notification,
             notifications::clear_all_notifications,
