@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // The Tauri app is a separate project with its own toolchain. Linting it
+    // from here also drags in its minified `dist/` bundle, which produces
+    // enough findings in one line to crash ESLint's formatter outright.
+    "product/**",
   ]),
 ]);
 

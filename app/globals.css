@@ -1,26 +1,293 @@
 @import "tailwindcss";
 
+/*
+  Crest marketing site — dark only.
+
+  The product is a translucent Mica overlay that lives on a dark Windows
+  desktop, so the site borrows its palette wholesale from `product/src/tokens.ts`
+  (accent #7C3AED, accentBright #A855F7) plus the deep indigo of the app icon.
+  A light theme would misrepresent what the app looks like, so the page opts out
+  of one entirely rather than shipping a washed-out second skin.
+*/
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: dark;
+
+  --background: #07070b;
+  --foreground: #ededf2;
+
+  /* Ported from the product's design tokens. */
+  --accent: #7c3aed;
+  --accent-bright: #a855f7;
+  /* The app icon's field colour. Used only for depth washes, never for text. */
+  --indigo: #1b00b5;
+
+  --muted: rgba(237, 237, 242, 0.62);
+  --faint: rgba(237, 237, 242, 0.42);
+
+  /* Mica recipe: never a flat fill, always a translucent pane + hairline. */
+  --pane: rgba(255, 255, 255, 0.04);
+  --pane-strong: rgba(255, 255, 255, 0.06);
+  --hairline: rgba(255, 255, 255, 0.09);
+  --hairline-bright: rgba(255, 255, 255, 0.16);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-accent: var(--accent);
+  --color-accent-bright: var(--accent-bright);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-pane: var(--pane);
+  --color-hairline: var(--hairline);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  scroll-behavior: smooth;
+  /* The sticky header would otherwise cover anchored section headings. */
+  scroll-padding-top: 96px;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), "Segoe UI Variable", "Segoe UI", system-ui,
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+::selection {
+  background: rgba(124, 58, 237, 0.4);
+}
+
+/* --- Surfaces -------------------------------------------------------- */
+
+/*
+  A Mica pane: translucent fill, blur, and a top-only highlight hairline —
+  the same construction the app uses for its notch shell.
+*/
+.pane {
+  position: relative;
+  background: var(--pane);
+  border: 1px solid var(--hairline);
+  backdrop-filter: blur(24px) saturate(140%);
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
+}
+
+.pane::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  /* Light catches the top edge only, as it does on a real Mica surface. */
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.07) 0%,
+    rgba(255, 255, 255, 0) 45%
+  );
+}
+
+/* Aurora wash behind the hero and download sections. */
+.aurora {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.aurora::before,
+.aurora::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(120px);
+  opacity: 0.5;
+}
+
+.aurora::before {
+  width: 780px;
+  height: 780px;
+  top: -420px;
+  left: 50%;
+  margin-left: -390px;
+  background: radial-gradient(circle, var(--accent) 0%, transparent 65%);
+}
+
+.aurora::after {
+  width: 620px;
+  height: 620px;
+  top: -180px;
+  right: -180px;
+  background: radial-gradient(circle, var(--indigo) 0%, transparent 68%);
+  opacity: 0.55;
+}
+
+/* Faint grid, so the hero reads as a surface rather than a void. */
+.grid-floor {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: linear-gradient(
+      rgba(255, 255, 255, 0.028) 1px,
+      transparent 1px
+    ),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.028) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: radial-gradient(ellipse 90% 60% at 50% 0%, #000 30%, transparent 75%);
+}
+
+/* --- The notch itself ------------------------------------------------ */
+
+/*
+  Ported verbatim from `product/src/index.css` so the hero demo is the real
+  material, not an impression of it. Base surface + noise + top-only hairline.
+  If the app's Mica recipe changes, change it here too.
+*/
+.mica {
+  position: relative;
+  background: rgba(32, 32, 32, 0.8);
+  backdrop-filter: blur(40px) saturate(1.2);
+  -webkit-backdrop-filter: blur(40px) saturate(1.2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28), 0 12px 28px rgba(0, 0, 0, 0.22);
+  overflow: hidden;
+}
+
+.mica::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.4'/%3E%3C/svg%3E");
+  opacity: 0.05;
+  mix-blend-mode: overlay;
+}
+
+.mica::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+  pointer-events: none;
+}
+
+/* Inner tile — 8px radius, own top hairline at .12. */
+.notch-tile {
+  position: relative;
+  background: rgba(255, 255, 255, 0.055);
+  border-radius: 8px;
+}
+
+.notch-tile::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: inherit;
+}
+
+/* --- Type ------------------------------------------------------------ */
+
+.section-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.gradient-text {
+  background: linear-gradient(180deg, #ffffff 0%, rgba(255, 255, 255, 0.62) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* --- Motion ---------------------------------------------------------- */
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.rise {
+  animation: rise 0.7s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+/*
+  Panel cross-fade inside the notch. The app fades panels over 120ms with no
+  movement — the card is already springing to a new size, and a second axis of
+  motion on top of that reads as jitter.
+*/
+@keyframes panel-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.panel-in {
+  animation: panel-in 0.14s ease-out backwards;
+}
+
+/* The collapsed pill's equalizer, matching the app's `.eq` animation. */
+@keyframes eq {
+  0%,
+  100% {
+    transform: scaleY(0.28);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+.eq {
+  transform-origin: bottom;
+  animation: eq 0.9s ease-in-out infinite;
+}
+
+@keyframes caret {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.caret {
+  animation: caret 1.1s step-end infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .rise,
+  .eq,
+  .caret {
+    animation: none;
+  }
 }
