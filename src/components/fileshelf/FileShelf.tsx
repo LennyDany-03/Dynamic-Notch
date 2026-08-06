@@ -1,5 +1,12 @@
+import { useRef } from 'react'
+import { invoke } from '@tauri-apps/api/core'
 import type { FileShelfState } from '../../hooks/useFileShelf'
 import { color, radius, sectionLabel } from '../../tokens'
+
+/** Movement before a press counts as a drag rather than a click. */
+const DRAG_THRESHOLD_PX = 6
+
+const isTauri = () => !!(window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__
 
 /**
  * File Shelf — left pane of design state 04.
@@ -10,6 +17,32 @@ import { color, radius, sectionLabel } from '../../tokens'
  */
 export default function FileShelf({ shelf }: { shelf: FileShelfState }) {
   const { items, dragging, remove, open } = shelf
+
+  // A press that turns into a drag hands off to the native OLE drag source; a
+  // press that does not is an ordinary click that opens the file.
+  const pressOrigin = useRef<{ x: number; y: number } | null>(null)
+  const draggedOut = useRef(false)
+
+  const beginPress = (x: number, y: number) => {
+    pressOrigin.current = { x, y }
+    draggedOut.current = false
+  }
+
+  const maybeStartDrag = (path: string, x: number, y: number) => {
+    const origin = pressOrigin.current
+    if (!origin || draggedOut.current) return
+    if (Math.hypot(x - origin.x, y - origin.y) < DRAG_THRESHOLD_PX) return
+
+    // SHDoDragDrop takes over the mouse, so this has to fire while the button is
+    // still down — hence the move threshold rather than waiting for release.
+    draggedOut.current = true
+    pressOrigin.current = null
+    if (isTauri()) {
+      invoke('start_drag_out', { paths: [path] }).catch((err) =>
+        console.error('shelf: drag out failed', err),
+      )
+    }
+  }
 
   return (
     <div
@@ -66,8 +99,17 @@ export default function FileShelf({ shelf }: { shelf: FileShelfState }) {
             <div key={item.path} style={{ width: 48, flex: 'none', textAlign: 'center' }}>
               <button
                 type="button"
-                title={`${item.path}\n\nClick to open · right-click to remove`}
-                onClick={() => open(item)}
+                title={`${item.path}\n\nDrag out to another app · click to open · right-click to remove`}
+                onPointerDown={(e) => beginPress(e.clientX, e.clientY)}
+                onPointerMove={(e) => maybeStartDrag(item.path, e.clientX, e.clientY)}
+                onPointerUp={() => {
+                  pressOrigin.current = null
+                }}
+                onClick={() => {
+                  // Suppressed when the press became a drag.
+                  if (draggedOut.current) return
+                  open(item)
+                }}
                 onContextMenu={(e) => {
                   e.preventDefault()
                   remove(item.path)

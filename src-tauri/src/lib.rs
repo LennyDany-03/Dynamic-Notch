@@ -1,4 +1,5 @@
 mod clipboard;
+mod dragout;
 mod launcher;
 mod media;
 mod notes;
@@ -34,6 +35,7 @@ pub fn run() {
             clipboard::clear_clipboard_history,
             shell::resize_notch,
             shell::set_notch_visible,
+            dragout::start_drag_out,
             shelf::read_shelf,
             shelf::write_shelf,
             notifications::get_windows_notifications,
