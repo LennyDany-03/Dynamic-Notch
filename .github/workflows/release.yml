@@ -63,6 +63,53 @@ jobs:
         working-directory: product
         run: npm ci
 
+      # Release notes come from CHANGELOG.md rather than a string in this file,
+      # so each release gets its own text without editing the workflow. A tag
+      # with no matching section fails here — before anything is published —
+      # because notes are easy to forget and an empty release page is worse than
+      # a red build you can re-run.
+      - name: Extract release notes from CHANGELOG.md
+        id: notes
+        shell: pwsh
+        run: |
+          $tag = "${{ github.event.inputs.tag || github.ref_name }}"
+          $version = $tag -replace '^v', ''
+          # Explicit encoding: without it the em-dashes and arrows in the notes
+          # get read as ANSI and published as mojibake.
+          $lines = Get-Content CHANGELOG.md -Encoding utf8
+
+          $start = -1
+          for ($i = 0; $i -lt $lines.Count; $i++) {
+            if ($lines[$i] -match "^##\s+\[?$([regex]::Escape($version))\]?(\s|$)") {
+              $start = $i + 1
+              break
+            }
+          }
+          if ($start -lt 0) {
+            throw "CHANGELOG.md has no '## $version' section. Add one, commit it, then re-tag."
+          }
+
+          # The section runs until the next heading of the same level, or EOF.
+          $end = $lines.Count
+          for ($i = $start; $i -lt $lines.Count; $i++) {
+            if ($lines[$i] -match '^##\s') { $end = $i; break }
+          }
+
+          $body = if ($end -gt $start) { ($lines[$start..($end - 1)] -join "`n").Trim() } else { '' }
+          if ([string]::IsNullOrWhiteSpace($body)) {
+            throw "The '## $version' section in CHANGELOG.md is empty."
+          }
+
+          # Multi-line step outputs need a heredoc delimiter that cannot collide
+          # with the note text itself.
+          $delim = "NOTES_EOF_$([guid]::NewGuid().ToString('N'))"
+          "body<<$delim"  | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          $body           | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          $delim          | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+          Write-Host "Release notes for $version ($($body.Length) chars):"
+          Write-Host $body
+
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -72,7 +119,7 @@ jobs:
           projectPath: product
           tagName: ${{ github.event.inputs.tag || github.ref_name }}
           releaseName: 'Crest __VERSION__'
-          releaseBody: 'See the assets below to download and install this version.'
+          releaseBody: ${{ steps.notes.outputs.body }}
           # Published immediately — a draft release is not reachable at the
           # `releases/latest/download/latest.json` URL the app polls, so leaving
           # it drafted would silently ship nothing.
