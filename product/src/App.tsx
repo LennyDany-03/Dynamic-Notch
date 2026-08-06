@@ -1,5 +1,6 @@
-import { useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { listen } from '@tauri-apps/api/event'
+import ContextMenu, { type MenuAnchor } from './components/ContextMenu'
 import NotchShell from './components/NotchShell'
 import { useNotchState } from './hooks/useNotchState'
 import { useMediaSession } from './hooks/useMediaSession'
@@ -33,14 +34,34 @@ export default function App() {
   const revealShelf = useCallback(() => showModule('files'), [showModule])
   const shelf = useFileShelf(revealShelf)
 
+  const [menu, setMenu] = useState<MenuAnchor | null>(null)
+  const closeMenu = useCallback(() => setMenu(null), [])
+
+  // A menu outlives the card that opened it otherwise — the notch collapses on
+  // its own timer and would leave the menu floating over nothing.
+  useEffect(() => {
+    if (state === 'hidden') setMenu(null)
+  }, [state])
+
   return (
-    <NotchShell
-      state={state}
-      activeModule={activeModule}
-      onPreviousModule={previousModule}
-      onNextModule={nextModule}
-      session={session}
-      shelf={shelf}
-    />
+    // The shell's transparent canvas has pointer events off, so this only ever
+    // fires for a right-click that actually landed on the card.
+    <div
+      onContextMenu={(event) => {
+        event.preventDefault()
+        setMenu({ x: event.clientX, y: event.clientY })
+      }}
+    >
+      <NotchShell
+        state={state}
+        activeModule={activeModule}
+        onPreviousModule={previousModule}
+        onNextModule={nextModule}
+        session={session}
+        shelf={shelf}
+      />
+
+      {menu && <ContextMenu anchor={menu} onClose={closeMenu} />}
+    </div>
   )
 }
