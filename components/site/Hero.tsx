@@ -52,7 +52,7 @@ export default function Hero() {
             className="rise mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row"
             style={{ animationDelay: "220ms" }}
           >
-            <Button href={site.download} size="lg">
+            <Button href={site.download} size="lg" external={false}>
               <Download width={18} height={18} />
               Download for Windows
             </Button>

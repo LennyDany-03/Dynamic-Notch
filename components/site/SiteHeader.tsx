@@ -41,8 +41,6 @@ export default function SiteHeader() {
           </a>
           <a
             href={site.download}
-            target="_blank"
-            rel="noreferrer noopener"
             className="inline-flex h-10 items-center gap-2 rounded-xl bg-[var(--accent)] px-4 text-[14px] font-medium text-white shadow-[0_8px_24px_-10px_rgba(124,58,237,1)] transition-colors hover:bg-[var(--accent-bright)]"
           >
             <Download width={16} height={16} />

@@ -36,7 +36,10 @@ export default function DownloadSection() {
             </p>
 
             <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
-              <Button href={site.download} size="lg">
+              {/* Not `external`: the asset comes back as an attachment, so a
+                  same-tab link downloads it and leaves the page in place —
+                  target="_blank" would just flash an empty tab. */}
+              <Button href={site.download} size="lg" external={false}>
                 <Download width={18} height={18} />
                 Download v{site.version}
               </Button>
