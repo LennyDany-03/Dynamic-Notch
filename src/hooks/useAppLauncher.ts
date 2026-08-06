@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import Fuse from 'fuse.js'
 
@@ -24,12 +24,15 @@ export function useAppLauncher(active: boolean) {
   const [pinnedPaths, setPinnedPaths] = useState<string[]>([])
   const [query, setQuery] = useState('')
   const [loaded, setLoaded] = useState(false)
-  const [scanned, setScanned] = useState(false)
+  // Deliberately a ref, not state. As state, flipping it re-ran this effect,
+  // which fired the previous run's cleanup, which set `cancelled` — so the
+  // in-flight scan discarded its own results and the index stayed empty.
+  const scanned = useRef(false)
 
   // Scan lazily: nothing happens until the launcher is actually opened.
   useEffect(() => {
-    if (!active || scanned) return
-    setScanned(true)
+    if (!active || scanned.current) return
+    scanned.current = true
 
     let cancelled = false
     const load = async () => {
@@ -55,7 +58,7 @@ export function useAppLauncher(active: boolean) {
     return () => {
       cancelled = true
     }
-  }, [active, scanned])
+  }, [active])
 
   const fuse = useMemo(
     () =>
