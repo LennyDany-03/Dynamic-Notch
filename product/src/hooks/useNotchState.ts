@@ -42,6 +42,16 @@ export function useNotchState() {
   const dwellRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const graceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  /**
+   * Set when something other than the cursor opened the notch — today, the tray
+   * popup. Without it the card would open under a cursor that is down by the
+   * taskbar, count as "outside", and collapse again within the grace window.
+   *
+   * Released as soon as the cursor arrives (the user has taken over) or the
+   * window loses focus (they moved on), after which the normal rules resume.
+   */
+  const pinnedRef = useRef(false)
+
   const clearDwell = () => {
     if (dwellRef.current) {
       clearTimeout(dwellRef.current)
@@ -60,6 +70,7 @@ export function useNotchState() {
     if (inside) {
       // Any pending step down is cancelled the moment the cursor comes back.
       clearGrace()
+      pinnedRef.current = false
 
       if (state === 'hidden') {
         setState('peek')
@@ -84,7 +95,7 @@ export function useNotchState() {
     // Cursor is out: dwell can never complete from here.
     clearDwell()
 
-    if (state === 'hidden' || graceRef.current) return
+    if (state === 'hidden' || graceRef.current || pinnedRef.current) return
 
     graceRef.current = setTimeout(() => {
       graceRef.current = null
@@ -102,14 +113,30 @@ export function useNotchState() {
     }
   }, [])
 
-  const showModule = useCallback((module: NotchModule) => {
+  // Clicking away is the user moving on, so a pinned card should give up its hold
+  // and collapse on the normal schedule.
+  useEffect(() => {
+    const release = () => {
+      pinnedRef.current = false
+    }
+    window.addEventListener('blur', release)
+    return () => window.removeEventListener('blur', release)
+  }, [])
+
+  const showModule = useCallback((module: NotchModule, options?: { pin?: boolean }) => {
     // Selecting a module is an explicit intent to stay open, so it beats a step
     // down that the poll loop may already have armed in the preceding frame.
     clearGrace()
     clearDwell()
+    if (options?.pin) pinnedRef.current = true
     setActiveModule(module)
     setState('expanded')
   }, [])
+
+  /** Open at whatever module is already selected. Used by the tray's "Show notch". */
+  const expand = useCallback((options?: { pin?: boolean }) => {
+    showModule(moduleRef.current, options)
+  }, [showModule])
 
   /** Step through the modules, wrapping at both ends. */
   const cycleModule = useCallback((direction: 1 | -1) => {
@@ -125,5 +152,5 @@ export function useNotchState() {
   const nextModule = useCallback(() => cycleModule(1), [cycleModule])
   const previousModule = useCallback(() => cycleModule(-1), [cycleModule])
 
-  return { state, activeModule, showModule, nextModule, previousModule }
+  return { state, activeModule, showModule, expand, nextModule, previousModule }
 }

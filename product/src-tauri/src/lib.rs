@@ -5,10 +5,10 @@ mod media;
 mod notes;
 mod notifications;
 mod shelf;
+mod tray;
 
-use tauri::{Emitter, Manager};
-use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
-use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent};
+use tauri::Manager;
+use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri_plugin_autostart::MacosLauncher;
 use tauri_plugin_autostart::ManagerExt;
 
@@ -68,7 +68,22 @@ pub fn run() {
             notifications::get_windows_notifications,
             notifications::dismiss_notification,
             notifications::clear_all_notifications,
+            tray::tray_menu_close,
+            tray::tray_show_notch,
+            tray::tray_navigate,
+            tray::tray_autostart_enabled,
+            tray::tray_set_autostart,
+            tray::tray_quit,
         ])
+        // A popup menu must close when it loses focus, the same as the native one
+        // it replaces.
+        .on_window_event(|window, event| {
+            if window.label() == tray::MENU_LABEL {
+                if let tauri::WindowEvent::Focused(false) = event {
+                    let _ = window.hide();
+                }
+            }
+        })
         .setup(|app| {
             // Enable autostart on Windows login
             let _ = app.autolaunch().enable();
@@ -85,64 +100,33 @@ pub fn run() {
                 window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y: 0 }))?;
             }
 
-            // System tray menu
-            let show = MenuItem::with_id(app, "show", "Show Notch", true, None::<&str>)?;
-            let music = MenuItem::with_id(app, "music", "Music Player", true, None::<&str>)?;
-            let calendar = MenuItem::with_id(app, "calendar", "Calendar", true, None::<&str>)?;
-            let notif = MenuItem::with_id(app, "notifications", "Notifications", true, None::<&str>)?;
-            let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-
-            let menu = Menu::with_items(
-                app,
-                &[
-                    &show,
-                    &PredefinedMenuItem::separator(app)?,
-                    &music,
-                    &calendar,
-                    &notif,
-                    &PredefinedMenuItem::separator(app)?,
-                    &quit,
-                ],
-            )?;
-
             let icon = app.default_window_icon().cloned()
                 .expect("failed to load tray icon");
 
+            // No `.menu()` — a native menu cannot be styled, so the popup in
+            // `tray.rs` stands in for it. See that module for why.
             TrayIconBuilder::new()
                 .icon(icon)
-                .menu(&menu)
                 .tooltip("Crest")
-                .on_menu_event(|app, event| {
-                    let window = app.get_webview_window("notch-widget");
-                    match event.id.as_ref() {
-                        "show" => {
-                            if let Some(w) = window {
-                                let _ = w.show();
-                                let _ = w.set_focus();
-                            }
+                .on_tray_icon_event(|tray, event| {
+                    let TrayIconEvent::Click { button, button_state, position, .. } = event else {
+                        return;
+                    };
+                    // Windows reports both press and release; acting on each would
+                    // open the popup and then immediately toggle it shut.
+                    if button_state != MouseButtonState::Up {
+                        return;
+                    }
+
+                    let app = tray.app_handle();
+                    match button {
+                        MouseButton::Left => {
+                            tray::show_notch(app);
                         }
-                        tab @ ("music" | "calendar" | "notifications") => {
-                            if let Some(w) = window {
-                                let _ = w.show();
-                                let _ = w.set_focus();
-                                let _ = w.emit("tray-navigate", tab.to_string());
-                            }
-                        }
-                        "quit" => {
-                            app.exit(0);
+                        MouseButton::Right => {
+                            let _ = tray::show_menu(app, position);
                         }
                         _ => {}
-                    }
-                })
-                .on_tray_icon_event(|tray, event| {
-                    if let TrayIconEvent::Click { button, .. } = event {
-                        if matches!(button, MouseButton::Left) {
-                            let window = tray.app_handle().get_webview_window("notch-widget");
-                            if let Some(w) = window {
-                                let _ = w.show();
-                                let _ = w.set_focus();
-                            }
-                        }
                     }
                 })
                 .build(app)?;

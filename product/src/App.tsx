@@ -1,11 +1,28 @@
-import { useCallback } from 'react'
+import { useCallback, useEffect } from 'react'
+import { listen } from '@tauri-apps/api/event'
 import NotchShell from './components/NotchShell'
 import { useNotchState } from './hooks/useNotchState'
 import { useMediaSession } from './hooks/useMediaSession'
 import { useFileShelf } from './hooks/useFileShelf'
+import { MODULES, type NotchModule } from './types/notch'
 
 export default function App() {
-  const { state, activeModule, showModule, nextModule, previousModule } = useNotchState()
+  const { state, activeModule, showModule, expand, nextModule, previousModule } = useNotchState()
+
+  // The tray popup can only ask; the state machine still owns what opens. Both
+  // are pinned, because the cursor is down by the taskbar when they arrive.
+  useEffect(() => {
+    const pending = [
+      listen('tray-show', () => expand({ pin: true })),
+      listen<string>('tray-navigate', (event) => {
+        const module = event.payload as NotchModule
+        if (MODULES.includes(module)) showModule(module, { pin: true })
+      }),
+    ]
+    return () => {
+      for (const p of pending) void p.then((unlisten) => unlisten())
+    }
+  }, [expand, showModule])
 
   // One poll shared by the collapsed pill and the media card. Stops entirely
   // while hidden, so an idle notch costs nothing.

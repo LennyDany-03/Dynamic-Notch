@@ -29,6 +29,20 @@
         "shadow": false,
         "visible": true,
         "focus": false
+      },
+      {
+        "label": "tray-menu",
+        "title": "",
+        "width": 272,
+        "height": 316,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": false,
+        "shadow": false,
+        "visible": false,
+        "focus": false
       }
     ],
     "security": {

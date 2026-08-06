@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "tray-menu",
+  "description": "Capability for the tray popup window. Positioning and visibility are driven from Rust, so this only needs to listen for the open event — the rows call app commands, which need no permission.",
+  "windows": ["tray-menu"],
+  "permissions": ["core:default", "core:event:allow-listen"]
+}
