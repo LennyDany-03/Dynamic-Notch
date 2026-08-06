@@ -1,25 +1,28 @@
+import { formatClock, useClock } from '../hooks/useClock'
 import type { MediaSession } from '../hooks/useMediaSession'
 import { color } from '../tokens'
 
 /**
  * The 200×32 collapsed pill — design state 01.
  *
- * Shows the live track title rather than a static label; the equalizer only
- * animates while something is actually playing.
+ * The clock is the pill's content; music is reduced to two ambient signals
+ * flanking it. It previously showed the track title, which meant the resting
+ * state of the whole overlay was only useful when something was playing.
  */
 export default function CollapsedPill({ session }: { session: MediaSession }) {
   const { media } = session
   const isPlaying = media?.isPlaying ?? false
-  const label = media ? media.title || 'Now playing' : 'Nothing playing'
+  const now = useClock()
 
   return (
     <div
       style={{
+        position: 'relative',
         width: '100%',
         height: '100%',
         display: 'flex',
         alignItems: 'center',
-        gap: 10,
+        justifyContent: 'space-between',
         padding: '0 14px',
       }}
     >
@@ -44,19 +47,26 @@ export default function CollapsedPill({ session }: { session: MediaSession }) {
         ))}
       </div>
 
+      {/*
+        Centred against the pill itself rather than the gap between the two
+        marks, which differ in width — laying it out in flow would sit it a few
+        pixels off centre. Not a hit target, so it stays out of the way of one.
+      */}
       <span
         style={{
-          flex: 1,
-          minWidth: 0,
-          fontSize: 11,
-          fontWeight: 500,
-          color: color.text.secondary,
-          whiteSpace: 'nowrap',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          textAlign: 'center',
+          pointerEvents: 'none',
+          fontSize: 12,
+          fontWeight: 600,
+          color: color.text.strong,
+          // Stops the pill twitching as digits change width.
+          fontVariantNumeric: 'tabular-nums',
         }}
       >
-        {label}
+        {formatClock(now)}
       </span>
 
       <span
