@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
+import { listen } from '@tauri-apps/api/event'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
-import { getCurrentWindow } from '@tauri-apps/api/window'
 
 export interface ShelfItem {
   path: string
@@ -106,15 +106,34 @@ export function useFileShelf(onDragOver: () => void) {
     if (!isTauri()) return
     window.dispatchEvent(new CustomEvent<boolean>('native-file-drag', { detail: true }))
     try {
-      // OLE drag/drop only begins from the foreground source window. The notch
-      // normally avoids focus so it stays unobtrusive; make this one gesture an
-      // explicit exception before handing it to Windows.
-      await getCurrentWindow().setFocus()
+      // Resolves when the drag *starts*, not when it ends — the shell owns the
+      // mouse from here, and `file-drag-ended` below reports the finish. The
+      // window is raised to the foreground natively, on the same thread that
+      // begins the drag, so no focus round-trip is needed first.
       await invoke('start_file_drag', { path: item.path })
     } catch (err) {
       console.error('shelf: could not start file drag', err)
-    } finally {
       window.dispatchEvent(new CustomEvent<boolean>('native-file-drag', { detail: false }))
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!isTauri()) return
+    let unlisten: (() => void) | undefined
+    let cancelled = false
+
+    listen('file-drag-ended', () => {
+      window.dispatchEvent(new CustomEvent<boolean>('native-file-drag', { detail: false }))
+    })
+      .then((fn) => {
+        if (cancelled) fn()
+        else unlisten = fn
+      })
+      .catch((err) => console.error('shelf: could not watch drag end', err))
+
+    return () => {
+      cancelled = true
+      unlisten?.()
     }
   }, [])
 

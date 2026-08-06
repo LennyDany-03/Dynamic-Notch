@@ -70,7 +70,9 @@ export default function FileShelf({ shelf }: { shelf: FileShelfState }) {
                 type="button"
                 title={`${item.path}\n\nDrag to another app · click to open · right-click to remove`}
                 onPointerDown={(event) => {
-                  if (event.button === 0) pointerOrigin.current = { x: event.clientX, y: event.clientY }
+                  if (event.button !== 0) return
+                  nativeDragStarted.current = false
+                  pointerOrigin.current = { x: event.clientX, y: event.clientY }
                 }}
                 onPointerMove={(event) => {
                   const origin = pointerOrigin.current
@@ -78,11 +80,12 @@ export default function FileShelf({ shelf }: { shelf: FileShelfState }) {
                   // Preserve a normal click-to-open; hand off only after the
                   // pointer has moved far enough to be an intentional drag.
                   if (Math.hypot(event.clientX - origin.x, event.clientY - origin.y) < 5) return
+                  // The shell owns the mouse from here. This stays set until the
+                  // next press, so the release that ends the drag is not read as
+                  // a click that would open the file.
                   nativeDragStarted.current = true
-                  startDrag(item).finally(() => {
-                    pointerOrigin.current = null
-                    window.setTimeout(() => { nativeDragStarted.current = false }, 0)
-                  })
+                  pointerOrigin.current = null
+                  startDrag(item)
                 }}
                 onPointerUp={() => { pointerOrigin.current = null }}
                 onClick={() => {
