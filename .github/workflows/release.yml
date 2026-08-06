@@ -1,0 +1,84 @@
+# Builds Crest, signs it with the updater key, and publishes a GitHub Release
+# containing the installer, its `.sig`, and the `latest.json` manifest that
+# installed copies poll.
+#
+# Tag-triggered, not push-triggered, and deliberately so: every run of this
+# workflow is an update prompt on a customer's machine. Commits are for us; tags
+# are for them.
+#
+#   1. bump `version` in product/src-tauri/tauri.conf.json  (this is the number
+#      the updater compares — nothing else in the repo decides it)
+#   2. git commit
+#   3. git tag v0.2.0 && git push origin main --tags
+#
+# Required repository secrets (Settings → Secrets and variables → Actions):
+#   TAURI_SIGNING_PRIVATE_KEY           contents of ~/.tauri/crest.key
+#   TAURI_SIGNING_PRIVATE_KEY_PASSWORD  the key's password ("" if none)
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  # Lets you re-run a failed publish from the Actions tab without moving a tag.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to build and publish (e.g. v0.2.0)'
+        required: true
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    # tauri-action creates the release and uploads assets, both of which are
+    # writes to the repository.
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: product/package-lock.json
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      # A cold Rust build of this app is ~10 minutes; cached it is ~2.
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: product/src-tauri
+
+      - name: Install frontend dependencies
+        working-directory: product
+        run: npm ci
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          projectPath: product
+          tagName: ${{ github.event.inputs.tag || github.ref_name }}
+          releaseName: 'Crest __VERSION__'
+          releaseBody: 'See the assets below to download and install this version.'
+          # Published immediately — a draft release is not reachable at the
+          # `releases/latest/download/latest.json` URL the app polls, so leaving
+          # it drafted would silently ship nothing.
+          releaseDraft: false
+          prerelease: false
+          # `bundle.targets` is "all", so Windows produces both a .msi and an NSIS
+          # -setup.exe and the action has to pick one for latest.json. It defaults
+          # to the .msi, which is the wrong half: NSIS is the bundle this app
+          # customizes, and .msi updates prompt for admin on every install.
+          updaterJsonPreferNsis: true
+          # Windows only for now; add `macos-latest` / `ubuntu-22.04` to a matrix
+          # here when there is something to ship on them.
+          args: --target x86_64-pc-windows-msvc

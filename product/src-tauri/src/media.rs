@@ -1,13 +1,13 @@
 use base64::{engine::general_purpose, Engine as _};
 use serde::Serialize;
 use windows::core::Interface;
+use windows::Foundation::TimeSpan;
 use windows::Media::Control::{
     GlobalSystemMediaTransportControlsSessionManager,
     GlobalSystemMediaTransportControlsSessionMediaProperties,
     GlobalSystemMediaTransportControlsSessionPlaybackStatus,
 };
 use windows::Storage::Streams::{DataReader, IRandomAccessStream};
-use windows::Foundation::TimeSpan;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -27,7 +27,9 @@ fn timespan_to_ms(ts: TimeSpan) -> u64 {
     (ts.Duration.unsigned_abs() / 10_000) as u64
 }
 
-fn read_thumbnail(props: &GlobalSystemMediaTransportControlsSessionMediaProperties) -> Option<String> {
+fn read_thumbnail(
+    props: &GlobalSystemMediaTransportControlsSessionMediaProperties,
+) -> Option<String> {
     let thumb = props.Thumbnail().ok()?;
     let stream: IRandomAccessStream = thumb.OpenReadAsync().ok()?.get().ok()?.cast().ok()?;
     let size = stream.Size().ok()? as u32;
@@ -66,16 +68,12 @@ pub async fn get_current_media() -> Result<MediaInfo, String> {
     let artist = props.Artist().map(|s| s.to_string()).unwrap_or_default();
     let album_art_base64 = read_thumbnail(&props);
 
-    let timeline = session
-        .GetTimelineProperties()
-        .map_err(|e| e.to_string())?;
+    let timeline = session.GetTimelineProperties().map_err(|e| e.to_string())?;
 
     let progress_ms = timespan_to_ms(timeline.Position().unwrap_or(TimeSpan { Duration: 0 }));
     let duration_ms = timespan_to_ms(timeline.EndTime().unwrap_or(TimeSpan { Duration: 0 }));
 
-    let playback = session
-        .GetPlaybackInfo()
-        .map_err(|e| e.to_string())?;
+    let playback = session.GetPlaybackInfo().map_err(|e| e.to_string())?;
 
     let is_playing = playback
         .PlaybackStatus()

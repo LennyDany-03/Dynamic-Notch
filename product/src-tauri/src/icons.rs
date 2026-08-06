@@ -69,7 +69,10 @@ fn extract(path: &str) -> Option<String> {
             // one, so a tile never shows a blurred 32px icon stretched to 64.
             let bitmap = factory
                 .GetImage(
-                    SIZE { cx: ICON_PX, cy: ICON_PX },
+                    SIZE {
+                        cx: ICON_PX,
+                        cy: ICON_PX,
+                    },
                     SIIGBF_ICONONLY | SIIGBF_BIGGERSIZEOK,
                 )
                 .ok()?;
@@ -122,7 +125,12 @@ unsafe fn encode_png(bitmap: windows::Win32::Graphics::Gdi::HBITMAP) -> Option<S
 
     let mut dib = DIBSECTION::default();
     let wanted = std::mem::size_of::<DIBSECTION>() as i32;
-    if GetObjectW(HGDIOBJ(bitmap.0), wanted, Some(&mut dib as *mut _ as *mut _)) != wanted {
+    if GetObjectW(
+        HGDIOBJ(bitmap.0),
+        wanted,
+        Some(&mut dib as *mut _ as *mut _),
+    ) != wanted
+    {
         return None;
     }
 
@@ -206,7 +214,9 @@ mod tests {
         let payload = icon.trim_start_matches("data:image/png;base64,");
         let bytes = {
             use base64::{engine::general_purpose, Engine as _};
-            general_purpose::STANDARD.decode(payload).expect("valid base64")
+            general_purpose::STANDARD
+                .decode(payload)
+                .expect("valid base64")
         };
         assert_eq!(&bytes[..8], b"\x89PNG\r\n\x1a\n", "not a PNG");
 
@@ -233,7 +243,10 @@ mod tests {
     #[test]
     fn extracts_packaged_app_icons() {
         let apps = crate::launcher::scan_apps_folder().unwrap_or_default();
-        assert!(!apps.is_empty(), "AppsFolder returned nothing to test against");
+        assert!(
+            !apps.is_empty(),
+            "AppsFolder returned nothing to test against"
+        );
 
         let sample: Vec<_> = apps.iter().take(8).collect();
         let resolved = sample

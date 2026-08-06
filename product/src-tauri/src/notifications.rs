@@ -18,7 +18,8 @@ pub async fn get_windows_notifications() -> Result<Vec<WinNotification>, String>
     let listener = UserNotificationListener::Current()
         .map_err(|e| format!("Failed to get listener: {}", e))?;
 
-    let access_status = listener.GetAccessStatus()
+    let access_status = listener
+        .GetAccessStatus()
         .map_err(|e| format!("Failed to get access status: {}", e))?;
 
     if access_status != UserNotificationListenerAccessStatus::Allowed {
@@ -30,7 +31,8 @@ pub async fn get_windows_notifications() -> Result<Vec<WinNotification>, String>
     }
 
     // Refresh access status
-    let access_status = listener.GetAccessStatus()
+    let access_status = listener
+        .GetAccessStatus()
         .map_err(|e| format!("Failed to get access status: {}", e))?;
 
     if access_status != UserNotificationListenerAccessStatus::Allowed {
@@ -45,8 +47,11 @@ pub async fn get_windows_notifications() -> Result<Vec<WinNotification>, String>
 
     let mut result = Vec::new();
     for notification in notifications {
-        let id = notification.Id().map(|id| id.to_string()).unwrap_or_default();
-        
+        let id = notification
+            .Id()
+            .map(|id| id.to_string())
+            .unwrap_or_default();
+
         let app = notification
             .AppInfo()
             .and_then(|info| info.DisplayInfo())
@@ -55,9 +60,15 @@ pub async fn get_windows_notifications() -> Result<Vec<WinNotification>, String>
             .unwrap_or_else(|_| "Unknown".to_string());
 
         let mut message = String::new();
-        if let Ok(toast_binding) = notification.Notification().and_then(|n| n.Visual()).and_then(|v| {
-            v.GetBinding(&windows::UI::Notifications::KnownNotificationBindings::ToastGeneric()?)
-        }) {
+        if let Ok(toast_binding) = notification
+            .Notification()
+            .and_then(|n| n.Visual())
+            .and_then(|v| {
+                v.GetBinding(
+                    &windows::UI::Notifications::KnownNotificationBindings::ToastGeneric()?,
+                )
+            })
+        {
             if let Ok(text_elements) = toast_binding.GetTextElements() {
                 let mut texts = Vec::new();
                 for text in text_elements {
@@ -93,10 +104,11 @@ pub async fn get_windows_notifications() -> Result<Vec<WinNotification>, String>
 pub async fn dismiss_notification(id: u32) -> Result<(), String> {
     let listener = UserNotificationListener::Current()
         .map_err(|e| format!("Failed to get listener: {}", e))?;
-        
-    listener.RemoveNotification(id)
+
+    listener
+        .RemoveNotification(id)
         .map_err(|e| format!("Failed to remove notification {}: {}", id, e))?;
-        
+
     Ok(())
 }
 
@@ -104,19 +116,19 @@ pub async fn dismiss_notification(id: u32) -> Result<(), String> {
 pub async fn clear_all_notifications() -> Result<(), String> {
     let listener = UserNotificationListener::Current()
         .map_err(|e| format!("Failed to get listener: {}", e))?;
-        
+
     let notifications = listener
         .GetNotificationsAsync(NotificationKinds::Toast)
         .map_err(|e| format!("Failed to get notifications: {}", e))?
         .get()
         .map_err(|e| format!("Failed to await notifications: {}", e))?;
-        
+
     for notification in notifications {
         if let Ok(id) = notification.Id() {
             let _ = listener.RemoveNotification(id);
         }
     }
-    
+
     Ok(())
 }
 
@@ -136,4 +148,3 @@ mod tests {
         }
     }
 }
-

@@ -24,7 +24,10 @@ pub async fn start_file_drag(
     }
 
     // HWND holds a raw pointer and is not `Send`; carry it across as an integer.
-    let hwnd = window.hwnd().map_err(|e| format!("no window handle: {e}"))?.0 as isize;
+    let hwnd = window
+        .hwnd()
+        .map_err(|e| format!("no window handle: {e}"))?
+        .0 as isize;
     let done = app.clone();
 
     // SHDoDragDrop runs a modal loop that takes over the mouse, and OLE only
@@ -52,8 +55,8 @@ fn drag_on_main_thread(hwnd: isize, path: &str) -> Result<(), String> {
     };
     use windows::Win32::UI::Shell::Common::ITEMIDLIST;
     use windows::Win32::UI::Shell::{
-        IShellItemArray, SHCreateShellItemArrayFromIDLists, SHDoDragDrop, SHParseDisplayName,
-        BHID_DataObject,
+        BHID_DataObject, IShellItemArray, SHCreateShellItemArrayFromIDLists, SHDoDragDrop,
+        SHParseDisplayName,
     };
     use windows::Win32::UI::WindowsAndMessaging::SetForegroundWindow;
 

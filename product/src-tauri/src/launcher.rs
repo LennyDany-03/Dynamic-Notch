@@ -1,9 +1,9 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fs;
+use std::path::{Path, PathBuf};
 #[cfg(windows)]
 use std::process::Stdio;
-use std::path::{Path, PathBuf};
 #[cfg(windows)]
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Manager};
@@ -80,7 +80,7 @@ unsafe fn display_name(
 pub(crate) fn scan_apps_folder() -> Option<Vec<AppEntry>> {
     use windows::core::w;
     use windows::Win32::UI::Shell::{
-        IEnumShellItems, IShellItem, SHCreateItemFromParsingName, BHID_EnumItems,
+        BHID_EnumItems, IEnumShellItems, IShellItem, SHCreateItemFromParsingName,
         SIGDN_NORMALDISPLAY, SIGDN_PARENTRELATIVEPARSING,
     };
 
@@ -110,7 +110,9 @@ pub(crate) fn scan_apps_folder() -> Option<Vec<AppEntry>> {
                 for slot in batch.iter_mut().take(fetched as usize) {
                     let Some(item) = slot.take() else { continue };
 
-                    let Some(name) = display_name(&item, SIGDN_NORMALDISPLAY) else { continue };
+                    let Some(name) = display_name(&item, SIGDN_NORMALDISPLAY) else {
+                        continue;
+                    };
                     if name.trim().is_empty() || is_noise(&name) {
                         continue;
                     }
@@ -283,10 +285,16 @@ fn scan_registered_apps() -> Vec<AppEntry> {
     use std::os::windows::process::CommandExt;
 
     let output = std::process::Command::new("reg.exe")
-        .args(["query", r"HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths", "/s"])
+        .args([
+            "query",
+            r"HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths",
+            "/s",
+        ])
         .creation_flags(CREATE_NO_WINDOW)
         .output();
-    let Ok(output) = output else { return Vec::new() };
+    let Ok(output) = output else {
+        return Vec::new();
+    };
 
     let mut apps = Vec::new();
     let mut current_name: Option<String> = None;
@@ -303,14 +311,23 @@ fn scan_registered_apps() -> Vec<AppEntry> {
         if !trimmed.starts_with("(Default)") {
             continue;
         }
-        let Some(name) = current_name.clone() else { continue };
-        let Some((_, value)) = trimmed.split_once("REG_SZ")
-            .or_else(|| trimmed.split_once("REG_EXPAND_SZ")) else { continue };
+        let Some(name) = current_name.clone() else {
+            continue;
+        };
+        let Some((_, value)) = trimmed
+            .split_once("REG_SZ")
+            .or_else(|| trimmed.split_once("REG_EXPAND_SZ"))
+        else {
+            continue;
+        };
         let path = value.trim().trim_matches('"');
         if path.is_empty() || !PathBuf::from(path).exists() {
             continue;
         }
-        apps.push(AppEntry { name, path: path.to_string() });
+        apps.push(AppEntry {
+            name,
+            path: path.to_string(),
+        });
     }
     apps
 }
@@ -326,19 +343,34 @@ fn scan_known_apps() -> Vec<AppEntry> {
     let mut candidates: Vec<(String, PathBuf)> = Vec::new();
     if let Ok(local) = std::env::var("LOCALAPPDATA") {
         let local = PathBuf::from(local);
-        candidates.push(("Visual Studio Code".to_string(), local.join(r"Programs\Microsoft VS Code\Code.exe")));
-        candidates.push(("Spotify".to_string(), local.join(r"Microsoft\WindowsApps\Spotify.exe")));
+        candidates.push((
+            "Visual Studio Code".to_string(),
+            local.join(r"Programs\Microsoft VS Code\Code.exe"),
+        ));
+        candidates.push((
+            "Spotify".to_string(),
+            local.join(r"Microsoft\WindowsApps\Spotify.exe"),
+        ));
     }
     if let Ok(appdata) = std::env::var("APPDATA") {
-        candidates.push(("Spotify".to_string(), PathBuf::from(appdata).join(r"Spotify\Spotify.exe")));
+        candidates.push((
+            "Spotify".to_string(),
+            PathBuf::from(appdata).join(r"Spotify\Spotify.exe"),
+        ));
     }
     if let Ok(program_files) = std::env::var("ProgramFiles") {
-        candidates.push(("Visual Studio Code".to_string(), PathBuf::from(program_files).join(r"Microsoft VS Code\Code.exe")));
+        candidates.push((
+            "Visual Studio Code".to_string(),
+            PathBuf::from(program_files).join(r"Microsoft VS Code\Code.exe"),
+        ));
     }
     candidates
         .into_iter()
         .filter(|(_, path)| path.exists())
-        .map(|(name, path)| AppEntry { name, path: path.to_string_lossy().to_string() })
+        .map(|(name, path)| AppEntry {
+            name,
+            path: path.to_string_lossy().to_string(),
+        })
         .collect()
 }
 
@@ -402,7 +434,9 @@ fn read_cache(app: &AppHandle) -> Option<(Vec<AppEntry>, bool)> {
 
 fn write_cache(app: &AppHandle, apps: &[AppEntry]) {
     let Ok(path) = cache_path(app) else { return };
-    let Ok(payload) = serde_json::to_string(apps) else { return };
+    let Ok(payload) = serde_json::to_string(apps) else {
+        return;
+    };
     let tmp = path.with_extension("json.tmp");
     if fs::write(&tmp, payload).is_ok() {
         let _ = fs::rename(&tmp, &path);
@@ -518,12 +552,24 @@ mod tests {
         let com = scan_apps_folder().expect("AppsFolder should enumerate");
         let powershell = scan_start_apps().expect("Get-StartApps should run");
 
-        assert!(com.len() >= powershell.len() * 9 / 10, "COM found far fewer apps: {} vs {}", com.len(), powershell.len());
+        assert!(
+            com.len() >= powershell.len() * 9 / 10,
+            "COM found far fewer apps: {} vs {}",
+            com.len(),
+            powershell.len()
+        );
 
         // Same launch ids, not just the same count.
         let ids: HashSet<&str> = com.iter().map(|a| a.path.as_str()).collect();
-        let missing = powershell.iter().filter(|a| !ids.contains(a.path.as_str())).count();
-        assert!(missing <= powershell.len() / 10, "{missing} of {} Start Menu apps missing", powershell.len());
+        let missing = powershell
+            .iter()
+            .filter(|a| !ids.contains(a.path.as_str()))
+            .count();
+        assert!(
+            missing <= powershell.len() / 10,
+            "{missing} of {} Start Menu apps missing",
+            powershell.len()
+        );
     }
 
     /// The reason this module stopped shelling out to PowerShell. Generous

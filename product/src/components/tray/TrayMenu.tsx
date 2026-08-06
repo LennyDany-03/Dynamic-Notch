@@ -11,7 +11,7 @@ import type { NotchModule } from '../../types/notch'
  * measure exactly CARD_W × CARD_H or the transparent margin around it changes and
  * the popup stops sitting flush against the taskbar.
  *
- *   6 + 40 + 9 + 34 + 9 + (34×3) + 9 + 34 + 9 + 34 + 6 = 292
+ *   6 + 40 + 9 + 34 + 9 + (34×3) + 9 + (34×2) + 9 + 34 + 6 = 326
  */
 const CARD_W = 248
 const ROW_H = 34
@@ -25,7 +25,30 @@ type Action =
   | { kind: 'show' }
   | { kind: 'module'; module: NotchModule }
   | { kind: 'autostart' }
+  | { kind: 'update' }
   | { kind: 'quit' }
+
+/** Mirrors `UpdateInfo` in `src-tauri/src/updater.rs`. */
+interface UpdateInfo {
+  version: string
+  notes: string | null
+}
+
+/**
+ * The update row is a single button that walks a small state machine, because a
+ * tray popup has no room for a dialog: idle → checking → up to date, or idle →
+ * checking → available → downloading, with a second click spending `available`.
+ *
+ * `percent: null` covers a server that sent no content-length — there is nothing
+ * honest to show but "working on it".
+ */
+type UpdateState =
+  | { kind: 'idle' }
+  | { kind: 'checking' }
+  | { kind: 'upToDate' }
+  | { kind: 'available'; version: string }
+  | { kind: 'downloading'; percent: number | null }
+  | { kind: 'error' }
 
 interface Row {
   id: string
@@ -115,6 +138,18 @@ const GROUPS: Row[][] = [
         </Icon>
       ),
     },
+    {
+      id: 'update',
+      label: 'Check for updates',
+      action: { kind: 'update' },
+      icon: (
+        <Icon>
+          <path d="M12 3v12" />
+          <path d="M7 10l5 5 5-5" />
+          <path d="M4 20h16" />
+        </Icon>
+      ),
+    },
   ],
   [
     {
@@ -132,6 +167,33 @@ const GROUPS: Row[][] = [
     },
   ],
 ]
+
+/**
+ * Row label and right-hand status for the current update state.
+ *
+ * The label carries the verb so the row always says what a click will do, and the
+ * status carries the result — "Check for updates / Up to date" rather than a row
+ * that renames itself to a dead end.
+ */
+function updateRowText(state: UpdateState): { label: string; status: string | null } {
+  switch (state.kind) {
+    case 'checking':
+      return { label: 'Check for updates', status: 'Checking…' }
+    case 'upToDate':
+      return { label: 'Check for updates', status: 'Up to date' }
+    case 'available':
+      return { label: `Update to ${state.version}`, status: 'Install' }
+    case 'downloading':
+      return {
+        label: 'Downloading update',
+        status: state.percent === null ? 'Starting…' : `${state.percent}%`,
+      }
+    case 'error':
+      return { label: 'Check for updates', status: 'Failed' }
+    case 'idle':
+      return { label: 'Check for updates', status: null }
+  }
+}
 
 function Separator() {
   return (
@@ -154,6 +216,7 @@ export default function TrayMenu() {
   const [hovered, setHovered] = useState<string | null>(null)
   const [autostart, setAutostart] = useState(false)
   const [version, setVersion] = useState('')
+  const [update, setUpdate] = useState<UpdateState>({ kind: 'idle' })
 
   const close = useCallback(() => {
     void invoke('tray_menu_close')
@@ -171,6 +234,20 @@ export default function TrayMenu() {
       // Autostart can be changed from outside the app, so re-read it per open
       // rather than trusting the last value written here.
       void invoke<boolean>('tray_autostart_enabled').then(setAutostart)
+      // A finished result is stale by the next open — a check from an hour ago
+      // says nothing about now. Work in flight is left alone.
+      setUpdate((prev) =>
+        prev.kind === 'upToDate' || prev.kind === 'error' ? { kind: 'idle' } : prev,
+      )
+    })
+    return () => {
+      void pending.then((unlisten) => unlisten())
+    }
+  }, [])
+
+  useEffect(() => {
+    const pending = listen<number>('updater-progress', (event) => {
+      setUpdate({ kind: 'downloading', percent: event.payload })
     })
     return () => {
       void pending.then((unlisten) => unlisten())
@@ -197,6 +274,24 @@ export default function TrayMenu() {
         // Stays open: toggling a setting is not a "pick one and dismiss" action,
         // and closing would hide the state change the user just made.
         void invoke<boolean>('tray_set_autostart', { enabled: !autostart }).then(setAutostart)
+        break
+      case 'update':
+        // Also stays open — the whole point of the row is the status it reports.
+        if (update.kind === 'checking' || update.kind === 'downloading') break
+
+        if (update.kind === 'available') {
+          setUpdate({ kind: 'downloading', percent: null })
+          // Never resolves on success: the installer replaces this process.
+          void invoke('updater_install').catch(() => setUpdate({ kind: 'error' }))
+          break
+        }
+
+        setUpdate({ kind: 'checking' })
+        void invoke<UpdateInfo | null>('updater_check')
+          .then((info) =>
+            setUpdate(info ? { kind: 'available', version: info.version } : { kind: 'upToDate' }),
+          )
+          .catch(() => setUpdate({ kind: 'error' }))
         break
       case 'quit':
         void invoke('tray_quit')
@@ -271,6 +366,7 @@ export default function TrayMenu() {
               {group.map((row) => {
                 const isHovered = hovered === row.id
                 const tint = row.danger ? color.fileRed : color.text.strong
+                const updateText = row.action.kind === 'update' ? updateRowText(update) : null
 
                 return (
                   <button
@@ -302,7 +398,22 @@ export default function TrayMenu() {
                     <span style={{ color: isHovered ? tint : color.text.icon, display: 'flex' }}>
                       {row.icon}
                     </span>
-                    <span style={{ flex: 1, minWidth: 0 }}>{row.label}</span>
+                    <span style={{ flex: 1, minWidth: 0 }}>{updateText?.label ?? row.label}</span>
+
+                    {updateText?.status && (
+                      <span
+                        style={{
+                          flex: 'none',
+                          fontSize: 11,
+                          fontWeight: 500,
+                          // Accent only for the one state that wants a click.
+                          color:
+                            update.kind === 'available' ? color.accent : color.text.muted,
+                        }}
+                      >
+                        {updateText.status}
+                      </span>
+                    )}
 
                     {row.action.kind === 'autostart' && (
                       /* Track + knob, sized so the row height is unchanged. */

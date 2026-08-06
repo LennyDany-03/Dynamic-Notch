@@ -52,8 +52,7 @@ pub fn read_notes(app: AppHandle) -> Result<NotesFile, String> {
 #[tauri::command]
 pub fn write_notes(app: AppHandle, notes: Vec<Note>) -> Result<(), String> {
     let path = notes_path(&app)?;
-    let payload =
-        serde_json::to_string_pretty(&NotesFile { notes }).map_err(|e| e.to_string())?;
+    let payload = serde_json::to_string_pretty(&NotesFile { notes }).map_err(|e| e.to_string())?;
 
     // Write-then-rename so an interrupted save cannot truncate the existing file.
     // This runs on every autosave debounce, so a partial write is a real risk.

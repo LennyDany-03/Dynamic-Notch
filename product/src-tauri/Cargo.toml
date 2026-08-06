@@ -49,3 +49,6 @@ windows = { version = "0.58", features = [
   # Launcher icons arrive as HBITMAP DIB sections.
   "Win32_Graphics_Gdi",
 ] }
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-updater = "2"

@@ -34,7 +34,7 @@
         "label": "tray-menu",
         "title": "",
         "width": 272,
-        "height": 316,
+        "height": 350,
         "decorations": false,
         "transparent": true,
         "alwaysOnTop": true,
@@ -49,9 +49,21 @@
       "csp": null
     }
   },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://github.com/LennyDany-03/Dynamic-Notch/releases/latest/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDk5MjE3ODkyNDNEN0I4OTkKUldTWnVOZERrbmdobVgzSTlCNG1JdWhtRGpXUHAyZFRhVXcyOHZNd2kwSnVnRlNiVUhkOXBCVlYK",
+      "windows": {
+        "installMode": "passive"
+      }
+    }
+  },
   "bundle": {
     "active": true,
     "targets": "all",
+    "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

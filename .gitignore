@@ -24,6 +24,11 @@
 .DS_Store
 *.pem
 
+# Tauri updater signing keys. The private key must never reach the repo — anyone
+# holding it can sign an "update" that every installed copy will accept.
+*.key
+.tauri/
+
 # debug
 npm-debug.log*
 yarn-debug.log*

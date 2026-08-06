@@ -6,9 +6,10 @@ mod notes;
 mod notifications;
 mod shelf;
 mod tray;
+mod updater;
 
-use tauri::Manager;
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
+use tauri::Manager;
 use tauri_plugin_autostart::MacosLauncher;
 use tauri_plugin_autostart::ManagerExt;
 
@@ -44,7 +45,12 @@ pub fn run() {
     }
 
     tauri::Builder::default()
-        .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None))
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .manage(updater::PendingUpdate::default())
+        .plugin(tauri_plugin_autostart::init(
+            MacosLauncher::LaunchAgent,
+            None,
+        ))
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             media::get_current_media,
@@ -74,6 +80,8 @@ pub fn run() {
             tray::tray_autostart_enabled,
             tray::tray_set_autostart,
             tray::tray_quit,
+            updater::updater_check,
+            updater::updater_install,
         ])
         // A popup menu must close when it loses focus, the same as the native one
         // it replaces.
@@ -97,10 +105,15 @@ pub fn run() {
                 let screen_size = monitor.size();
                 let win_size = window.outer_size()?;
                 let x = (screen_size.width as i32 - win_size.width as i32) / 2;
-                window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y: 0 }))?;
+                window.set_position(tauri::Position::Physical(tauri::PhysicalPosition {
+                    x,
+                    y: 0,
+                }))?;
             }
 
-            let icon = app.default_window_icon().cloned()
+            let icon = app
+                .default_window_icon()
+                .cloned()
                 .expect("failed to load tray icon");
 
             // No `.menu()` — a native menu cannot be styled, so the popup in
@@ -109,7 +122,13 @@ pub fn run() {
                 .icon(icon)
                 .tooltip("Crest")
                 .on_tray_icon_event(|tray, event| {
-                    let TrayIconEvent::Click { button, button_state, position, .. } = event else {
+                    let TrayIconEvent::Click {
+                        button,
+                        button_state,
+                        position,
+                        ..
+                    } = event
+                    else {
                         return;
                     };
                     // Windows reports both press and release; acting on each would
