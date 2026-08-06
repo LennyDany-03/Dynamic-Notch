@@ -24,8 +24,8 @@ const toItem = (path: string): ShelfItem => ({
  * fires — the drop arrives as a webview drag-drop event instead.
  *
  * `onDragOver` exists because of how the overlay handles input: the window is
- * click-through whenever the cursor is off content, and a 1.5s dwell is far too
- * long to hold a file at the top of the screen. Once a drag reaches the peeked
+ * click-through whenever the cursor is off content, and even an 800ms dwell is
+ * too long to hold a file at the top of the screen. Once a drag reaches the peeked
  * pill the window is accepting input, so the first drag event is used to jump
  * straight to the shelf rather than waiting the dwell out.
  *

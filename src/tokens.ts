@@ -125,7 +125,7 @@ export const spring = {
 /** Interaction timings from the master spec. */
 export const timing = {
   /** Continuous dwell in hotzone/pill before auto-expanding. */
-  dwellMs: 1500,
+  dwellMs: 600,
   /** Grace period after the cursor leaves, before stepping down a state. */
   graceMs: 300,
 } as const

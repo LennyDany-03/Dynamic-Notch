@@ -70,7 +70,7 @@ type NotchState = 'hidden' | 'peek' | 'expanded'
 ```
 
 - `hidden → peek`: cursor enters hotzone (via `useHotzone`), no delay.
-- `peek → expanded`: cursor remains in hotzone/pill for 1.5s continuous dwell (timer via `setTimeout`, cleared on `mouseleave`).
+- `peek → expanded`: cursor remains in hotzone/pill for 800ms continuous dwell (timer via `setTimeout`, cleared on `mouseleave`).
 - `expanded → peek → hidden`: cursor leaves expanded bounds, ~300-500ms grace delay before each step down, timer cleared if cursor re-enters during the grace window.
 - Which "page" is showing while `expanded` (Media / Launcher / Clipboard / Files+Notes) is a separate piece of state (`activeModule`), independent of `NotchState`, so switching modules doesn't retrigger the expand animation.
 

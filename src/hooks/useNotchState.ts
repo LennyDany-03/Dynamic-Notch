@@ -10,7 +10,7 @@ import { MODULES, type NotchModule, type NotchState } from '../types/notch'
  * them decide their own visibility.
  *
  *   hidden ──cursor enters hotzone (no delay)──▶ peek
- *   peek   ──1.5s continuous dwell────────────▶ expanded
+ *   peek   ──800ms continuous dwell───────────▶ expanded
  *   peek   ──cursor leaves, 300ms grace───────▶ hidden
  *   expanded ──cursor leaves, 300ms grace─────▶ peek ──300ms grace──▶ hidden
  *
@@ -67,7 +67,7 @@ export function useNotchState() {
       }
 
       if (state === 'peek') {
-        // Guarded so a re-render mid-dwell does not restart the 1.5s countdown.
+        // Guarded so a re-render mid-dwell does not restart the countdown.
         if (!dwellRef.current) {
           dwellRef.current = setTimeout(() => {
             dwellRef.current = null
