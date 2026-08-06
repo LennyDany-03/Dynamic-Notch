@@ -26,7 +26,6 @@ serde_json = "1"
 tokio = { version = "1", features = ["full"] }
 base64 = "0.22"
 arboard = "3"
-window-vibrancy = "0.6"
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.58", features = [
@@ -41,12 +40,5 @@ windows = { version = "0.58", features = [
   "Win32_Foundation",
   "Win32_UI_WindowsAndMessaging",
   "Win32_System_Threading",
-  # Rounded window corners, so the Mica backdrop is not a hard rectangle.
-  "Win32_Graphics_Dwm",
-  # OLE drag source, so shelf items can be dragged out into other apps.
-  "Win32_UI_Shell",
-  "Win32_UI_Shell_Common",
-  "Win32_System_Com",
-  "Win32_System_Ole",
 ] }
 

@@ -1,44 +1,47 @@
 import { useEffect, useRef, useState } from 'react'
 import { cursorPosition, getCurrentWindow, primaryMonitor } from '@tauri-apps/api/window'
 import { hotzone } from '../tokens'
+import { rectContains, type Rect } from '../types/notch'
 
 /**
  * Cursor tracking for the overlay.
  *
- * Everything here works in **physical screen pixels**. The window is resized to
- * whatever card is showing and hidden entirely when idle, so window-local
- * coordinates are not a stable frame of reference — the hotzone in particular has
- * to be detectable while the window is hidden and has no position at all.
+ * The window is click-through (`setIgnoreCursorEvents(true)`) whenever the cursor
+ * is not over actual content, so the desktop underneath stays usable. While
+ * click-through is on, the webview receives no DOM mouse events at all — which is
+ * why position has to be polled from the OS rather than read off `mousemove`.
  *
- * The window is click-through whenever the cursor is off content, so the webview
- * receives no DOM mouse events; position has to be polled from the OS.
+ * Reports two booleans:
+ *  - `inHotzone`: cursor is in the top-center trigger strip at the screen edge.
+ *  - `inContent`: cursor is inside the currently rendered content bounds.
  *
- * Reports:
- *  - `inHotzone`: cursor is in the top-centre trigger strip at the screen edge.
- *  - `inContent`: cursor is inside the notch window itself.
+ * Content bounds are passed as a getter (not a value) so that changing them does
+ * not tear down and restart the poll loop.
  */
 
 const POLL_MS = 16
-/** Monitor geometry rarely changes; the window rect changes on every resize. */
-const MONITOR_REFRESH_MS = 2000
-const WINDOW_REFRESH_MS = 200
+/** Monitor geometry and window origin change rarely; re-read them on this cadence. */
+const GEOMETRY_REFRESH_MS = 2000
 
 const isTauri = () => !!(window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__
 
-interface WindowRect {
-  x: number
-  y: number
-  width: number
-  height: number
+interface Geometry {
+  /** Device pixel ratio of the monitor. */
+  scale: number
+  /** Window origin in physical pixels. */
+  originX: number
+  originY: number
 }
 
-export function useHotzone(hasContent: () => boolean, geometryToken: { current: number }) {
+export function useHotzone(getContentRect: () => Rect | null) {
   const [inHotzone, setInHotzone] = useState(false)
   const [inContent, setInContent] = useState(false)
 
-  const hasContentRef = useRef(hasContent)
-  hasContentRef.current = hasContent
+  const getContentRectRef = useRef(getContentRect)
+  getContentRectRef.current = getContentRect
 
+  // Only push a click-through change when it actually flips, to avoid a stream of
+  // redundant IPC calls at 60Hz.
   const lastIgnoreRef = useRef<boolean | null>(null)
 
   useEffect(() => {
@@ -52,17 +55,30 @@ export function useHotzone(hasContent: () => boolean, geometryToken: { current: 
         .catch(() => {})
     }
 
+    /** Hit-test a point already converted to window-local CSS pixels. */
+    const evaluate = (localX: number, localY: number, windowWidth: number) => {
+      const centerX = windowWidth / 2
+      const hot =
+        localY >= 0 &&
+        localY <= hotzone.height &&
+        localX >= centerX - hotzone.width / 2 &&
+        localX <= centerX + hotzone.width / 2
+
+      const contentRect = getContentRectRef.current()
+      const content = contentRect ? rectContains(contentRect, localX, localY) : false
+
+      setInHotzone(hot)
+      setInContent(content)
+
+      // Accept clicks only while the cursor is genuinely over content.
+      setIgnoreEvents(!content)
+    }
+
     // ── Browser fallback ──────────────────────────────────────────────────────
+    // Lets the whole state machine be exercised with `npm run dev` in a plain
+    // browser, where the viewport stands in for the screen.
     if (!isTauri()) {
-      const onMove = (e: MouseEvent) => {
-        const centerX = window.innerWidth / 2
-        setInHotzone(
-          e.clientY >= 0 &&
-            e.clientY <= hotzone.height &&
-            Math.abs(e.clientX - centerX) <= hotzone.width / 2,
-        )
-        setInContent(hasContentRef.current() && e.clientY < window.innerHeight)
-      }
+      const onMove = (e: MouseEvent) => evaluate(e.clientX, e.clientY, window.innerWidth)
       const onLeave = () => {
         setInHotzone(false)
         setInContent(false)
@@ -76,88 +92,60 @@ export function useHotzone(hasContent: () => boolean, geometryToken: { current: 
     }
 
     // ── Tauri path ────────────────────────────────────────────────────────────
-    let scale = 1
-    let screenWidth = 0
-    let monitorReadAt = 0
+    let geometry: Geometry | null = null
+    let lastGeometryRead = 0
 
-    let windowRect: WindowRect | null = null
-    let windowReadAt = 0
-    let lastToken = -1
-
-    const readMonitor = async () => {
+    const readGeometry = async (): Promise<Geometry | null> => {
       try {
-        const monitor = await primaryMonitor()
-        if (!monitor) return
-        scale = monitor.scaleFactor || 1
-        screenWidth = monitor.size.width
+        const [monitor, position] = await Promise.all([
+          primaryMonitor(),
+          getCurrentWindow().outerPosition(),
+        ])
+        if (!monitor) return null
+        return {
+          scale: monitor.scaleFactor || 1,
+          originX: position.x,
+          originY: position.y,
+        }
       } catch {
-        /* transient; keep the previous values */
-      }
-    }
-
-    const readWindowRect = async () => {
-      try {
-        const win = getCurrentWindow()
-        const [position, size] = await Promise.all([win.outerPosition(), win.outerSize()])
-        windowRect = { x: position.x, y: position.y, width: size.width, height: size.height }
-      } catch {
-        windowRect = null
+        return null
       }
     }
 
     const tick = async () => {
       const now = Date.now()
-
-      if (now - monitorReadAt > MONITOR_REFRESH_MS || screenWidth === 0) {
-        monitorReadAt = now
-        await readMonitor()
+      if (!geometry || now - lastGeometryRead > GEOMETRY_REFRESH_MS) {
+        const next = await readGeometry()
         if (cancelled) return
+        if (next) {
+          geometry = next
+          lastGeometryRead = now
+        }
       }
-
-      // Re-read the window rect on a slow cadence, and immediately whenever the
-      // window has just been resized.
-      if (geometryToken.current !== lastToken || now - windowReadAt > WINDOW_REFRESH_MS) {
-        lastToken = geometryToken.current
-        windowReadAt = now
-        await readWindowRect()
-        if (cancelled) return
-      }
-
-      if (screenWidth === 0) return
+      if (!geometry) return
 
       try {
         const pos = await cursorPosition()
         if (cancelled) return
-
-        const centerX = screenWidth / 2
-        const hot =
-          pos.y >= 0 &&
-          pos.y <= hotzone.height * scale &&
-          Math.abs(pos.x - centerX) <= (hotzone.width / 2) * scale
-
-        const content =
-          hasContentRef.current() &&
-          windowRect !== null &&
-          pos.x >= windowRect.x &&
-          pos.x <= windowRect.x + windowRect.width &&
-          pos.y >= windowRect.y &&
-          pos.y <= windowRect.y + windowRect.height
-
-        setInHotzone(hot)
-        setInContent(content)
-        setIgnoreEvents(!content)
+        // Physical screen pixels → window-local CSS pixels.
+        const localX = (pos.x - geometry.originX) / geometry.scale
+        const localY = (pos.y - geometry.originY) / geometry.scale
+        evaluate(localX, localY, window.innerWidth)
       } catch {
         // Cursor can be unreadable transiently (e.g. during a session lock).
+        // Skip the frame rather than thrashing state.
       }
     }
 
+    // Start click-through so the transparent window never blocks the desktop.
     setIgnoreEvents(true)
+
     const interval = setInterval(tick, POLL_MS)
     return () => {
       cancelled = true
       clearInterval(interval)
     }
-  }, [geometryToken])
+  }, [])
 
   return { inHotzone, inContent }
 }
