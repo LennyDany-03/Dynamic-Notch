@@ -42,7 +42,9 @@ const EXPANDED_BOUNDS = {
 }
 
 export function cardSize(state: NotchState, module: NotchModule) {
-  return state === 'expanded' ? size[module] : size.peek
+  if (state === 'expanded') return size[module]
+  if (state === 'announce') return size.announce
+  return size.peek
 }
 
 /** Height available to module content, once the nav row is accounted for. */
@@ -63,12 +65,17 @@ export function contentRect(
 
   const centerX = windowWidth / 2
 
-  if (state === 'peek') {
+  if (state === 'peek' || state === 'announce') {
+    // The announcement banner is bigger than the pill, so it gets its own bounds
+    // rather than borrowing peek's: hovering the part of a card that is not
+    // interactive would leave the window click-through under a cursor that is
+    // plainly on top of something, and the banner would retract mid-reach.
+    const card = state === 'announce' ? size.announce : size.peek
     return {
-      x: centerX - size.peek.width / 2,
+      x: centerX - card.width / 2,
       y: CARD_TOP,
-      width: size.peek.width,
-      height: size.peek.height,
+      width: card.width,
+      height: card.height,
     }
   }
 

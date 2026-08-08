@@ -66,13 +66,14 @@ src-tauri/
 Single source of truth in `useNotchState.ts`:
 
 ```
-type NotchState = 'hidden' | 'peek' | 'expanded'
+type NotchState = 'hidden' | 'peek' | 'announce' | 'expanded'
 ```
 
 - `hidden → peek`: cursor enters hotzone (via `useHotzone`), no delay.
 - `peek → expanded`: cursor remains in hotzone/pill for 800ms continuous dwell (timer via `setTimeout`, cleared on `mouseleave`).
 - `expanded → peek → hidden`: cursor leaves expanded bounds, ~300-500ms grace delay before each step down, timer cleared if cursor re-enters during the grace window.
 - Which "page" is showing while `expanded` (Media / Launcher / Clipboard / Files+Notes) is a separate piece of state (`activeModule`), independent of `NotchState`, so switching modules doesn't retrigger the expand animation.
+- `announce(module, ms)`: `→ announce`, a banner the notch puts up by itself to report something (today, music starting), retracted after `ms`. Pinned like the tray's openings; the cursor arriving cancels the retract, and dwelling on it opens `module` as a full card.
 
 All feature components read `NotchState` and `activeModule` from context/hook — they don't independently decide whether to render or animate.
 
@@ -195,6 +196,27 @@ Each command should be added only when its corresponding feature is being built 
   anything asks whether the notch grew or shrank, and that Rust has to broadcast
   `settings-changed`, since the switch lives in a window that is not the notch and
   neither window is ever rebuilt.
+- **Music starting announces itself on its own surface, not the media card.**
+  A track beginning drops a 300×64 banner — art, title, artist, equalizer — for
+  2s and retracts it. It is a fourth `NotchState` rather than a timed `expanded`,
+  because opening the player is the wrong event: the full card is 380 wide with a
+  scrub bar and three transport buttons the user has no time to aim at, and every
+  track change would look like the app opening itself. As a state it also gets
+  the two things a card-shaped hack does not — its own hit rect from `layout.ts`
+  (so the window is interactive over exactly what is drawn) and the ordinary
+  dwell, which carries a hover through to the real media card where the controls
+  live. `announce()` is pinned like the tray's openings, since the cursor is off
+  wherever the user was working; it declines while the cursor is on the notch or
+  a card is already open, on the grounds that the notch is up and nothing is
+  being missed.
+
+  Detecting the start is `useMediaAnnounce`, keyed on app + title + artist while
+  playing, off the poll everything else reads. The consequence is that
+  `useMediaSession` can no longer stop polling while hidden — hidden is precisely
+  when this has to fire — so it drops to a 2s watch rate instead of stopping, and
+  keeps the 1s rate only while something is on screen to interpolate for. The
+  first settled poll is a baseline and never announces: music already playing
+  when the overlay launches is not something the user just started.
 - **Preferences live in `settings.json`, applied through one function.**
   `settings::apply` is the only place that maps a stored preference onto window
   state, and it runs at startup, on every change, and on every appearance — so a

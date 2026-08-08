@@ -15,6 +15,9 @@ import { MODULES, STATE_RANK, type NotchModule, type NotchState } from '../types
  *   peek   ──cursor leaves, 300ms grace───────▶ hidden
  *   expanded ──cursor leaves, 300ms grace─────▶ peek ──300ms grace──▶ hidden
  *
+ *   any resting state ──`announce()`───────────▶ announce ──2s──▶ resting
+ *   announce ──600ms dwell────────────────────▶ expanded
+ *
  * Leaving during the dwell clears the timer; re-entering during a grace window
  * cancels the step down. The step down from expanded runs one level at a time, so
  * the overlay collapses back through peek rather than vanishing.
@@ -27,6 +30,12 @@ import { MODULES, STATE_RANK, type NotchModule, type NotchState } from '../types
  *
  * `activeModule` is intentionally separate from `state`: switching modules resizes
  * the card without retriggering the expand animation.
+ *
+ * `announce` is the one way in that the user did not ask for: a banner dropped in
+ * for a moment to report something (a track starting) and then taken away again.
+ * It borrows the pin the tray uses and adds a timer, so it is still this machine
+ * deciding what happens next — the cursor reaching the banner cancels the timer
+ * and dwells through to a full card, exactly as it would on the pill.
  */
 export function useNotchState({ alwaysVisible = false }: { alwaysVisible?: boolean } = {}) {
   const [state, setState] = useState<NotchState>('hidden')
@@ -40,6 +49,10 @@ export function useNotchState({ alwaysVisible = false }: { alwaysVisible?: boole
   stateRef.current = state
   const moduleRef = useRef(activeModule)
   moduleRef.current = activeModule
+  // Read by the banner's retract timer, which is armed before the preference it
+  // has to respect can be known to have changed.
+  const restingRef = useRef(resting)
+  restingRef.current = resting
 
   const getContentRect = useCallback(
     () => contentRect(stateRef.current, moduleRef.current, window.innerWidth),
@@ -49,8 +62,14 @@ export function useNotchState({ alwaysVisible = false }: { alwaysVisible?: boole
   const { inHotzone, inContent } = useHotzone(getContentRect)
   const inside = inHotzone || inContent
 
+  // Read by `announce`, which must not put a banner on top of a cursor that is
+  // already using the notch.
+  const insideRef = useRef(inside)
+  insideRef.current = inside
+
   const dwellRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const graceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const announceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   /**
    * Set when something other than the cursor opened the notch — today, the tray
@@ -76,10 +95,27 @@ export function useNotchState({ alwaysVisible = false }: { alwaysVisible?: boole
     }
   }
 
+  /**
+   * Abandon a pending auto-retract. Called whenever the user takes the banner
+   * over — hovering it, or picking a module — after which what is on screen is
+   * theirs to close on the normal schedule, not something that snaps shut
+   * mid-read.
+   */
+  const clearAnnounce = () => {
+    if (announceRef.current) {
+      clearTimeout(announceRef.current)
+      announceRef.current = null
+      pinnedRef.current = false
+    }
+  }
+
   useEffect(() => {
     if (inside) {
-      // Any pending step down is cancelled the moment the cursor comes back.
+      // Any pending step down is cancelled the moment the cursor comes back —
+      // including the retract of a banner the cursor did not ask for, which the
+      // user has now reached for.
       clearGrace()
+      clearAnnounce()
       pinnedRef.current = false
 
       if (state === 'hidden') {
@@ -87,7 +123,9 @@ export function useNotchState({ alwaysVisible = false }: { alwaysVisible?: boole
         return
       }
 
-      if (state === 'peek') {
+      // A banner dwells through to the full card just as the pill does: reaching
+      // for something that reported a track is a request to see the rest of it.
+      if (state === 'peek' || state === 'announce') {
         // Guarded so a re-render mid-dwell does not restart the countdown.
         if (!dwellRef.current) {
           dwellRef.current = setTimeout(() => {
@@ -130,6 +168,7 @@ export function useNotchState({ alwaysVisible = false }: { alwaysVisible?: boole
     return () => {
       clearDwell()
       clearGrace()
+      clearAnnounce()
     }
   }, [])
 
@@ -186,11 +225,53 @@ export function useNotchState({ alwaysVisible = false }: { alwaysVisible?: boole
     return () => window.removeEventListener('blur', release)
   }, [])
 
-  const showModule = useCallback((module: NotchModule, options?: { pin?: boolean }) => {
-    // Selecting a module is an explicit intent to stay open, so it beats a step
-    // down that the poll loop may already have armed in the preceding frame.
+  /**
+   * Drop the banner in for `durationMs` and then take it away again: something
+   * happened that the user should see without having gone looking for it — today,
+   * a track starting to play.
+   *
+   * `module` is not what gets drawn (the banner is its own surface); it is what a
+   * dwell on the banner opens onto, so reaching for a report about music lands on
+   * the media card rather than wherever the notch was last left.
+   *
+   * Pinned like the tray's openings, and for the same reason: the cursor is
+   * wherever the user was working, so the ordinary rules would count it as
+   * "outside" and retract the banner inside the grace window rather than after
+   * its own timer.
+   *
+   * The retract goes to the floor rather than stepping down through `peek`,
+   * because there is nothing between a banner and rest — the intermediate pill
+   * would blink for a grace window on the way out and read as a second event.
+   */
+  const announce = useCallback((module: NotchModule, durationMs: number) => {
+    // Already in use, by the cursor or by a card waiting to be read. Whatever is
+    // on screen is more relevant than a report, and replacing it is worse than
+    // staying quiet — the notch is already up, so nothing is being missed.
+    if (insideRef.current || stateRef.current === 'expanded') return
+
     clearGrace()
     clearDwell()
+    clearAnnounce()
+    pinnedRef.current = true
+    setActiveModule(module)
+    setState('announce')
+
+    announceRef.current = setTimeout(() => {
+      announceRef.current = null
+      pinnedRef.current = false
+      // Only from the banner itself: a dwell may have carried it to `expanded`
+      // in the meantime, which is the user's card now and closes on their terms.
+      setState((current) => (current === 'announce' ? restingRef.current : current))
+    }, durationMs)
+  }, [])
+
+  const showModule = useCallback((module: NotchModule, options?: { pin?: boolean }) => {
+    // Selecting a module is an explicit intent to stay open, so it beats a step
+    // down that the poll loop may already have armed in the preceding frame —
+    // or an auto-retract armed before the user got involved.
+    clearGrace()
+    clearDwell()
+    clearAnnounce()
     if (options?.pin) pinnedRef.current = true
     setActiveModule(module)
     setState('expanded')
@@ -205,6 +286,7 @@ export function useNotchState({ alwaysVisible = false }: { alwaysVisible?: boole
   const cycleModule = useCallback((direction: 1 | -1) => {
     clearGrace()
     clearDwell()
+    clearAnnounce()
     setActiveModule((current) => {
       const index = MODULES.indexOf(current)
       return MODULES[(index + direction + MODULES.length) % MODULES.length]
@@ -215,5 +297,5 @@ export function useNotchState({ alwaysVisible = false }: { alwaysVisible?: boole
   const nextModule = useCallback(() => cycleModule(1), [cycleModule])
   const previousModule = useCallback(() => cycleModule(-1), [cycleModule])
 
-  return { state, activeModule, showModule, expand, nextModule, previousModule }
+  return { state, activeModule, showModule, expand, announce, nextModule, previousModule }
 }

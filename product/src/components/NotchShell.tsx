@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import CollapsedPill from './CollapsedPill'
 import ModulePlaceholder from './ModulePlaceholder'
 import NavArrows from './NavArrows'
+import MediaAnnounce from './media/MediaAnnounce'
 import MediaControls from './media/MediaControls'
 import FilesModule from './modules/FilesModule'
 import LauncherModule from './modules/LauncherModule'
@@ -59,7 +60,15 @@ export default function NotchShell({
 }: Props) {
   const { width, height } = cardSize(state, activeModule)
   const isExpanded = state === 'expanded'
+  // Music starting is the only thing that announces itself so far, so the banner
+  // is the media one. A second source would pick its surface off `activeModule`,
+  // which `announce()` already sets.
+  const isAnnouncing = state === 'announce'
   const peek = cardSize('peek', activeModule)
+
+  // What is drawn inside the card, and the key the cross-fade runs on: a change
+  // here fades one surface out and the next in without touching the card itself.
+  const surface = isExpanded ? activeModule : isAnnouncing ? 'announce' : 'peek'
 
   return (
     <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none' }}>
@@ -120,7 +129,7 @@ export default function NotchShell({
                 <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
                   <AnimatePresence initial={false}>
                     <motion.div
-                      key={isExpanded ? activeModule : 'peek'}
+                      key={surface}
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
@@ -129,6 +138,8 @@ export default function NotchShell({
                     >
                       {isExpanded ? (
                         <ModuleContent module={activeModule} session={session} shelf={shelf} />
+                      ) : isAnnouncing ? (
+                        <MediaAnnounce media={session.media} />
                       ) : (
                         <CollapsedPill session={session} />
                       )}

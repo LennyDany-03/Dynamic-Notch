@@ -3,9 +3,11 @@ import { listen } from '@tauri-apps/api/event'
 import ContextMenu, { type MenuAnchor } from './components/ContextMenu'
 import NotchShell from './components/NotchShell'
 import { useNotchState } from './hooks/useNotchState'
+import { useMediaAnnounce } from './hooks/useMediaAnnounce'
 import { useMediaSession } from './hooks/useMediaSession'
 import { useFileShelf } from './hooks/useFileShelf'
 import { useSettings } from './hooks/useSettings'
+import { timing } from './tokens'
 import { MODULES, STATE_RANK, type NotchModule, type NotchState } from './types/notch'
 
 export default function App() {
@@ -15,10 +17,11 @@ export default function App() {
   // visibility half. A notch that is actually on screen is promoted either way —
   // see the raise/settle pair in `useNotchState`.
   const { settings, loaded } = useSettings()
-  const { state, activeModule, showModule, expand, nextModule, previousModule } = useNotchState({
-    // Gated on `loaded` so the default never shows a pill it is about to retract.
-    alwaysVisible: loaded && settings.alwaysOnTop,
-  })
+  const { state, activeModule, showModule, expand, announce, nextModule, previousModule } =
+    useNotchState({
+      // Gated on `loaded` so the default never shows a pill it is about to retract.
+      alwaysVisible: loaded && settings.alwaysOnTop,
+    })
 
   // The tray popup can only ask; the state machine still owns what opens. Both
   // are pinned, because the cursor is down by the taskbar when they arrive.
@@ -35,9 +38,19 @@ export default function App() {
     }
   }, [expand, showModule])
 
-  // One poll shared by the collapsed pill and the media card. Stops entirely
-  // while hidden, so an idle notch costs nothing.
+  // One poll shared by the collapsed pill and the media card. Drops to a slow
+  // watch rate while hidden rather than stopping, so a track starting still
+  // registers with nothing on screen.
   const session = useMediaSession(state !== 'hidden')
+
+  // Starting music drops the now-playing banner in for a couple of seconds, so
+  // the notch says what is playing without being asked. The state machine still
+  // decides whether that happens — a notch the cursor is already using is left
+  // alone — and 'media' is what a hover on the banner opens onto.
+  useMediaAnnounce(
+    session,
+    useCallback(() => announce('media', timing.announceMs), [announce]),
+  )
 
   // A drag reaching the notch is an unambiguous request for the shelf, so it
   // skips the dwell timer and opens straight to it.

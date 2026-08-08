@@ -9,17 +9,24 @@ import type { MediaInfo } from '../types/media'
  * session — Spotify, browser tabs, native players — so there are no per-app
  * integrations here.
  *
- * Polling only runs while `active`, so a hidden notch costs nothing. Between
- * polls the position is interpolated locally, which keeps the scrub bar moving
- * smoothly at 1 poll/sec instead of visibly stepping.
+ * Polling never stops, but it slows down while nothing is drawn: the overlay
+ * announces a track that has just started (see `useMediaAnnounce`), and it can
+ * only notice that if it is still watching the session while hidden. `visible`
+ * therefore picks the *rate*, not whether to poll at all. Between polls the
+ * position is interpolated locally, which keeps the scrub bar moving smoothly at
+ * 1 poll/sec instead of visibly stepping; that only runs while visible, since
+ * nothing is on screen to interpolate for otherwise.
  */
 
+/** While the notch is on screen and a scrub bar is moving. */
 const POLL_MS = 1000
+/** While nothing is drawn — only fast enough to catch a track starting. */
+const WATCH_MS = 2000
 const INTERPOLATE_MS = 250
 
 const isTauri = () => !!(window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__
 
-export function useMediaSession(active: boolean) {
+export function useMediaSession(visible: boolean) {
   const [media, setMedia] = useState<MediaInfo | null>(null)
   const [loaded, setLoaded] = useState(false)
 
@@ -45,19 +52,20 @@ export function useMediaSession(active: boolean) {
     }
   }, [])
 
+  // Re-polling on the way in as well as on the interval means an opening card
+  // never shows state up to a watch interval old.
   useEffect(() => {
-    if (!active) return
     poll()
-    const id = setInterval(poll, POLL_MS)
+    const id = setInterval(poll, visible ? POLL_MS : WATCH_MS)
     return () => clearInterval(id)
-  }, [active, poll])
+  }, [visible, poll])
 
   // Re-render between polls so the interpolated position advances.
   useEffect(() => {
-    if (!active || !media?.isPlaying) return
+    if (!visible || !media?.isPlaying) return
     const id = setInterval(() => tick((n) => n + 1), INTERPOLATE_MS)
     return () => clearInterval(id)
-  }, [active, media?.isPlaying])
+  }, [visible, media?.isPlaying])
 
   const progressMs = (() => {
     if (!media) return 0

@@ -107,6 +107,13 @@ export const sectionLabel = {
  */
 export const size = {
   peek: { width: 200, height: 32 },
+  /**
+   * NOT from the design export — the export has no notification state. Sized to
+   * the content it carries (44px art, two lines of type, an equalizer) and kept
+   * deliberately short of the media card's 380: a banner that reported a track
+   * at the same width as the player would read as the player opening itself.
+   */
+  announce: { width: 300, height: 64 },
   media: { width: 380, height: 164 },
   launcher: { width: 400, height: 346 },
   files: { width: 440, height: 206 },
@@ -128,6 +135,14 @@ export const timing = {
   dwellMs: 600,
   /** Grace period after the cursor leaves, before stepping down a state. */
   graceMs: 300,
+  /**
+   * How long a card the user did not open stays up before retracting — today,
+   * the media card announcing a track that has just started playing.
+   *
+   * Long enough to read a title and reach for the notch, short enough that it
+   * reads as a notification rather than the overlay opening itself.
+   */
+  announceMs: 2000,
 } as const
 
 /** Top-center trigger strip at the very top edge of the screen, in CSS px. */

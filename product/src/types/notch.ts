@@ -1,5 +1,13 @@
-/** Visibility state machine. Single source of truth lives in `useNotchState`. */
-export type NotchState = 'hidden' | 'peek' | 'expanded'
+/**
+ * Visibility state machine. Single source of truth lives in `useNotchState`.
+ *
+ * `announce` is the one state the cursor never asks for: a banner the notch drops
+ * in by itself to report something (music starting) and retracts on a timer. It
+ * sits between the pill and a full card in every sense — bigger than `peek`,
+ * smaller and shorter-lived than `expanded` — and hovering it dwells through to
+ * `expanded` exactly as hovering the pill does.
+ */
+export type NotchState = 'hidden' | 'peek' | 'announce' | 'expanded'
 
 /**
  * How much of the notch each state puts on screen, so callers can compare two
@@ -12,7 +20,8 @@ export type NotchState = 'hidden' | 'peek' | 'expanded'
 export const STATE_RANK: Record<NotchState, number> = {
   hidden: 0,
   peek: 1,
-  expanded: 2,
+  announce: 2,
+  expanded: 3,
 }
 
 /**
