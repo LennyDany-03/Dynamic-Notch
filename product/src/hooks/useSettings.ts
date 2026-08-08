@@ -11,18 +11,32 @@ export interface Settings {
   alwaysOnTop: boolean
   notifications: boolean
   muteWindowsBanners: boolean
+  /** Opacity of every Mica surface, as a percentage. See `useSurfaceOpacity`. */
+  backgroundOpacity: number
 }
 
 /**
  * Matches the Rust defaults. Spread over whatever comes back from disk so a field
  * added on the Rust side but missing from an old file still renders something,
  * and so the browser fallback (where `invoke` rejects) has a coherent state.
+ *
+ * `backgroundOpacity` has a third copy in `index.css` (the `--mica-alpha`
+ * fallback); all three have to agree or the surface visibly corrects itself once
+ * the real value lands.
  */
 const DEFAULTS: Settings = {
   alwaysOnTop: true,
   notifications: true,
   muteWindowsBanners: false,
+  backgroundOpacity: 92,
 }
+
+/**
+ * Bounds for the opacity slider. Mirrors `OPACITY_MIN`/`OPACITY_MAX` in
+ * `settings.rs`, which clamps anyway — this is so the control cannot ask for a
+ * value it would be handed back a different answer for.
+ */
+export const OPACITY = { min: 60, max: 100, step: 2 } as const
 
 /**
  * The settings window's state. Rust owns the file and the window flags; this only
@@ -82,41 +96,69 @@ export function useSettings() {
   /**
    * Optimistic write, reconciled against what Rust reports actually reaching.
    *
+   * `args` is passed separately from the value because the commands name their
+   * parameter after what it is (`enabled`, `percent`), and the returned value is
+   * not always the one asked for — an out-of-range opacity comes back clamped.
+   *
    * The failure message comes from Rust when it has one to give: refusing to
    * silence Windows' banners is a decision with a reason ("nothing would show
    * them"), and "Couldn't save that setting" would throw the reason away.
    */
   const write = useCallback(
-    <K extends keyof Settings>(command: string, key: K, enabled: boolean) => {
-      setSettings((prev) => ({ ...prev, [key]: enabled }))
+    <K extends keyof Settings>(
+      command: string,
+      key: K,
+      value: Settings[K],
+      args: Record<string, unknown>,
+    ) => {
+      setSettings((prev) => ({ ...prev, [key]: value }))
       setError(null)
 
-      void invoke<boolean>(command, { enabled })
+      void invoke<Settings[K]>(command, args)
         .then((reached) => setSettings((prev) => ({ ...prev, [key]: reached })))
         .catch((reason) => {
-          setSettings((prev) => ({ ...prev, [key]: !enabled }))
           setError(typeof reason === 'string' && reason ? reason : "Couldn't save that setting.")
+          // Re-read rather than invert the request. Rust only updates its
+          // in-memory copy once the change has landed, so a refused write leaves
+          // the authoritative value sitting there — and a numeric preference has
+          // no inverse to guess at in the first place.
+          read()
         })
     },
-    [],
+    [read],
   )
 
   const setAlwaysOnTop = useCallback(
-    (enabled: boolean) => write('set_always_on_top', 'alwaysOnTop', enabled),
+    (enabled: boolean) => write('set_always_on_top', 'alwaysOnTop', enabled, { enabled }),
     [write],
   )
 
   const setNotifications = useCallback(
-    (enabled: boolean) => write('set_notifications', 'notifications', enabled),
+    (enabled: boolean) => write('set_notifications', 'notifications', enabled, { enabled }),
     [write],
   )
 
   const setMuteWindowsBanners = useCallback(
-    (enabled: boolean) => write('set_mute_windows_banners', 'muteWindowsBanners', enabled),
+    (enabled: boolean) =>
+      write('set_mute_windows_banners', 'muteWindowsBanners', enabled, { enabled }),
     [write],
   )
 
-  return { settings, loaded, error, setAlwaysOnTop, setNotifications, setMuteWindowsBanners }
+  const setBackgroundOpacity = useCallback(
+    (percent: number) =>
+      write('set_background_opacity', 'backgroundOpacity', percent, { percent }),
+    [write],
+  )
+
+  return {
+    settings,
+    loaded,
+    error,
+    setAlwaysOnTop,
+    setNotifications,
+    setMuteWindowsBanners,
+    setBackgroundOpacity,
+  }
 }
 
 /**

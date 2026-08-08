@@ -7,6 +7,7 @@ import { useMediaAnnounce } from './hooks/useMediaAnnounce'
 import { useMediaSession } from './hooks/useMediaSession'
 import { useFileShelf } from './hooks/useFileShelf'
 import { useSettings } from './hooks/useSettings'
+import { useSurfaceOpacity } from './hooks/useSurfaceOpacity'
 import { useWindowsNotifications } from './hooks/useWindowsNotifications'
 import { timing } from './tokens'
 import { MODULES, STATE_RANK, type NotchModule, type NotchState } from './types/notch'
@@ -19,6 +20,11 @@ export default function App() {
   // visibility half. A notch that is actually on screen is promoted either way —
   // see the raise/settle pair in `useNotchState`.
   const { settings, loaded } = useSettings()
+
+  // Not gated on `loaded`: the default here and the CSS fallback are the same
+  // number, so an unread preference paints exactly what it was already painting.
+  useSurfaceOpacity(settings.backgroundOpacity)
+
   const {
     state,
     activeModule,

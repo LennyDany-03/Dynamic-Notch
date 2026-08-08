@@ -89,6 +89,7 @@ pub fn run() {
             settings::set_always_on_top,
             settings::set_notifications,
             settings::set_mute_windows_banners,
+            settings::set_background_opacity,
             settings::notch_raise,
             settings::notch_settle,
             settings::settings_open,

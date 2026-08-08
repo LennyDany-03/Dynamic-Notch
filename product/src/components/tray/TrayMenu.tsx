@@ -4,6 +4,8 @@ import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { getVersion } from '@tauri-apps/api/app'
 import Toggle from '../Toggle'
+import { useSettings } from '../../hooks/useSettings'
+import { useSurfaceOpacity } from '../../hooks/useSurfaceOpacity'
 import { color, radius, sectionLabel, spring } from '../../tokens'
 import type { NotchModule } from '../../types/notch'
 
@@ -230,6 +232,12 @@ export default function TrayMenu() {
   const [autostart, setAutostart] = useState(false)
   const [version, setVersion] = useState('')
   const [update, setUpdate] = useState<UpdateState>({ kind: 'idle' })
+
+  // The popup is a Mica card like every other surface, so it follows the same
+  // opacity preference. Nothing else here reads settings — this is the whole
+  // reason the hook is mounted.
+  const { settings } = useSettings()
+  useSurfaceOpacity(settings.backgroundOpacity)
 
   const close = useCallback(() => {
     void invoke('tray_menu_close')

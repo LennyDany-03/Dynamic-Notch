@@ -47,8 +47,8 @@
       {
         "label": "settings",
         "title": "Crest Settings",
-        "width": 540,
-        "height": 648,
+        "width": 720,
+        "height": 560,
         "decorations": false,
         "transparent": true,
         "alwaysOnTop": false,

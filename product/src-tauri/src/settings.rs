@@ -31,6 +31,26 @@ fn notifications_default() -> bool {
     true
 }
 
+/// Opacity of the Mica surface, as a percentage.
+///
+/// Must agree with the `--mica-alpha` fallback in `src/index.css` and with
+/// `DEFAULTS` in `useSettings.ts` — those are what paint before this value is
+/// read, and a disagreement is a visible correction on every launch.
+///
+/// Deliberately above the design export's 80: at .80 the wallpaper reads straight
+/// through body copy, which is the complaint this preference exists to answer.
+fn background_opacity_default() -> u8 {
+    92
+}
+
+/// Floor and ceiling for `background_opacity`.
+///
+/// The floor is not politeness — a value near zero is an overlay nobody can see
+/// or find, set from a window that is itself invisible at that point. Clamped on
+/// write *and* on load, since the file is one a user might hand-edit.
+const OPACITY_MIN: u8 = 60;
+const OPACITY_MAX: u8 = 100;
+
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Settings {
@@ -49,6 +69,15 @@ pub struct Settings {
     /// something to do because the user installed something.
     #[serde(default)]
     pub mute_windows_banners: bool,
+
+    /// How solid every Mica surface is drawn, as a percentage — the notch's
+    /// cards, the tray popup and the settings window alike.
+    ///
+    /// Purely a frontend concern: nothing in `apply` touches it, because there is
+    /// no window state behind it. It travels the same path as the rest so that it
+    /// is stored, clamped and broadcast in one place.
+    #[serde(default = "background_opacity_default")]
+    pub background_opacity: u8,
 }
 
 impl Default for Settings {
@@ -57,6 +86,7 @@ impl Default for Settings {
             always_on_top: always_on_top_default(),
             notifications: notifications_default(),
             mute_windows_banners: false,
+            background_opacity: background_opacity_default(),
         }
     }
 }
@@ -107,7 +137,13 @@ pub fn load(app: &AppHandle) -> Settings {
     // default Windows text editor writes it, and this is a file a user might
     // plausibly hand-edit — without this the whole set silently reverts to
     // defaults with nothing said.
-    serde_json::from_str(raw.trim_start_matches('\u{feff}')).unwrap_or_default()
+    let mut settings: Settings =
+        serde_json::from_str(raw.trim_start_matches('\u{feff}')).unwrap_or_default();
+
+    // Same reasoning as the BOM: a hand-edited `"backgroundOpacity": 0` is a
+    // wholly invisible app, and the window that would fix it is invisible too.
+    settings.background_opacity = settings.background_opacity.clamp(OPACITY_MIN, OPACITY_MAX);
+    settings
 }
 
 fn save(app: &AppHandle, settings: &Settings) -> Result<(), String> {
@@ -389,6 +425,33 @@ pub fn set_mute_windows_banners(
     let _ = app.emit("settings-changed", settings.clone());
 
     Ok(enabled)
+}
+
+/// How solid the Mica surfaces are drawn, as a percentage.
+///
+/// The only preference here with nothing to apply — every window paints itself
+/// from the broadcast, so this stores, clamps and announces, and that is all.
+/// Clamping rather than refusing an out-of-range value is deliberate: the caller
+/// is a slider, not a person typing a number, and it takes the returned value
+/// back as its position.
+#[tauri::command]
+pub fn set_background_opacity(
+    app: AppHandle,
+    current: State<'_, Current>,
+    percent: u8,
+) -> Result<u8, String> {
+    let percent = percent.clamp(OPACITY_MIN, OPACITY_MAX);
+
+    let mut settings = current.get();
+    settings.background_opacity = percent;
+    current.set(settings.clone());
+    save(&app, &settings)?;
+
+    // This is the whole mechanism: the notch and the tray popup are separate
+    // windows that never rebuild, and the slider lives in neither of them.
+    let _ = app.emit("settings-changed", settings.clone());
+
+    Ok(percent)
 }
 
 /// Show the settings window, closing the tray popup that usually opened it so
