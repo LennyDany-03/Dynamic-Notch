@@ -78,7 +78,9 @@ pub fn show_menu(app: &AppHandle, cursor: PhysicalPosition<f64>) -> tauri::Resul
     Ok(())
 }
 
-fn hide_menu(app: &AppHandle) {
+/// Dismiss the popup. Anything that opens another surface calls this first, so
+/// focus never bounces between the popup and whatever it launched.
+pub(crate) fn hide_menu(app: &AppHandle) {
     if let Some(win) = app.get_webview_window(MENU_LABEL) {
         let _ = win.hide();
     }

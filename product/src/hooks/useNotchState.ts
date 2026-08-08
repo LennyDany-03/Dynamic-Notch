@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { invoke } from '@tauri-apps/api/core'
 import { useHotzone } from './useHotzone'
 import { contentRect } from '../layout'
 import { timing } from '../tokens'
@@ -112,6 +113,26 @@ export function useNotchState() {
       clearGrace()
     }
   }, [])
+
+  /**
+   * Reclaim the top of the z-order as the overlay appears, then release it
+   * again after it hides when the preference is set to hover-only.
+   *
+   * The window is created always-on-top, but it never takes focus, so anything
+   * else that goes topmost afterwards — a fullscreen video, another overlay —
+   * lands above it and stays there. Re-asserting on the hidden → visible edge is
+   * the cheapest moment that matters: it costs one call per appearance, not one
+   * per module switch, and it runs just before the card is actually looked at.
+   * When the preference is off, Rust demotes the window again after it hides.
+   * Both calls reject harmlessly in the browser fallback.
+   */
+  const wasHiddenRef = useRef(true)
+  useEffect(() => {
+    const hidden = state === 'hidden'
+    if (wasHiddenRef.current && !hidden) void invoke('notch_raise').catch(() => {})
+    if (!wasHiddenRef.current && hidden) void invoke('notch_demote').catch(() => {})
+    wasHiddenRef.current = hidden
+  }, [state])
 
   // Clicking away is the user moving on, so a pinned card should give up its hold
   // and collapse on the normal schedule.
