@@ -27,20 +27,6 @@ export const CARD_TOP = 0
  */
 export const NAV_STRIP_HEIGHT = 26
 
-const cardHeights = [size.media.height, size.launcher.height, size.files.height]
-const cardWidths = [size.media.width, size.launcher.width, size.files.width]
-
-/**
- * Interactive bounds while expanded are deliberately constant across modules —
- * the largest card in each axis. A rect that shrank under a stationary cursor
- * would collapse the notch the instant you clicked a nav dot to switch to a
- * shorter module.
- */
-const EXPANDED_BOUNDS = {
-  width: Math.max(...cardWidths),
-  height: Math.max(...cardHeights),
-}
-
 export function cardSize(state: NotchState, module: NotchModule) {
   if (state === 'expanded') return size[module]
   if (state === 'announce') return size.announce
@@ -55,34 +41,32 @@ export function contentHeight(module: NotchModule) {
 /**
  * Cursor-interactive bounds for the current state, in window-local CSS pixels.
  * `null` means nothing is rendered and the window should be fully click-through.
+ *
+ * Exactly the card that is drawn — every state, every module. Anything larger is
+ * a region of bare desktop that holds the notch open and swallows clicks with
+ * nothing visible under the cursor to explain why.
+ *
+ * This used to return a constant rect while expanded, the largest card in each
+ * axis, so that it could never shrink under a stationary cursor and collapse the
+ * notch mid-click. That bought the invariant at the price of a permanent dead
+ * zone: the media card is 380×164 and the rect was 440×346, so a cursor parked
+ * 180px *below* the visible card — over a browser tab strip, say — kept the notch
+ * expanded indefinitely. The invariant is still honoured, but by
+ * `useNotchState`'s latch, which holds the old rect only for as long as the
+ * cursor is actually inside it. Do not reintroduce a maximum here.
  */
 export function contentRect(
   state: NotchState,
-  _module: NotchModule,
+  module: NotchModule,
   windowWidth: number,
 ): Rect | null {
   if (state === 'hidden') return null
 
-  const centerX = windowWidth / 2
-
-  if (state === 'peek' || state === 'announce') {
-    // The announcement banner is bigger than the pill, so it gets its own bounds
-    // rather than borrowing peek's: hovering the part of a card that is not
-    // interactive would leave the window click-through under a cursor that is
-    // plainly on top of something, and the banner would retract mid-reach.
-    const card = state === 'announce' ? size.announce : size.peek
-    return {
-      x: centerX - card.width / 2,
-      y: CARD_TOP,
-      width: card.width,
-      height: card.height,
-    }
-  }
-
+  const card = cardSize(state, module)
   return {
-    x: centerX - EXPANDED_BOUNDS.width / 2,
+    x: windowWidth / 2 - card.width / 2,
     y: CARD_TOP,
-    width: EXPANDED_BOUNDS.width,
-    height: EXPANDED_BOUNDS.height,
+    width: card.width,
+    height: card.height,
   }
 }

@@ -34,7 +34,7 @@
         "label": "tray-menu",
         "title": "",
         "width": 272,
-        "height": 384,
+        "height": 418,
         "decorations": false,
         "transparent": true,
         "alwaysOnTop": true,

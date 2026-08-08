@@ -5,6 +5,7 @@ const LABELS: Record<NotchModule, string> = {
   media: 'Media controls',
   launcher: 'Quick launcher and clipboard',
   files: 'File shelf and notes',
+  notifications: 'Notifications',
 }
 
 /**

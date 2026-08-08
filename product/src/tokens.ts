@@ -117,6 +117,14 @@ export const size = {
   media: { width: 380, height: 164 },
   launcher: { width: 400, height: 346 },
   files: { width: 440, height: 206 },
+  /**
+   * NOT from the design export either — see `NotchModule`. Deliberately no larger
+   * than the launcher in height and no wider than the file shelf: those two set
+   * `EXPANDED_BOUNDS` in `layout.ts`, which is the interactive rect for *every*
+   * module, and a card that grew it would widen the region that keeps the notch
+   * open for the three modules that do not need it.
+   */
+  notifications: { width: 420, height: 300 },
 } as const
 
 /** Springs — NOT from the design export (it is static). Tuned for Fluent motion. */
@@ -144,6 +152,18 @@ export const timing = {
    * was the first cut and ran out while you were still reading the second line.
    */
   announceMs: 3000,
+  /**
+   * How long a card opened by something other than the cursor holds itself open
+   * before the ordinary rules resume.
+   *
+   * The tray is at the bottom of the screen and the notch at the top, so the pin
+   * has to outlast the trip; four seconds is that trip several times over. It is
+   * a ceiling, not a delay — the cursor arriving releases the pin at once. What
+   * it prevents is a card opened from the tray and then ignored staying expanded
+   * and topmost for the life of the process, which is what happened when the pin
+   * had no expiry.
+   */
+  pinMs: 4000,
 } as const
 
 /** Top-center trigger strip at the very top edge of the screen, in CSS px. */

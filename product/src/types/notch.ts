@@ -30,13 +30,20 @@ export const STATE_RANK: Record<NotchState, number> = {
  * Which page is showing while expanded. Independent of `NotchState` so that
  * switching modules resizes the card without retriggering the expand animation.
  *
- * Three for now, matching the design export. Becomes five once Launcher and
- * Clipboard are split apart and Notes gets its own page.
+ * The first three are the design export's. `notifications` is not: the export
+ * predates the notch reading the notification centre at all. It is the standing
+ * list behind the banner — the banner reports one arrival and leaves, this is
+ * where the ones you missed are still sitting.
  */
-export type NotchModule = 'media' | 'launcher' | 'files'
+export type NotchModule = 'media' | 'launcher' | 'files' | 'notifications'
 
-/** Display order for the nav dots. */
-export const MODULES: readonly NotchModule[] = ['media', 'launcher', 'files'] as const
+/** Display order for the nav arrows. */
+export const MODULES: readonly NotchModule[] = [
+  'media',
+  'launcher',
+  'files',
+  'notifications',
+] as const
 
 /**
  * What an `announce` banner is reporting.

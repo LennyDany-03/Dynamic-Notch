@@ -48,6 +48,10 @@ const GLOBAL_BANNERS_VALUE: &str = "NOC_GLOBAL_SETTING_TOASTS_ENABLED";
 /// trade the user is making — the same notification, drawn somewhere else.
 const APP_BANNER_VALUE: &str = "ShowBanner";
 
+/// Milliseconds between the FILETIME epoch (1601-01-01) that WinRT's `DateTime`
+/// counts from and the Unix epoch that `Date` in the webview does.
+const FILETIME_TO_UNIX_MS: i64 = 11_644_473_600_000;
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WinNotification {
@@ -58,7 +62,14 @@ pub struct WinNotification {
     /// app that only showed up after the last sweep.
     pub app_id: String,
     pub message: String,
-    pub time: String,
+    /// When Windows recorded it, in Unix milliseconds; `0` when it will not say.
+    ///
+    /// This was the string `"now"` for every entry, which was true of the only
+    /// caller at the time — a banner announcing an arrival. The notifications
+    /// module lists what is already in the centre, where an hour-old message
+    /// labelled "now" is worse than no label, and it is the only ordering
+    /// available: `GetNotificationsAsync` does not specify one.
+    pub timestamp: i64,
     pub unread: bool,
 }
 
@@ -383,12 +394,20 @@ pub async fn get_windows_notifications() -> Result<Vec<WinNotification>, String>
             continue;
         }
 
+        // `UniversalTime` is 100-nanosecond intervals since 1601. A notification
+        // whose time cannot be read still belongs in the list, so this falls back
+        // to 0 and lets the frontend leave the timestamp off that one row.
+        let timestamp = notification
+            .CreationTime()
+            .map(|time| time.UniversalTime / 10_000 - FILETIME_TO_UNIX_MS)
+            .unwrap_or(0);
+
         result.push(WinNotification {
             id,
             app,
             app_id,
             message,
-            time: "now".to_string(),
+            timestamp,
             unread: true,
         });
     }

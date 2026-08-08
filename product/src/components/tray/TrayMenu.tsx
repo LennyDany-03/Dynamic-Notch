@@ -14,7 +14,11 @@ import type { NotchModule } from '../../types/notch'
  * measure exactly CARD_W × CARD_H or the transparent margin around it changes and
  * the popup stops sitting flush against the taskbar.
  *
- *   6 + 40 + 9 + 34 + 9 + (34×3) + 9 + (34×3) + 9 + 34 + 6 = 360
+ *   6 + 40 + 9 + 34 + 9 + (34×4) + 9 + (34×3) + 9 + 34 + 6 = 394
+ *
+ * The 34×4 is the module group. Adding the notifications row to it moved this
+ * from 360, and the window height in `tauri.conf.json` moved with it — the two
+ * are one number written twice.
  */
 const CARD_W = 248
 const ROW_H = 34
@@ -126,6 +130,17 @@ const GROUPS: Row[][] = [
       icon: (
         <Icon>
           <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+        </Icon>
+      ),
+    },
+    {
+      id: 'notifications',
+      label: 'Notifications',
+      action: { kind: 'module', module: 'notifications' },
+      icon: (
+        <Icon>
+          <path d="M18 8a6 6 0 1 0-12 0c0 5-2 6-2 6h16s-2-1-2-6" />
+          <path d="M13.7 19a2 2 0 0 1-3.4 0" />
         </Icon>
       ),
     },

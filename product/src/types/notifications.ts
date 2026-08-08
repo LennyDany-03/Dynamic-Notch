@@ -8,6 +8,7 @@ export interface WinNotification {
   appId: string
   /** Title and body joined as "title: body", or whichever of the two exists. */
   message: string
-  time: string
+  /** Unix milliseconds. `0` when Windows would not say when it arrived. */
+  timestamp: number
   unread: boolean
 }

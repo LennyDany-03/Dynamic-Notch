@@ -16,7 +16,9 @@ import { rectContains, type Rect } from '../types/notch'
  *  - `inContent`: cursor is inside the currently rendered content bounds.
  *
  * Content bounds are passed as a getter (not a value) so that changing them does
- * not tear down and restart the poll loop.
+ * not tear down and restart the poll loop. The getter is handed the point being
+ * tested, because the bounds are allowed to depend on where the cursor is — see
+ * the latch in `useNotchState`, which refuses to shrink a rect out from under it.
  */
 
 const POLL_MS = 16
@@ -33,7 +35,7 @@ interface Geometry {
   originY: number
 }
 
-export function useHotzone(getContentRect: () => Rect | null) {
+export function useHotzone(getContentRect: (x: number, y: number) => Rect | null) {
   const [inHotzone, setInHotzone] = useState(false)
   const [inContent, setInContent] = useState(false)
 
@@ -74,7 +76,7 @@ export function useHotzone(getContentRect: () => Rect | null) {
         localX >= centerX - hotzone.width / 2 &&
         localX <= centerX + hotzone.width / 2
 
-      const contentRect = getContentRectRef.current()
+      const contentRect = getContentRectRef.current(localX, localY)
       const content = contentRect ? rectContains(contentRect, localX, localY) : false
 
       setInHotzone(hot)

@@ -6,9 +6,11 @@ import { timing } from '../tokens'
 import {
   MODULES,
   STATE_RANK,
+  rectContains,
   type Announcement,
   type NotchModule,
   type NotchState,
+  type Rect,
 } from '../types/notch'
 
 /**
@@ -67,10 +69,40 @@ export function useNotchState({ alwaysVisible = false }: { alwaysVisible?: boole
   const restingRef = useRef(resting)
   restingRef.current = resting
 
-  const getContentRect = useCallback(
-    () => contentRect(stateRef.current, moduleRef.current, window.innerWidth),
-    [],
-  )
+  /**
+   * The rect the cursor poll hit-tests against: the card that is actually drawn,
+   * held at its previous size for exactly as long as the cursor is inside it.
+   *
+   * The latch is what makes `layout.contentRect` able to return the real card.
+   * The rule that has to hold is that a rect must never shrink out from under a
+   * stationary cursor — switch from the launcher (400×346) to media (380×164)
+   * with a click, and a rect that shrank on the spot would drop the cursor
+   * outside and collapse the notch mid-click. That rule says nothing about the
+   * rect being permanently the size of the biggest module, which is what it used
+   * to be: it left a 182px band of bare desktop below the media card that kept
+   * the notch open and swallowed clicks with nothing under the cursor.
+   *
+   * So: grow immediately, shrink only once the cursor has left the old bounds.
+   */
+  const heldRectRef = useRef<Rect | null>(null)
+  const getContentRect = useCallback((x: number, y: number) => {
+    const next = contentRect(stateRef.current, moduleRef.current, window.innerWidth)
+    const held = heldRectRef.current
+
+    // Nothing is drawn — there is no cursor position that should keep the window
+    // interactive, so the hold goes with it.
+    if (!next) {
+      heldRectRef.current = null
+      return null
+    }
+
+    // The cursor is in the old rect but would fall outside the new one. Keep the
+    // old one; the very next tick that finds the cursor elsewhere adopts `next`.
+    if (held && !rectContains(next, x, y) && rectContains(held, x, y)) return held
+
+    heldRectRef.current = next
+    return next
+  }, [])
 
   const { inHotzone, inContent } = useHotzone(getContentRect)
   const inside = inHotzone || inContent
@@ -93,10 +125,49 @@ export function useNotchState({ alwaysVisible = false }: { alwaysVisible?: boole
    * popup. Without it the card would open under a cursor that is down by the
    * taskbar, count as "outside", and collapse again within the grace window.
    *
-   * Released as soon as the cursor arrives (the user has taken over) or the
-   * window loses focus (they moved on), after which the normal rules resume.
+   * Released as soon as the cursor arrives (the user has taken over), when the
+   * window loses focus (they moved on), or when the lease runs out.
+   *
+   * The lease is not belt-and-braces, it is the only release that always fires.
+   * The other two both need something to happen: the overlay takes focus only if
+   * its card is clicked, so a window that was never focused never blurs, and a
+   * card opened from the tray and then ignored was pinned *for the life of the
+   * process* — expanded, topmost, and unreachable by the grace timer, because the
+   * step-down is guarded on this flag. That is the "always on top is off and the
+   * notch is still on screen" bug: `notch_settle` only runs when the notch
+   * collapses, and it never collapsed.
+   *
+   * State rather than a ref alone, because the step-down effect is guarded on it:
+   * releasing the pin has to re-run that effect, and a ref assignment renders
+   * nothing. The ref mirrors it for the callbacks and timers that need the value
+   * without waiting for a render, as everywhere else in this hook.
    */
-  const pinnedRef = useRef(false)
+  const [pinned, setPinned] = useState(false)
+  const pinnedRef = useRef(pinned)
+  pinnedRef.current = pinned
+  const pinLeaseRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const unpin = useCallback(() => {
+    if (pinLeaseRef.current) {
+      clearTimeout(pinLeaseRef.current)
+      pinLeaseRef.current = null
+    }
+    pinnedRef.current = false
+    setPinned(false)
+  }, [])
+
+  const pin = useCallback(() => {
+    if (pinLeaseRef.current) clearTimeout(pinLeaseRef.current)
+    pinnedRef.current = true
+    setPinned(true)
+    pinLeaseRef.current = setTimeout(() => {
+      pinLeaseRef.current = null
+      pinnedRef.current = false
+      // Nothing else changed, so this is what re-runs the step-down effect and
+      // lets the ordinary grace window collapse a card nobody came for.
+      setPinned(false)
+    }, timing.pinMs)
+  }, [])
 
   const clearDwell = () => {
     if (dwellRef.current) {
@@ -122,7 +193,7 @@ export function useNotchState({ alwaysVisible = false }: { alwaysVisible?: boole
     if (announceRef.current) {
       clearTimeout(announceRef.current)
       announceRef.current = null
-      pinnedRef.current = false
+      unpin()
     }
   }
 
@@ -133,7 +204,7 @@ export function useNotchState({ alwaysVisible = false }: { alwaysVisible?: boole
       // user has now reached for.
       clearGrace()
       clearAnnounce()
-      pinnedRef.current = false
+      unpin()
 
       if (state === 'hidden') {
         setState('peek')
@@ -166,7 +237,7 @@ export function useNotchState({ alwaysVisible = false }: { alwaysVisible?: boole
     // Cursor is out: dwell can never complete from here.
     clearDwell()
 
-    if (state === resting || graceRef.current || pinnedRef.current) return
+    if (state === resting || graceRef.current || pinned) return
 
     graceRef.current = setTimeout(() => {
       graceRef.current = null
@@ -177,7 +248,9 @@ export function useNotchState({ alwaysVisible = false }: { alwaysVisible?: boole
     }, timing.graceMs)
     // `resting` is a dependency so that switching the preference off re-runs this
     // and lets a pill that was resting on screen collapse on the normal schedule.
-  }, [inside, state, resting])
+    // `pinned` is one so that a lease running out does the same for a card the
+    // tray opened and nobody came for.
+  }, [inside, state, resting, pinned, unpin])
 
   // Switching the preference on should put the pill up straight away rather than
   // wait for the next hover. The opposite direction needs nothing: the effect
@@ -186,13 +259,16 @@ export function useNotchState({ alwaysVisible = false }: { alwaysVisible?: boole
     if (alwaysVisible) setState((current) => (current === 'hidden' ? 'peek' : current))
   }, [alwaysVisible])
 
-  // Timers must not outlive the hook.
+  // Timers must not outlive the hook. `unpin` covers the pin lease, which is the
+  // one that would otherwise still be holding a reference after unmount.
   useEffect(() => {
     return () => {
       clearDwell()
       clearGrace()
       clearAnnounce()
+      unpin()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   /**
@@ -239,14 +315,13 @@ export function useNotchState({ alwaysVisible = false }: { alwaysVisible?: boole
   }, [state, inside])
 
   // Clicking away is the user moving on, so a pinned card should give up its hold
-  // and collapse on the normal schedule.
+  // and collapse on the normal schedule. Only fires for an overlay that had focus
+  // in the first place, i.e. one whose card was clicked — which is why the lease
+  // exists and this is not the release anything relies on.
   useEffect(() => {
-    const release = () => {
-      pinnedRef.current = false
-    }
-    window.addEventListener('blur', release)
-    return () => window.removeEventListener('blur', release)
-  }, [])
+    window.addEventListener('blur', unpin)
+    return () => window.removeEventListener('blur', unpin)
+  }, [unpin])
 
   /**
    * Drop the banner in for `durationMs` and then take it away again: something
@@ -271,7 +346,7 @@ export function useNotchState({ alwaysVisible = false }: { alwaysVisible?: boole
     clearGrace()
     clearDwell()
     clearAnnounce()
-    pinnedRef.current = true
+    pin()
     setAnnouncement(next)
     // Music is the one announcement with a card behind it, so a dwell on that
     // banner should land on the media card rather than wherever the notch was
@@ -282,12 +357,12 @@ export function useNotchState({ alwaysVisible = false }: { alwaysVisible?: boole
 
     announceRef.current = setTimeout(() => {
       announceRef.current = null
-      pinnedRef.current = false
+      unpin()
       // Only from the banner itself: a dwell may have carried it to `expanded`
       // in the meantime, which is the user's card now and closes on their terms.
       setState((current) => (current === 'announce' ? restingRef.current : current))
     }, durationMs)
-  }, [])
+  }, [pin, unpin])
 
   const showModule = useCallback((module: NotchModule, options?: { pin?: boolean }) => {
     // Selecting a module is an explicit intent to stay open, so it beats a step
@@ -296,10 +371,10 @@ export function useNotchState({ alwaysVisible = false }: { alwaysVisible?: boole
     clearGrace()
     clearDwell()
     clearAnnounce()
-    if (options?.pin) pinnedRef.current = true
+    if (options?.pin) pin()
     setActiveModule(module)
     setState('expanded')
-  }, [])
+  }, [pin])
 
   /** Open at whatever module is already selected. Used by the tray's "Show notch". */
   const expand = useCallback((options?: { pin?: boolean }) => {

@@ -7,8 +7,10 @@ import MediaControls from './media/MediaControls'
 import NotificationAnnounce from './notifications/NotificationAnnounce'
 import FilesModule from './modules/FilesModule'
 import LauncherModule from './modules/LauncherModule'
+import NotificationsModule from './modules/NotificationsModule'
 import type { MediaSession } from '../hooks/useMediaSession'
 import type { FileShelfState } from '../hooks/useFileShelf'
+import type { NotificationFeed } from '../hooks/useWindowsNotifications'
 import { CARD_TOP, NAV_STRIP_HEIGHT, cardSize } from '../layout'
 import { radius, spring } from '../tokens'
 import type { Announcement, NotchModule, NotchState } from '../types/notch'
@@ -21,16 +23,23 @@ interface Props {
   onNextModule: () => void
   session: MediaSession
   shelf: FileShelfState
+  notifications: NotificationFeed
+  /** The "notifications in the notch" preference, for the module's empty state. */
+  notificationsEnabled: boolean
 }
 
 function ModuleContent({
   module,
   session,
   shelf,
+  notifications,
+  notificationsEnabled,
 }: {
   module: NotchModule
   session: MediaSession
   shelf: FileShelfState
+  notifications: NotificationFeed
+  notificationsEnabled: boolean
 }) {
   switch (module) {
     case 'media':
@@ -39,6 +48,8 @@ function ModuleContent({
       return <FilesModule shelf={shelf} />
     case 'launcher':
       return <LauncherModule active />
+    case 'notifications':
+      return <NotificationsModule feed={notifications} enabled={notificationsEnabled} />
     default:
       return <ModulePlaceholder module={module} />
   }
@@ -60,6 +71,8 @@ export default function NotchShell({
   onNextModule,
   session,
   shelf,
+  notifications,
+  notificationsEnabled,
 }: Props) {
   const { width, height } = cardSize(state, activeModule)
   const isExpanded = state === 'expanded'
@@ -145,7 +158,13 @@ export default function NotchShell({
                       style={{ position: 'absolute', inset: 0 }}
                     >
                       {isExpanded ? (
-                        <ModuleContent module={activeModule} session={session} shelf={shelf} />
+                        <ModuleContent
+                          module={activeModule}
+                          session={session}
+                          shelf={shelf}
+                          notifications={notifications}
+                          notificationsEnabled={notificationsEnabled}
+                        />
                       ) : isAnnouncing && announcement?.kind === 'notification' ? (
                         <NotificationAnnounce notification={announcement.notification} />
                       ) : isAnnouncing ? (

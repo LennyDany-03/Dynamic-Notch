@@ -68,12 +68,19 @@ export default function App() {
     useCallback(() => announce({ kind: 'media' }, timing.announceMs), [announce]),
   )
 
-  // The same banner for arriving Windows notifications. Gated on `loaded` as
+  // One poll, two consumers: the same banner for arriving Windows notifications,
+  // and the standing list the notifications module draws. Gated on `loaded` as
   // well as the preference, so a default that is about to be corrected does not
   // start a poll — and, more to the point, does not put a banner on screen for
   // someone who turned the feature off.
-  useWindowsNotifications(
-    loaded && settings.notifications,
+  //
+  // The preference reaches the module too, rather than only the banner: it is one
+  // switch for whether the notch reads the notification centre at all, and a list
+  // that kept filling itself after the user said no would be a second, silent
+  // answer to that question. The module says as much when it is off.
+  const notificationsEnabled = loaded && settings.notifications
+  const notifications = useWindowsNotifications(
+    notificationsEnabled,
     useCallback(
       (arrived: WinNotification[]) => {
         // One banner per batch. A backlog that lands at once (waking the machine,
@@ -127,6 +134,8 @@ export default function App() {
         onNextModule={nextModule}
         session={session}
         shelf={shelf}
+        notifications={notifications}
+        notificationsEnabled={notificationsEnabled}
       />
 
       {menu && <ContextMenu anchor={menu} onClose={closeMenu} />}
