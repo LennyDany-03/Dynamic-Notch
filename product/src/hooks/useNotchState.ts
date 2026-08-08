@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { invoke } from '@tauri-apps/api/core'
 import { useHotzone } from './useHotzone'
 import { contentRect } from '../layout'
 import { timing } from '../tokens'
-import { MODULES, type NotchModule, type NotchState } from '../types/notch'
+import { MODULES, STATE_RANK, type NotchModule, type NotchState } from '../types/notch'
 
 /**
  * The notch visibility state machine — the single source of truth for whether the
@@ -18,12 +19,21 @@ import { MODULES, type NotchModule, type NotchState } from '../types/notch'
  * cancels the step down. The step down from expanded runs one level at a time, so
  * the overlay collapses back through peek rather than vanishing.
  *
+ * `alwaysVisible` moves the *floor* of that machine from `hidden` to `peek`: the
+ * pill stays on screen instead of collapsing away, and dwell still expands it.
+ * Everything above the floor is unchanged, which is why this is a floor and not a
+ * separate mode — one branch on where the machine may come to rest, rather than a
+ * second set of transitions to keep in step with the first.
+ *
  * `activeModule` is intentionally separate from `state`: switching modules resizes
  * the card without retriggering the expand animation.
  */
-export function useNotchState() {
+export function useNotchState({ alwaysVisible = false }: { alwaysVisible?: boolean } = {}) {
   const [state, setState] = useState<NotchState>('hidden')
   const [activeModule, setActiveModule] = useState<NotchModule>('media')
+
+  /** The lowest state the notch may come to rest in. */
+  const resting: NotchState = alwaysVisible ? 'peek' : 'hidden'
 
   // Read by the poll loop, which must not restart when either value changes.
   const stateRef = useRef(state)
@@ -95,15 +105,25 @@ export function useNotchState() {
     // Cursor is out: dwell can never complete from here.
     clearDwell()
 
-    if (state === 'hidden' || graceRef.current || pinnedRef.current) return
+    if (state === resting || graceRef.current || pinnedRef.current) return
 
     graceRef.current = setTimeout(() => {
       graceRef.current = null
       // One level at a time. This effect re-runs on the new state and, if the
-      // cursor is still away, schedules the next step down.
-      setState((current) => (current === 'expanded' ? 'peek' : 'hidden'))
+      // cursor is still away, schedules the next step down — until it reaches the
+      // floor, where the guard above stops scheduling.
+      setState((current) => (current === 'expanded' ? 'peek' : resting))
     }, timing.graceMs)
-  }, [inside, state])
+    // `resting` is a dependency so that switching the preference off re-runs this
+    // and lets a pill that was resting on screen collapse on the normal schedule.
+  }, [inside, state, resting])
+
+  // Switching the preference on should put the pill up straight away rather than
+  // wait for the next hover. The opposite direction needs nothing: the effect
+  // above re-runs on the new floor and steps the pill down for us.
+  useEffect(() => {
+    if (alwaysVisible) setState((current) => (current === 'hidden' ? 'peek' : current))
+  }, [alwaysVisible])
 
   // Timers must not outlive the hook.
   useEffect(() => {
@@ -112,6 +132,31 @@ export function useNotchState() {
       clearGrace()
     }
   }, [])
+
+  /**
+   * Re-assert the overlay's z-order every time it grows.
+   *
+   * The window is created always-on-top, but it never takes focus, so anything
+   * else that goes topmost afterwards — a fullscreen video, another overlay —
+   * lands above it and stays there. Growing is the cheapest moment that matters:
+   * it costs one call per reach, not one per module switch, and it runs just
+   * before the card is actually looked at.
+   *
+   * Keyed on the rank rather than on leaving `hidden`, because with the pill
+   * resting on screen the notch leaves `hidden` exactly once — at startup — and a
+   * band lost hours later would never be reclaimed. Every peek → expanded counts.
+   *
+   * Rust decides what "raise" means, by reading the always-on-top preference:
+   * this is a request to *match* the setting, not to rise. There is deliberately
+   * no matching call on the way down — the window's band tracks the preference at
+   * all times, so there is nothing to undo. Rejects harmlessly in the browser
+   * fallback.
+   */
+  const lastRankRef = useRef(STATE_RANK.hidden)
+  useEffect(() => {
+    if (STATE_RANK[state] > lastRankRef.current) void invoke('notch_raise').catch(() => {})
+    lastRankRef.current = STATE_RANK[state]
+  }, [state])
 
   // Clicking away is the user moving on, so a pinned card should give up its hold
   // and collapse on the normal schedule.

@@ -4,6 +4,7 @@ mod launcher;
 mod media;
 mod notes;
 mod notifications;
+mod settings;
 mod shelf;
 mod tray;
 mod updater;
@@ -30,8 +31,9 @@ fn acquire_instance_lock() -> bool {
         if GetLastError() == ERROR_ALREADY_EXISTS {
             return false;
         }
-        // Keep the mutex alive for the process lifetime; Windows releases it on
-        // exit, including a crash.
+        // HANDLE is a Copy type without a Rust destructor, so merely keeping the
+        // value until here is enough: Windows owns the handle and releases it on
+        // process exit, including a crash.
         let _ = handle;
         true
     }
@@ -47,6 +49,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(updater::PendingUpdate::default())
+        .manage(settings::Current::default())
         .plugin(tauri_plugin_autostart::init(
             MacosLauncher::LaunchAgent,
             None,
@@ -80,14 +83,29 @@ pub fn run() {
             tray::tray_autostart_enabled,
             tray::tray_set_autostart,
             tray::tray_quit,
+            settings::read_settings,
+            settings::set_always_on_top,
+            settings::notch_raise,
+            settings::settings_open,
+            settings::settings_close,
             updater::updater_check,
             updater::updater_install,
         ])
-        // A popup menu must close when it loses focus, the same as the native one
-        // it replaces.
         .on_window_event(|window, event| {
+            // A popup menu must close when it loses focus, the same as the native
+            // one it replaces.
             if window.label() == tray::MENU_LABEL {
                 if let tauri::WindowEvent::Focused(false) = event {
+                    let _ = window.hide();
+                }
+            }
+
+            // Settings is built once and reused, so a real close would destroy the
+            // webview and leave `settings_open` with nothing to show. The window
+            // has no title bar, but Alt+F4 still reaches it.
+            if window.label() == settings::SETTINGS_LABEL {
+                if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                    api.prevent_close();
                     let _ = window.hide();
                 }
             }
@@ -110,6 +128,10 @@ pub fn run() {
                     y: 0,
                 }))?;
             }
+
+            // The window was just built from `tauri.conf.json`, which hardcodes
+            // always-on-top. Anyone who turned that off expects it to stay off.
+            settings::init(app.handle());
 
             let icon = app
                 .default_window_icon()

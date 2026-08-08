@@ -130,6 +130,62 @@ Each command should be added only when its corresponding feature is being built 
 - **Interactive bounds while expanded are constant across modules** (the largest
   card's width and height, plus the nav row) for the same reason — a hit rect that
   shrinks under a stationary cursor collapses the notch mid-interaction.
+- **Settings is its own window, not a fourth module.** The notch collapses as soon
+  as the cursor leaves it, which is exactly wrong for a surface you read rather
+  than operate; About copy would be unreadable in a card that vanishes. It is
+  built at startup and hidden, never rebuilt — same reasoning as the tray popup,
+  and `CloseRequested` is intercepted in `lib.rs` so Alt+F4 hides rather than
+  destroys the webview. It is the one surface that paints a scrim over `.mica`:
+  every other card is a few short rows, this one is a wall of body copy, and at
+  the design's .80 alpha the window behind reads straight through it.
+- **Always-on-top has to be bounced through `false`, and re-asserted on show.**
+  Two separate traps, both verified against tao 0.35.3. First, `WindowState::
+  apply_diff` returns early when the requested `ALWAYS_ON_TOP` equals its cached
+  value, so `set_always_on_top(true)` on a window tao already believes is on top
+  emits no `SetWindowPos` whatsoever — and that cache says nothing about the real
+  z-order, which a fullscreen app or another overlay can change behind tao's back.
+  Once that happens every re-assert is a silent no-op. `settings::apply` therefore
+  sets `false` first when the target is `true`, forcing a genuine z-order write.
+  Second, WS_EX_TOPMOST only buys a place in the topmost *band*; the overlay never
+  takes focus, so anything else that goes topmost lands above it and stays. The
+  frontend calls `notch_raise` on the hidden → visible edge to reclaim the
+  position at the one moment it matters. Do not "simplify" either of these back
+  into a single `set_always_on_top` call.
+
+  `notch_raise` asks Rust to *match the stored preference*, not to rise: it reads
+  `Current` and applies whichever band the switch selects. It once promoted
+  unconditionally, on the theory that a switched-off notch could still be topmost
+  for the moments it was on screen — which made the switch unobservable, since the
+  hover that revealed the notch also undid the demotion the switch had just
+  performed. The band tracks the preference at all times now, which is also why
+  there is no counterpart on the way down: nothing to undo.
+
+  It fires whenever the notch *grows* rather than when it leaves `hidden`. With
+  the pill resting on screen the notch leaves `hidden` exactly once, at startup,
+  so an edge-triggered reclaim would never run again and a band lost to a
+  fullscreen app hours later would stay lost.
+- **"Always on top" is a visibility preference as well as a z-order one.**
+  Users read the name as "the notch is always there", not "the notch wins a
+  z-order comparison during the moments it happens to be drawn" — an overlay that
+  is topmost but invisible looks identical to one that is off. So the switch also
+  moves the floor of the visibility machine from `hidden` to `peek`, and the pill
+  stays put. Implemented as a floor rather than a mode: every transition above it
+  is untouched, so there is no second set of rules to drift out of step with the
+  first. The consequences are that `STATE_RANK` — not a test for `hidden` — is how
+  anything asks whether the notch grew or shrank, and that Rust has to broadcast
+  `settings-changed`, since the switch lives in a window that is not the notch and
+  neither window is ever rebuilt.
+- **Preferences live in `settings.json`, applied through one function.**
+  `settings::apply` is the only place that maps a stored preference onto window
+  state, and it runs at startup, on every change, and on every appearance — so a
+  preference cannot be honoured live but forgotten on relaunch. The running app
+  answers from `settings::Current`, an in-memory copy seeded at startup, because
+  `notch_raise` is on a hot path and has no business reading a file. Every field is
+  `#[serde(default = ...)]`-ed: the first launch after any new preference ships
+  reads a file that predates it, and a bare derive would fail the whole parse and
+  reset every other preference with it. The always-on-top default must agree with
+  `alwaysOnTop` in `tauri.conf.json`, since the window is built from that config
+  and only corrected afterwards.
 
 ## Open decisions (fill in as they're made)
 

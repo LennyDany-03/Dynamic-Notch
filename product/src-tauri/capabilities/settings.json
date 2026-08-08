@@ -1,0 +1,13 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "settings",
+  "description": "Capability for the settings window. It is borderless, so dragging it is the frontend's job; visibility is driven from Rust and the rows call app commands, which need no permission.",
+  "windows": ["settings"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-start-dragging",
+    "core:event:allow-listen",
+    "opener:default",
+    "opener:allow-open-url"
+  ]
+}

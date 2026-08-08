@@ -34,7 +34,7 @@
         "label": "tray-menu",
         "title": "",
         "width": 272,
-        "height": 350,
+        "height": 384,
         "decorations": false,
         "transparent": true,
         "alwaysOnTop": true,
@@ -43,6 +43,21 @@
         "shadow": false,
         "visible": false,
         "focus": false
+      },
+      {
+        "label": "settings",
+        "title": "Crest Settings",
+        "width": 540,
+        "height": 648,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": false,
+        "skipTaskbar": false,
+        "resizable": false,
+        "shadow": false,
+        "visible": false,
+        "focus": false,
+        "center": true
       }
     ],
     "security": {

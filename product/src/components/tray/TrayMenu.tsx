@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { getVersion } from '@tauri-apps/api/app'
+import Toggle from '../Toggle'
 import { color, radius, sectionLabel, spring } from '../../tokens'
 import type { NotchModule } from '../../types/notch'
 
@@ -11,7 +12,7 @@ import type { NotchModule } from '../../types/notch'
  * measure exactly CARD_W × CARD_H or the transparent margin around it changes and
  * the popup stops sitting flush against the taskbar.
  *
- *   6 + 40 + 9 + 34 + 9 + (34×3) + 9 + (34×2) + 9 + 34 + 6 = 326
+ *   6 + 40 + 9 + 34 + 9 + (34×3) + 9 + (34×3) + 9 + 34 + 6 = 360
  */
 const CARD_W = 248
 const ROW_H = 34
@@ -25,6 +26,7 @@ type Action =
   | { kind: 'show' }
   | { kind: 'module'; module: NotchModule }
   | { kind: 'autostart' }
+  | { kind: 'settings' }
   | { kind: 'update' }
   | { kind: 'quit' }
 
@@ -135,6 +137,17 @@ const GROUPS: Row[][] = [
         <Icon>
           <path d="M12 3v9" />
           <path d="M7.5 6.5a7 7 0 1 0 9 0" />
+        </Icon>
+      ),
+    },
+    {
+      id: 'settings',
+      label: 'Settings',
+      action: { kind: 'settings' },
+      icon: (
+        <Icon>
+          <circle cx="12" cy="12" r="3" />
+          <path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 9 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 4.6 9a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z" />
         </Icon>
       ),
     },
@@ -274,6 +287,11 @@ export default function TrayMenu() {
         // Stays open: toggling a setting is not a "pick one and dismiss" action,
         // and closing would hide the state change the user just made.
         void invoke<boolean>('tray_set_autostart', { enabled: !autostart }).then(setAutostart)
+        break
+      case 'settings':
+        // Rust dismisses the popup as part of opening the window, so that focus
+        // does not bounce between the two.
+        void invoke('settings_open')
         break
       case 'update':
         // Also stays open — the whole point of the row is the status it reports.
@@ -415,34 +433,7 @@ export default function TrayMenu() {
                       </span>
                     )}
 
-                    {row.action.kind === 'autostart' && (
-                      /* Track + knob, sized so the row height is unchanged. */
-                      <span
-                        style={{
-                          flex: 'none',
-                          width: 28,
-                          height: 16,
-                          borderRadius: radius.pill,
-                          padding: 2,
-                          display: 'flex',
-                          justifyContent: autostart ? 'flex-end' : 'flex-start',
-                          background: autostart ? color.accent : color.inset,
-                          boxShadow: autostart ? undefined : color.insetShadow,
-                          transition: 'background 120ms linear',
-                        }}
-                      >
-                        <motion.span
-                          layout
-                          transition={spring.peek}
-                          style={{
-                            width: 12,
-                            height: 12,
-                            borderRadius: radius.pill,
-                            background: autostart ? '#fff' : color.text.muted,
-                          }}
-                        />
-                      </span>
-                    )}
+                    {row.action.kind === 'autostart' && <Toggle on={autostart} />}
                   </button>
                 )
               })}
