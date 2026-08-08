@@ -4,6 +4,7 @@ import AppLogo from '../notifications/AppLogo'
 import NotificationDetail from '../notifications/NotificationDetail'
 import { relativeTime } from '../../hooks/useClipboardHistory'
 import type { NotificationFeed } from '../../hooks/useWindowsNotifications'
+import { NOTIFICATION_ROW_HEIGHT } from '../../layout'
 import { color, radius, sectionLabel } from '../../tokens'
 
 /**
@@ -11,12 +12,18 @@ import { color, radius, sectionLabel } from '../../tokens'
  *
  * The announce banner reports one arrival and leaves after three seconds; this is
  * where the ones that came while you were away are still sitting. Rows are one
- * line each, because a card this size holds six of them — the full message is one
- * click away in `NotificationDetail`.
+ * line each — the full message is one click away in `NotificationDetail`.
+ *
+ * The card is sized to this list rather than the other way round, so every box
+ * here that the arithmetic in `layout.notificationsCardHeight` counts is pinned to
+ * an explicit height: a row that grew by a pixel with the font would leave the
+ * card a pixel short of its own contents, and one that shrank would put the empty
+ * stripe back. That is why the header carries a height it looks like it does not
+ * need — with nothing in the list there is no "Clear all" button to set it.
  *
  * Reads the same poll the banner does (`useWindowsNotifications`), handed down
- * from `App`. Nothing here invokes anything on its own except through the feed's
- * own `dismiss`/`clearAll`.
+ * from `App`, which also owns which row is open — the sheet takes the full card,
+ * so that is a question about geometry and geometry is not decided in here.
  */
 
 function Row({
@@ -41,7 +48,8 @@ function Row({
         display: 'flex',
         alignItems: 'center',
         gap: 10,
-        padding: '8px 6px',
+        height: NOTIFICATION_ROW_HEIGHT,
+        padding: '0 6px',
         margin: '0 -6px',
         flex: 'none',
         textAlign: 'left',
@@ -117,18 +125,24 @@ function Empty({ children }: { children: React.ReactNode }) {
 export default function NotificationsModule({
   feed,
   enabled,
+  openId,
+  onOpen,
 }: {
   feed: NotificationFeed
   /** The "notifications in the notch" preference. Off means nothing is polling. */
   enabled: boolean
+  /**
+   * Which row's detail sheet is open, owned by `App` because the card grows to
+   * hold it. The id rather than the notification: the poll replaces the array
+   * every two seconds, and a held object would go on showing an entry that has
+   * since been dismissed from somewhere else. Looking it up again each render
+   * means the sheet closes by itself when its notification leaves the centre.
+   */
+  openId: string | null
+  onOpen: (id: string | null) => void
 }) {
   const { notifications, loaded, unavailable, dismiss, clearAll } = feed
 
-  // The id rather than the notification: the poll replaces the array every two
-  // seconds, and a held object would go on showing an entry that has since been
-  // dismissed from somewhere else. Looking it up again each render means the sheet
-  // closes by itself when its notification leaves the centre.
-  const [openId, setOpenId] = useState<string | null>(null)
   const open = notifications.find((notification) => notification.id === openId) ?? null
 
   return (
@@ -142,7 +156,7 @@ export default function NotificationsModule({
         position: 'relative',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 'none' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: 20, flex: 'none' }}>
         <span style={sectionLabel}>Notifications</span>
         {notifications.length > 0 && (
           <span
@@ -165,7 +179,7 @@ export default function NotificationsModule({
           <button
             type="button"
             onClick={() => {
-              setOpenId(null)
+              onOpen(null)
               clearAll()
             }}
             style={{
@@ -205,7 +219,7 @@ export default function NotificationsModule({
               key={notification.id}
               notification={notification}
               last={index === notifications.length - 1}
-              onOpen={() => setOpenId(notification.id)}
+              onOpen={() => onOpen(notification.id)}
             />
           ))}
         </div>
@@ -216,9 +230,9 @@ export default function NotificationsModule({
           <NotificationDetail
             key={open.id}
             notification={open}
-            onClose={() => setOpenId(null)}
+            onClose={() => onOpen(null)}
             onDismiss={() => {
-              setOpenId(null)
+              onOpen(null)
               dismiss(open.id)
             }}
           />

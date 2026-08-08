@@ -118,11 +118,12 @@ export const size = {
   launcher: { width: 400, height: 346 },
   files: { width: 440, height: 206 },
   /**
-   * NOT from the design export either — see `NotchModule`. Deliberately no larger
-   * than the launcher in height and no wider than the file shelf: those two set
-   * `EXPANDED_BOUNDS` in `layout.ts`, which is the interactive rect for *every*
-   * module, and a card that grew it would widen the region that keeps the notch
-   * open for the three modules that do not need it.
+   * NOT from the design export either — see `NotchModule`. The height is a
+   * *ceiling*, not the card: this is the one module sized to its contents, and
+   * `notificationsCardHeight` in `layout.ts` grows it a row at a time up to this
+   * and then scrolls. Deliberately no taller than the launcher and no wider than
+   * the file shelf, which are the largest cards in each axis — anything past them
+   * enlarges the region that holds the notch open.
    */
   notifications: { width: 420, height: 300 },
 } as const

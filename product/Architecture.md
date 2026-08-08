@@ -128,6 +128,18 @@ Each command should be added only when its corresponding feature is being built 
   the exception: design state 02 draws a 124px card whose own contents measure
   ~104px against 96px of available space, so the export overflows itself and clips
   the transport row. Its content height is 138.
+- **The notifications card is sized to its list; every other card is fixed.** Every
+  other module's contents are fixed too — the media card always holds one track,
+  the launcher always the same grid — but this one holds however many notifications
+  Windows is sitting on. At a fixed 300 it drew a stripe of empty Mica under two
+  notifications and held the notch open over it, which is the dead-zone problem
+  from the hit rect, this time inside the visible card.
+  `layout.notificationsCardHeight` grows it one 44px row at a time up to the 300 in
+  `tokens.ts`, which is now a ceiling rather than the card, and past that the list
+  scrolls on a half-cut row. Two consequences worth knowing: every box the
+  arithmetic counts is pinned to an explicit height in `NotificationsModule` (a row
+  that measured itself would drift from the hit rect), and the open detail sheet is
+  an input to the height — so which row is open lives in `App`, not in the module.
 - **Interactive bounds while expanded are constant across modules** (the largest
   card's width and height, plus the nav row) for the same reason — a hit rect that
   shrinks under a stationary cursor collapses the notch mid-interaction.

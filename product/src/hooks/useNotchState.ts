@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { useHotzone } from './useHotzone'
-import { contentRect } from '../layout'
+import { contentRect, type NotificationsFit } from '../layout'
 import { timing } from '../tokens'
 import {
   MODULES,
@@ -45,7 +45,18 @@ import {
  * deciding what happens next — the cursor reaching the banner cancels the timer
  * and dwells through to a full card, exactly as it would on the pill.
  */
-export function useNotchState({ alwaysVisible = false }: { alwaysVisible?: boolean } = {}) {
+export function useNotchState({
+  alwaysVisible = false,
+  notificationsFit,
+}: {
+  alwaysVisible?: boolean
+  /**
+   * What the notifications card currently holds. The one card whose height is a
+   * function of its contents, so the hit rect cannot be derived from the state and
+   * the module alone — see `layout.notificationsCardHeight`.
+   */
+  notificationsFit?: NotificationsFit
+} = {}) {
   const [state, setState] = useState<NotchState>('hidden')
   const [activeModule, setActiveModule] = useState<NotchModule>('media')
 
@@ -64,6 +75,8 @@ export function useNotchState({ alwaysVisible = false }: { alwaysVisible?: boole
   stateRef.current = state
   const moduleRef = useRef(activeModule)
   moduleRef.current = activeModule
+  const fitRef = useRef(notificationsFit)
+  fitRef.current = notificationsFit
   // Read by the banner's retract timer, which is armed before the preference it
   // has to respect can be known to have changed.
   const restingRef = useRef(resting)
@@ -83,10 +96,18 @@ export function useNotchState({ alwaysVisible = false }: { alwaysVisible?: boole
    * the notch open and swallowed clicks with nothing under the cursor.
    *
    * So: grow immediately, shrink only once the cursor has left the old bounds.
+   * The notifications card leans on the same latch from the other direction: it
+   * is sized to its list, so dismissing the last row shrinks it under a cursor
+   * that is still over where the row was.
    */
   const heldRectRef = useRef<Rect | null>(null)
   const getContentRect = useCallback((x: number, y: number) => {
-    const next = contentRect(stateRef.current, moduleRef.current, window.innerWidth)
+    const next = contentRect(
+      stateRef.current,
+      moduleRef.current,
+      window.innerWidth,
+      fitRef.current,
+    )
     const held = heldRectRef.current
 
     // Nothing is drawn — there is no cursor position that should keep the window

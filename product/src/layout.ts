@@ -27,15 +27,67 @@ export const CARD_TOP = 0
  */
 export const NAV_STRIP_HEIGHT = 26
 
-export function cardSize(state: NotchState, module: NotchModule) {
-  if (state === 'expanded') return size[module]
-  if (state === 'announce') return size.announce
-  return size.peek
+/**
+ * Height of one row in the notifications list. Read by `NotificationsModule`,
+ * which pins its rows to exactly this, and by the height arithmetic below —
+ * a row that measured itself would put the card and its hit rect out of step.
+ */
+export const NOTIFICATION_ROW_HEIGHT = 44
+
+/**
+ * Everything in the notifications card that is not a row: the nav strip, the
+ * card's 16px padding top and bottom, the 20px header and the 10px gap under it.
+ */
+const NOTIFICATIONS_CHROME = NAV_STRIP_HEIGHT + 16 + 20 + 10 + 16
+
+/**
+ * How the notifications card is currently filled. It is the one card sized to its
+ * contents, so both readers of the geometry have to be told what is in it.
+ */
+export interface NotificationsFit {
+  /** Rows in the list. */
+  rows: number
+  /** Whether the detail sheet is open over them. */
+  detail: boolean
 }
 
-/** Height available to module content, once the nav row is accounted for. */
-export function contentHeight(module: NotchModule) {
-  return size[module].height - NAV_STRIP_HEIGHT
+/**
+ * The notifications card, sized to its list.
+ *
+ * Every other card has one size because its contents do: the media card always
+ * holds a track, the launcher always holds the same grid. This list holds
+ * whatever is in the notification centre, and at the fixed 300 it left a stripe
+ * of empty Mica under two notifications — the same dead zone `contentRect` warns
+ * about below, only this time inside the visible card, where it also holds the
+ * notch open over nothing.
+ *
+ * Grows a row at a time up to `size.notifications.height`, past which the list
+ * scrolls; the row that ends up half-cut at the bottom is the scroll affordance.
+ *
+ * An empty list is measured in rows anyway, at two of them, because what fills it
+ * is a sentence rather than a row — "Windows hasn't given Crest access…" wraps to
+ * three lines on a narrow reading of the font, and the Mica surface clips.
+ *
+ * The detail sheet takes the full card whatever the list is doing: it is a
+ * heading, a message and a footer over a scrim, and squeezed into a two-row card
+ * the message itself gets about a line.
+ */
+export function notificationsCardHeight({ rows, detail }: NotificationsFit) {
+  if (detail) return size.notifications.height
+
+  const wanted = NOTIFICATIONS_CHROME + NOTIFICATION_ROW_HEIGHT * (rows > 0 ? rows : 2)
+  return Math.min(wanted, size.notifications.height)
+}
+
+export function cardSize(state: NotchState, module: NotchModule, fit?: NotificationsFit) {
+  if (state === 'expanded') {
+    if (module === 'notifications' && fit) {
+      return { width: size.notifications.width, height: notificationsCardHeight(fit) }
+    }
+    return size[module]
+  }
+  if (state === 'announce') return size.announce
+  return size.peek
 }
 
 /**
@@ -59,10 +111,11 @@ export function contentRect(
   state: NotchState,
   module: NotchModule,
   windowWidth: number,
+  fit?: NotificationsFit,
 ): Rect | null {
   if (state === 'hidden') return null
 
-  const card = cardSize(state, module)
+  const card = cardSize(state, module, fit)
   return {
     x: windowWidth / 2 - card.width / 2,
     y: CARD_TOP,

@@ -12,7 +12,7 @@ import NotificationsModule from './modules/NotificationsModule'
 import type { MediaSession } from '../hooks/useMediaSession'
 import type { FileShelfState } from '../hooks/useFileShelf'
 import type { NotificationFeed } from '../hooks/useWindowsNotifications'
-import { CARD_TOP, NAV_STRIP_HEIGHT, cardSize } from '../layout'
+import { CARD_TOP, NAV_STRIP_HEIGHT, cardSize, type NotificationsFit } from '../layout'
 import { radius, spring } from '../tokens'
 import type { Announcement, NotchModule, NotchState } from '../types/notch'
 
@@ -27,6 +27,14 @@ interface Props {
   notifications: NotificationFeed
   /** The "notifications in the notch" preference, for the module's empty state. */
   notificationsEnabled: boolean
+  /**
+   * Which notification's detail sheet is open, and the same fit the state machine
+   * hit-tests against — both owned by `App`, because the notifications card is
+   * sized to them.
+   */
+  openNotificationId: string | null
+  onOpenNotification: (id: string | null) => void
+  notificationsFit: NotificationsFit
   /** The "show me where the notch is" preference. See `HotzoneHint`. */
   hotzoneHint: boolean
 }
@@ -37,12 +45,16 @@ function ModuleContent({
   shelf,
   notifications,
   notificationsEnabled,
+  openNotificationId,
+  onOpenNotification,
 }: {
   module: NotchModule
   session: MediaSession
   shelf: FileShelfState
   notifications: NotificationFeed
   notificationsEnabled: boolean
+  openNotificationId: string | null
+  onOpenNotification: (id: string | null) => void
 }) {
   switch (module) {
     case 'media':
@@ -52,7 +64,14 @@ function ModuleContent({
     case 'launcher':
       return <LauncherModule active />
     case 'notifications':
-      return <NotificationsModule feed={notifications} enabled={notificationsEnabled} />
+      return (
+        <NotificationsModule
+          feed={notifications}
+          enabled={notificationsEnabled}
+          openId={openNotificationId}
+          onOpen={onOpenNotification}
+        />
+      )
     default:
       return <ModulePlaceholder module={module} />
   }
@@ -76,9 +95,14 @@ export default function NotchShell({
   shelf,
   notifications,
   notificationsEnabled,
+  openNotificationId,
+  onOpenNotification,
+  notificationsFit,
   hotzoneHint,
 }: Props) {
-  const { width, height } = cardSize(state, activeModule)
+  // The same call the state machine makes, with the same fit — the card that is
+  // drawn and the rect that is hit-tested are one function of one input.
+  const { width, height } = cardSize(state, activeModule, notificationsFit)
   const isExpanded = state === 'expanded'
   const isAnnouncing = state === 'announce'
   const peek = cardSize('peek', activeModule)
@@ -175,6 +199,8 @@ export default function NotchShell({
                           shelf={shelf}
                           notifications={notifications}
                           notificationsEnabled={notificationsEnabled}
+                          openNotificationId={openNotificationId}
+                          onOpenNotification={onOpenNotification}
                         />
                       ) : isAnnouncing && announcement?.kind === 'notification' ? (
                         <NotificationAnnounce notification={announcement.notification} />
