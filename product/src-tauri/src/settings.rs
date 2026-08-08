@@ -14,6 +14,7 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager, State};
 
+use crate::notifications;
 use crate::tray::{hide_menu, NOTCH_LABEL};
 
 pub const SETTINGS_LABEL: &str = "settings";
@@ -26,6 +27,71 @@ fn always_on_top_default() -> bool {
     true
 }
 
+fn notifications_default() -> bool {
+    true
+}
+
+/// Where along the top edge the notch sits.
+///
+/// The overlay window is a fixed 560×420 canvas and the card is drawn centred
+/// inside it, so this moves the *window* rather than the card: everything that
+/// reads geometry — `layout.ts`, the hotzone poll, the guide bar — works off
+/// `window.innerWidth / 2` and follows for free. Offsetting the card inside the
+/// canvas instead would have ~60px of slack to play with (the widest card is
+/// 440), which is not a position change anyone would notice.
+#[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum NotchPosition {
+    Left,
+    Center,
+    Right,
+}
+
+impl NotchPosition {
+    /// Window origin along the free horizontal span (screen width − window width).
+    fn offset(self, span: i32) -> i32 {
+        match self {
+            NotchPosition::Left => 0,
+            NotchPosition::Center => span / 2,
+            NotchPosition::Right => span,
+        }
+    }
+}
+
+fn notch_position_default() -> NotchPosition {
+    NotchPosition::Center
+}
+
+/// Whether a hairline is drawn at the top edge marking the trigger strip.
+///
+/// On by default: the notch is invisible until the cursor finds it, and "where do
+/// I put my cursor" is the first question a new install raises. It costs nothing
+/// once the pill is resting on screen — the hint is only drawn while nothing else
+/// is (see `NotchShell`).
+fn hotzone_hint_default() -> bool {
+    true
+}
+
+/// Opacity of the Mica surface, as a percentage.
+///
+/// Must agree with the `--mica-alpha` fallback in `src/index.css` and with
+/// `DEFAULTS` in `useSettings.ts` — those are what paint before this value is
+/// read, and a disagreement is a visible correction on every launch.
+///
+/// Deliberately above the design export's 80: at .80 the wallpaper reads straight
+/// through body copy, which is the complaint this preference exists to answer.
+fn background_opacity_default() -> u8 {
+    92
+}
+
+/// Floor and ceiling for `background_opacity`.
+///
+/// The floor is not politeness — a value near zero is an overlay nobody can see
+/// or find, set from a window that is itself invisible at that point. Clamped on
+/// write *and* on load, since the file is one a user might hand-edit.
+const OPACITY_MIN: u8 = 60;
+const OPACITY_MAX: u8 = 100;
+
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Settings {
@@ -33,12 +99,47 @@ pub struct Settings {
     /// normal z-order, i.e. behind whatever the user is working in.
     #[serde(default = "always_on_top_default")]
     pub always_on_top: bool,
+
+    /// Whether arriving Windows notifications are announced by the notch.
+    #[serde(default = "notifications_default")]
+    pub notifications: bool,
+
+    /// Whether Windows' own corner banner is suppressed while Crest runs, so the
+    /// notch is the only place a notification appears. Off by default: this one
+    /// reaches outside the app and changes a system setting, which is never
+    /// something to do because the user installed something.
+    #[serde(default)]
+    pub mute_windows_banners: bool,
+
+    /// How solid every Mica surface is drawn, as a percentage — the notch's
+    /// cards, the tray popup and the settings window alike.
+    ///
+    /// Purely a frontend concern: nothing in `apply` touches it, because there is
+    /// no window state behind it. It travels the same path as the rest so that it
+    /// is stored, clamped and broadcast in one place.
+    #[serde(default = "background_opacity_default")]
+    pub background_opacity: u8,
+
+    /// Where along the top edge of the primary monitor the overlay sits.
+    #[serde(default = "notch_position_default")]
+    pub notch_position: NotchPosition,
+
+    /// Whether the trigger strip is marked with a hairline while the notch is
+    /// away. Purely a frontend concern, like `background_opacity` — the notch
+    /// draws it from the broadcast and there is no window state behind it.
+    #[serde(default = "hotzone_hint_default")]
+    pub hotzone_hint: bool,
 }
 
 impl Default for Settings {
     fn default() -> Self {
         Self {
             always_on_top: always_on_top_default(),
+            notifications: notifications_default(),
+            mute_windows_banners: false,
+            background_opacity: background_opacity_default(),
+            notch_position: notch_position_default(),
+            hotzone_hint: hotzone_hint_default(),
         }
     }
 }
@@ -89,7 +190,13 @@ pub fn load(app: &AppHandle) -> Settings {
     // default Windows text editor writes it, and this is a file a user might
     // plausibly hand-edit — without this the whole set silently reverts to
     // defaults with nothing said.
-    serde_json::from_str(raw.trim_start_matches('\u{feff}')).unwrap_or_default()
+    let mut settings: Settings =
+        serde_json::from_str(raw.trim_start_matches('\u{feff}')).unwrap_or_default();
+
+    // Same reasoning as the BOM: a hand-edited `"backgroundOpacity": 0` is a
+    // wholly invisible app, and the window that would fix it is invisible too.
+    settings.background_opacity = settings.background_opacity.clamp(OPACITY_MIN, OPACITY_MAX);
+    settings
 }
 
 fn save(app: &AppHandle, settings: &Settings) -> Result<(), String> {
@@ -190,8 +297,70 @@ fn apply_topmost(app: &AppHandle, enabled: bool) -> Result<(), String> {
     Ok(())
 }
 
+/// Move the overlay window along the top edge of the primary monitor.
+///
+/// This is the whole of the position preference. The window is never resized, so
+/// the only thing to decide is its origin: `y` is the top of the monitor and `x`
+/// walks the free span between the two screen edges. The card stays centred in
+/// its canvas, which is why nothing in the frontend has to know this happened —
+/// with one exception, the cursor poll's cached window origin, which is why every
+/// change is broadcast (see `useHotzone`).
+///
+/// This replaced the hardcoded centring `lib.rs` used to do at startup; it runs
+/// from `apply`, so the stored position is honoured on the first frame rather
+/// than as a correction afterwards.
+fn apply_position(app: &AppHandle, position: NotchPosition) -> Result<(), String> {
+    let Some(notch) = app.get_webview_window(NOTCH_LABEL) else {
+        return Err("notch window is unavailable".into());
+    };
+
+    let monitor = notch
+        .primary_monitor()
+        .map_err(|error| format!("could not read the monitor: {error}"))?;
+    let Some(monitor) = monitor else {
+        return Ok(());
+    };
+
+    let size = notch
+        .outer_size()
+        .map_err(|error| format!("could not read the notch size: {error}"))?;
+
+    // Monitor origin rather than 0, so a primary monitor that is not at the
+    // origin of the virtual desktop (a second screen placed to its left) still
+    // gets the notch on *it* rather than somewhere off its edge.
+    let origin = monitor.position();
+    let span = (monitor.size().width as i32 - size.width as i32).max(0);
+
+    notch
+        .set_position(tauri::Position::Physical(tauri::PhysicalPosition {
+            x: origin.x + position.offset(span),
+            y: origin.y,
+        }))
+        .map_err(|error| format!("could not move the notch: {error}"))
+}
+
+/// Push the banner preference onto Windows' own notification settings.
+///
+/// Muting is conditional on the notch actually announcing notifications, and on
+/// Windows granting the access that lets it: the two together are a redirection,
+/// and either one alone is just a user who no longer sees their notifications.
+/// Access is re-checked on every apply rather than only where the switch is
+/// thrown, because it can be revoked from Windows' own settings months later —
+/// the preference survives that, its effect does not, and the banners come back
+/// on the next apply instead of the silence going unnoticed.
+///
+/// What was changed and what to put back is `notifications`' business, not a
+/// preference; see the memo it keeps.
+fn apply_banners(settings: &Settings) -> Result<(), String> {
+    let mute =
+        settings.mute_windows_banners && settings.notifications && notifications::access_allowed();
+    notifications::set_muted(mute)
+}
+
 pub fn apply(app: &AppHandle, settings: &Settings) {
+    let _ = apply_position(app, settings.notch_position);
     let _ = apply_topmost(app, settings.always_on_top);
+    let _ = apply_banners(settings);
 }
 
 /// Read the file, apply it, and seed the in-memory copy. Startup only.
@@ -200,6 +369,18 @@ pub fn init(app: &AppHandle) {
     apply(app, &stored);
     if let Some(current) = app.try_state::<Current>() {
         current.set(stored);
+    }
+}
+
+/// Give Windows its banners back on the way out.
+///
+/// A muted shell plus a notch that is no longer running is a machine with no
+/// notifications at all, which is not a state any preference asked for. The
+/// preference itself is left alone in the file, so the next launch silences the
+/// shell again — this undoes the effect for exactly as long as Crest is gone.
+pub fn shutdown(_app: &AppHandle) {
+    if notifications::is_muted() {
+        let _ = notifications::set_muted(false);
     }
 }
 
@@ -276,6 +457,145 @@ pub fn set_always_on_top(
     Ok(enabled)
 }
 
+/// Whether arriving notifications are announced by the notch.
+///
+/// Turning this off also hands Windows its banners back, through `apply_banners`
+/// — muting the shell is only defensible while something else is showing the
+/// notifications, and this is the switch that says whether anything is.
+#[tauri::command]
+pub fn set_notifications(
+    app: AppHandle,
+    current: State<'_, Current>,
+    enabled: bool,
+) -> Result<bool, String> {
+    let mut settings = current.get();
+    settings.notifications = enabled;
+    apply_banners(&settings)?;
+    current.set(settings.clone());
+    save(&app, &settings)?;
+
+    // The notch is what polls for notifications, and the switch lives in another
+    // window; without this it would keep polling (or keep quiet) until relaunch.
+    let _ = app.emit("settings-changed", settings.clone());
+
+    Ok(enabled)
+}
+
+/// Suppress Windows' own corner banner, so an arriving notification is drawn by
+/// the notch and nowhere else.
+///
+/// Refuses in the two cases where it would leave the user with no notification
+/// at all: the notch's own half switched off, and Windows not granting access to
+/// the notification centre — without which the notch has nothing to announce, no
+/// matter how loudly the preference says otherwise. The listener is checked here
+/// rather than trusted from a startup probe because "Let apps access your
+/// notifications" can be revoked at any moment, from outside this app.
+#[tauri::command]
+pub fn set_mute_windows_banners(
+    app: AppHandle,
+    current: State<'_, Current>,
+    enabled: bool,
+) -> Result<bool, String> {
+    let mut settings = current.get();
+
+    if enabled {
+        if !settings.notifications {
+            return Err("Turn on notifications in the notch first.".into());
+        }
+        if !notifications::access_allowed() {
+            return Err(
+                "Windows hasn't given Crest access to notifications, so the notch has nothing to \
+                 show. Turn on Privacy & security → Notifications and try again."
+                    .into(),
+            );
+        }
+    }
+
+    settings.mute_windows_banners = enabled;
+    // Before the write, so a registry the app cannot change leaves the stored
+    // preference — and the switch in the window — where they were.
+    apply_banners(&settings)?;
+    current.set(settings.clone());
+    save(&app, &settings)?;
+
+    let _ = app.emit("settings-changed", settings.clone());
+
+    Ok(enabled)
+}
+
+/// How solid the Mica surfaces are drawn, as a percentage.
+///
+/// The only preference here with nothing to apply — every window paints itself
+/// from the broadcast, so this stores, clamps and announces, and that is all.
+/// Clamping rather than refusing an out-of-range value is deliberate: the caller
+/// is a slider, not a person typing a number, and it takes the returned value
+/// back as its position.
+#[tauri::command]
+pub fn set_background_opacity(
+    app: AppHandle,
+    current: State<'_, Current>,
+    percent: u8,
+) -> Result<u8, String> {
+    let percent = percent.clamp(OPACITY_MIN, OPACITY_MAX);
+
+    let mut settings = current.get();
+    settings.background_opacity = percent;
+    current.set(settings.clone());
+    save(&app, &settings)?;
+
+    // This is the whole mechanism: the notch and the tray popup are separate
+    // windows that never rebuild, and the slider lives in neither of them.
+    let _ = app.emit("settings-changed", settings.clone());
+
+    Ok(percent)
+}
+
+/// Move the notch along the top edge, and remember where.
+///
+/// The window is moved before the file is written, for the same reason as
+/// always-on-top: the visible change is what the user asked for, and a disk error
+/// should cost them the preference at next launch rather than the move.
+#[tauri::command]
+pub fn set_notch_position(
+    app: AppHandle,
+    current: State<'_, Current>,
+    position: NotchPosition,
+) -> Result<NotchPosition, String> {
+    let mut settings = current.get();
+    settings.notch_position = position;
+    apply_position(&app, position)?;
+    current.set(settings.clone());
+    save(&app, &settings)?;
+
+    // The notch itself does not read this — Rust moved the window — but its
+    // cursor poll caches the window origin, and the broadcast is what tells it to
+    // re-read rather than hit-testing against the old position for up to 2s.
+    let _ = app.emit("settings-changed", settings.clone());
+
+    Ok(position)
+}
+
+/// Whether the trigger strip is marked while the notch is away.
+///
+/// Nothing to apply: the notch draws the hint from the broadcast, exactly as it
+/// does the surface opacity. Stored and announced here so there is still only one
+/// path a preference travels.
+#[tauri::command]
+pub fn set_hotzone_hint(
+    app: AppHandle,
+    current: State<'_, Current>,
+    enabled: bool,
+) -> Result<bool, String> {
+    let mut settings = current.get();
+    settings.hotzone_hint = enabled;
+    current.set(settings.clone());
+    save(&app, &settings)?;
+
+    let _ = app.emit("settings-changed", settings.clone());
+
+    Ok(enabled)
+}
+
 /// Show the settings window, closing the tray popup that usually opened it so
 /// focus does not bounce between the two.
 #[tauri::command]
@@ -296,7 +616,7 @@ pub fn settings_open(app: AppHandle, current: State<'_, Current>) -> tauri::Resu
     win.set_focus()?;
 
     // Showing and focusing Settings happens after the notch's startup promotion.
-    // Re-apply the preference afterwards so this ordinary focused window cannot
+    // Re-apply the preferences afterwards so this ordinary focused window cannot
     // cover a notch that is meant to stay above it. Routed through `apply` rather
     // than a hardcoded promotion so the switch being off is honoured here too.
     apply(&app, &current.get());

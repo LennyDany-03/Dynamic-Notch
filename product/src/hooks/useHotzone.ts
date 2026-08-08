@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { listen } from '@tauri-apps/api/event'
 import { cursorPosition, getCurrentWindow, primaryMonitor } from '@tauri-apps/api/window'
 import { hotzone } from '../tokens'
 import { rectContains, type Rect } from '../types/notch'
@@ -16,7 +17,9 @@ import { rectContains, type Rect } from '../types/notch'
  *  - `inContent`: cursor is inside the currently rendered content bounds.
  *
  * Content bounds are passed as a getter (not a value) so that changing them does
- * not tear down and restart the poll loop.
+ * not tear down and restart the poll loop. The getter is handed the point being
+ * tested, because the bounds are allowed to depend on where the cursor is — see
+ * the latch in `useNotchState`, which refuses to shrink a rect out from under it.
  */
 
 const POLL_MS = 16
@@ -33,7 +36,7 @@ interface Geometry {
   originY: number
 }
 
-export function useHotzone(getContentRect: () => Rect | null) {
+export function useHotzone(getContentRect: (x: number, y: number) => Rect | null) {
   const [inHotzone, setInHotzone] = useState(false)
   const [inContent, setInContent] = useState(false)
 
@@ -74,7 +77,7 @@ export function useHotzone(getContentRect: () => Rect | null) {
         localX >= centerX - hotzone.width / 2 &&
         localX <= centerX + hotzone.width / 2
 
-      const contentRect = getContentRectRef.current()
+      const contentRect = getContentRectRef.current(localX, localY)
       const content = contentRect ? rectContains(contentRect, localX, localY) : false
 
       setInHotzone(hot)
@@ -148,6 +151,25 @@ export function useHotzone(getContentRect: () => Rect | null) {
       }
     }
 
+    // The window origin is cached, and the position preference moves the window
+    // out from under that cache: every cursor position would be converted against
+    // the old origin until the next scheduled refresh, i.e. the notch would open
+    // from where it used to be for up to two seconds after the setting changed.
+    //
+    // Invalidated twice because `set_position` is queued onto the window thread
+    // and can still be in flight when Rust broadcasts — the first pass catches the
+    // common case, the second one catches a move that had not landed yet. Both are
+    // a single extra geometry read, and only on a preference change.
+    const invalidate = () => {
+      lastGeometryRead = 0
+    }
+    let settled: ReturnType<typeof setTimeout> | null = null
+    const pendingUnlisten = listen('settings-changed', () => {
+      invalidate()
+      if (settled) clearTimeout(settled)
+      settled = setTimeout(invalidate, 250)
+    })
+
     // Start click-through so the transparent window never blocks the desktop.
     setIgnoreEvents(true)
 
@@ -155,6 +177,8 @@ export function useHotzone(getContentRect: () => Rect | null) {
     return () => {
       cancelled = true
       clearInterval(interval)
+      if (settled) clearTimeout(settled)
+      void pendingUnlisten.then((unlisten) => unlisten())
       window.removeEventListener('native-file-drag', onNativeFileDrag)
     }
   }, [])

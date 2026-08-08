@@ -15,23 +15,37 @@ use tauri_plugin_autostart::ManagerExt;
 pub const MENU_LABEL: &str = "tray-menu";
 pub const NOTCH_LABEL: &str = "notch-widget";
 
-/// Logical px held between the popup and the work-area edge it docks against.
+/// Logical px held between the popup's *card* and the work-area edge it docks
+/// against.
 const EDGE_GAP: f64 = 8.0;
+
+/// Logical px of transparent gutter the webview leaves around the visible card so
+/// it can cast a shadow. Mirrors `MARGIN` in `TrayMenu.tsx` — the window is the
+/// card plus twice this on each axis, and that component sizes the window to
+/// match, so this is a reader of that relationship rather than a second source.
+const CARD_MARGIN: f64 = 12.0;
 
 /// Place the popup near `cursor` and show it.
 ///
 /// Anchors to the monitor's *work area* rather than its full bounds, so the popup
-/// lands flush above the taskbar instead of underneath it.
+/// lands flush above the taskbar instead of underneath it — and anchors the
+/// **card**, not the window. Those are not the same rectangle: the window is
+/// `CARD_MARGIN` larger on every side, so positioning the window put the card
+/// 12px further from the taskbar and 12px further from the screen edge than the
+/// gap asks for, and pushed it off the icon it belongs to.
 pub fn show_menu(app: &AppHandle, cursor: PhysicalPosition<f64>) -> tauri::Result<()> {
     let Some(win) = app.get_webview_window(MENU_LABEL) else {
         return Ok(());
     };
 
+    // Read at show time, not from the config: `TrayMenu.tsx` sizes this window to
+    // whatever its rows actually measure, so adding a row cannot leave the popup
+    // clipped or mispositioned against a stale number.
     let size = win.outer_size()?;
     let (w, h) = (size.width as f64, size.height as f64);
 
     // The tray may sit on a secondary monitor with its own scale factor, so the
-    // monitor under the cursor decides both the anchor rect and the gap.
+    // monitor under the cursor decides the anchor rect, the gap and the gutter.
     let monitor = match app.monitor_from_point(cursor.x, cursor.y)? {
         Some(m) => Some(m),
         None => app.primary_monitor()?,
@@ -40,27 +54,38 @@ pub fn show_menu(app: &AppHandle, cursor: PhysicalPosition<f64>) -> tauri::Resul
     let (x, y) = match monitor {
         Some(m) => {
             let area = m.work_area();
-            let gap = EDGE_GAP * m.scale_factor();
+            let scale = m.scale_factor();
+            let gap = EDGE_GAP * scale;
+            let gutter = CARD_MARGIN * scale;
+
+            // The card, which is what the user sees and what has to clear the
+            // taskbar. The window is this plus a gutter on every side.
+            let card_w = (w - gutter * 2.0).max(1.0);
+            let card_h = (h - gutter * 2.0).max(1.0);
 
             let left = area.position.x as f64;
             let top = area.position.y as f64;
             let right = left + area.size.width as f64;
             let bottom = top + area.size.height as f64;
 
-            // `max` keeps the clamp valid if the popup is wider than the work area.
-            let x = (cursor.x - w / 2.0).clamp(left + gap, (right - w - gap).max(left + gap));
+            // Centred on the icon that was clicked, then held inside the work
+            // area. `max` keeps the clamp valid if the card is wider than it.
+            let card_x =
+                (cursor.x - card_w / 2.0).clamp(left + gap, (right - card_w - gap).max(left + gap));
 
             // The tray lives on the taskbar, so the click tells us which edge the
             // taskbar is docked to: past the midpoint means bottom, so open upward.
-            let y = if cursor.y > (top + bottom) / 2.0 {
-                bottom - h - gap
+            let card_y = if cursor.y > (top + bottom) / 2.0 {
+                bottom - card_h - gap
             } else {
                 top + gap
             };
 
-            (x, y)
+            // Back out to the window's own origin.
+            (card_x - gutter, card_y - gutter)
         }
-        // No monitor info: fall back to hanging the popup above the cursor.
+        // No monitor info, so no scale factor to convert the gutter with. Hang the
+        // window above the cursor and accept being a gutter off.
         None => (cursor.x - w / 2.0, cursor.y - h),
     };
 

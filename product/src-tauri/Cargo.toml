@@ -29,6 +29,9 @@ arboard = "3"
 png = "0.17"
 
 [target.'cfg(windows)'.dependencies]
+# Reading and restoring the shell's "show notification banners" switch, which
+# lives only in HKCU and has no WinRT surface. See `notifications.rs`.
+winreg = "0.52"
 windows = { version = "0.58", features = [
   "Media_Control",
   "Foundation",

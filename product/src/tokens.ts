@@ -107,9 +107,25 @@ export const sectionLabel = {
  */
 export const size = {
   peek: { width: 200, height: 32 },
+  /**
+   * NOT from the design export — the export has no notification state. Sized to
+   * the content it carries (44px art, two lines of type, an equalizer) and kept
+   * deliberately short of the media card's 380: a banner that reported a track
+   * at the same width as the player would read as the player opening itself.
+   */
+  announce: { width: 300, height: 64 },
   media: { width: 380, height: 164 },
   launcher: { width: 400, height: 346 },
   files: { width: 440, height: 206 },
+  /**
+   * NOT from the design export either — see `NotchModule`. The height is a
+   * *ceiling*, not the card: this is the one module sized to its contents, and
+   * `notificationsCardHeight` in `layout.ts` grows it a row at a time up to this
+   * and then scrolls. Deliberately no taller than the launcher and no wider than
+   * the file shelf, which are the largest cards in each axis — anything past them
+   * enlarges the region that holds the notch open.
+   */
+  notifications: { width: 420, height: 300 },
 } as const
 
 /** Springs — NOT from the design export (it is static). Tuned for Fluent motion. */
@@ -128,6 +144,27 @@ export const timing = {
   dwellMs: 600,
   /** Grace period after the cursor leaves, before stepping down a state. */
   graceMs: 300,
+  /**
+   * How long a banner the user did not ask for stays up before retracting — a
+   * track starting, a notification arriving.
+   *
+   * Long enough to read a message and reach for the notch, short enough that it
+   * still reads as a report rather than the overlay opening itself. Two seconds
+   * was the first cut and ran out while you were still reading the second line.
+   */
+  announceMs: 3000,
+  /**
+   * How long a card opened by something other than the cursor holds itself open
+   * before the ordinary rules resume.
+   *
+   * The tray is at the bottom of the screen and the notch at the top, so the pin
+   * has to outlast the trip; four seconds is that trip several times over. It is
+   * a ceiling, not a delay — the cursor arriving releases the pin at once. What
+   * it prevents is a card opened from the tray and then ignored staying expanded
+   * and topmost for the life of the process, which is what happened when the pin
+   * had no expiry.
+   */
+  pinMs: 4000,
 } as const
 
 /** Top-center trigger strip at the very top edge of the screen, in CSS px. */

@@ -1,5 +1,15 @@
-/** Visibility state machine. Single source of truth lives in `useNotchState`. */
-export type NotchState = 'hidden' | 'peek' | 'expanded'
+import type { WinNotification } from './notifications'
+
+/**
+ * Visibility state machine. Single source of truth lives in `useNotchState`.
+ *
+ * `announce` is the one state the cursor never asks for: a banner the notch drops
+ * in by itself to report something (music starting) and retracts on a timer. It
+ * sits between the pill and a full card in every sense — bigger than `peek`,
+ * smaller and shorter-lived than `expanded` — and hovering it dwells through to
+ * `expanded` exactly as hovering the pill does.
+ */
+export type NotchState = 'hidden' | 'peek' | 'announce' | 'expanded'
 
 /**
  * How much of the notch each state puts on screen, so callers can compare two
@@ -12,20 +22,41 @@ export type NotchState = 'hidden' | 'peek' | 'expanded'
 export const STATE_RANK: Record<NotchState, number> = {
   hidden: 0,
   peek: 1,
-  expanded: 2,
+  announce: 2,
+  expanded: 3,
 }
 
 /**
  * Which page is showing while expanded. Independent of `NotchState` so that
  * switching modules resizes the card without retriggering the expand animation.
  *
- * Three for now, matching the design export. Becomes five once Launcher and
- * Clipboard are split apart and Notes gets its own page.
+ * The first three are the design export's. `notifications` is not: the export
+ * predates the notch reading the notification centre at all. It is the standing
+ * list behind the banner — the banner reports one arrival and leaves, this is
+ * where the ones you missed are still sitting.
  */
-export type NotchModule = 'media' | 'launcher' | 'files'
+export type NotchModule = 'media' | 'launcher' | 'files' | 'notifications'
 
-/** Display order for the nav dots. */
-export const MODULES: readonly NotchModule[] = ['media', 'launcher', 'files'] as const
+/** Display order for the nav arrows. */
+export const MODULES: readonly NotchModule[] = [
+  'media',
+  'launcher',
+  'files',
+  'notifications',
+] as const
+
+/**
+ * What an `announce` banner is reporting.
+ *
+ * The state machine carries this rather than a module, because an announcement
+ * is not a module: `notification` has no card behind it to open, and `media`
+ * borrows the media card only because one happens to exist. Kept as a tagged
+ * union so a third source has to say what it is rather than being inferred from
+ * whatever the notch was last showing.
+ */
+export type Announcement =
+  | { kind: 'media' }
+  | { kind: 'notification'; notification: WinNotification }
 
 /** A rectangle in window-local CSS pixels. */
 export interface Rect {

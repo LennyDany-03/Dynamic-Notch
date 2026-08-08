@@ -1,33 +1,60 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import CollapsedPill from './CollapsedPill'
+import HotzoneHint from './HotzoneHint'
 import ModulePlaceholder from './ModulePlaceholder'
 import NavArrows from './NavArrows'
+import MediaAnnounce from './media/MediaAnnounce'
 import MediaControls from './media/MediaControls'
+import NotificationAnnounce from './notifications/NotificationAnnounce'
 import FilesModule from './modules/FilesModule'
 import LauncherModule from './modules/LauncherModule'
+import NotificationsModule from './modules/NotificationsModule'
 import type { MediaSession } from '../hooks/useMediaSession'
 import type { FileShelfState } from '../hooks/useFileShelf'
-import { CARD_TOP, NAV_STRIP_HEIGHT, cardSize } from '../layout'
+import type { NotificationFeed } from '../hooks/useWindowsNotifications'
+import { CARD_TOP, NAV_STRIP_HEIGHT, cardSize, type NotificationsFit } from '../layout'
 import { radius, spring } from '../tokens'
-import type { NotchModule, NotchState } from '../types/notch'
+import type { Announcement, NotchModule, NotchState } from '../types/notch'
 
 interface Props {
   state: NotchState
   activeModule: NotchModule
+  announcement: Announcement | null
   onPreviousModule: () => void
   onNextModule: () => void
   session: MediaSession
   shelf: FileShelfState
+  notifications: NotificationFeed
+  /** The "notifications in the notch" preference, for the module's empty state. */
+  notificationsEnabled: boolean
+  /**
+   * Which notification's detail sheet is open, and the same fit the state machine
+   * hit-tests against — both owned by `App`, because the notifications card is
+   * sized to them.
+   */
+  openNotificationId: string | null
+  onOpenNotification: (id: string | null) => void
+  notificationsFit: NotificationsFit
+  /** The "show me where the notch is" preference. See `HotzoneHint`. */
+  hotzoneHint: boolean
 }
 
 function ModuleContent({
   module,
   session,
   shelf,
+  notifications,
+  notificationsEnabled,
+  openNotificationId,
+  onOpenNotification,
 }: {
   module: NotchModule
   session: MediaSession
   shelf: FileShelfState
+  notifications: NotificationFeed
+  notificationsEnabled: boolean
+  openNotificationId: string | null
+  onOpenNotification: (id: string | null) => void
 }) {
   switch (module) {
     case 'media':
@@ -36,6 +63,15 @@ function ModuleContent({
       return <FilesModule shelf={shelf} />
     case 'launcher':
       return <LauncherModule active />
+    case 'notifications':
+      return (
+        <NotificationsModule
+          feed={notifications}
+          enabled={notificationsEnabled}
+          openId={openNotificationId}
+          onOpen={onOpenNotification}
+        />
+      )
     default:
       return <ModulePlaceholder module={module} />
   }
@@ -52,17 +88,46 @@ function ModuleContent({
 export default function NotchShell({
   state,
   activeModule,
+  announcement,
   onPreviousModule,
   onNextModule,
   session,
   shelf,
+  notifications,
+  notificationsEnabled,
+  openNotificationId,
+  onOpenNotification,
+  notificationsFit,
+  hotzoneHint,
 }: Props) {
-  const { width, height } = cardSize(state, activeModule)
+  // The same call the state machine makes, with the same fit — the card that is
+  // drawn and the rect that is hit-tested are one function of one input.
+  const { width, height } = cardSize(state, activeModule, notificationsFit)
   const isExpanded = state === 'expanded'
+  const isAnnouncing = state === 'announce'
   const peek = cardSize('peek', activeModule)
+
+  // What is drawn inside the card, and the key the cross-fade runs on: a change
+  // here fades one surface out and the next in without touching the card itself.
+  // Notifications key on the id as well, so a second one arriving while the first
+  // is still up cross-fades rather than swapping text under a fixed key.
+  const surface = isExpanded
+    ? activeModule
+    : isAnnouncing
+      ? announcement?.kind === 'notification'
+        ? `notification:${announcement.notification.id}`
+        : 'announce'
+      : 'peek'
 
   return (
     <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none' }}>
+      {/* Outside the card's wrapper, and its own AnimatePresence: the two swap —
+          the hint is only up while the card is not — and sharing a presence
+          group would make one wait on the other's exit. */}
+      <AnimatePresence>
+        {hotzoneHint && state === 'hidden' && <HotzoneHint key="hint" />}
+      </AnimatePresence>
+
       <div
         style={{
           position: 'absolute',
@@ -120,7 +185,7 @@ export default function NotchShell({
                 <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
                   <AnimatePresence initial={false}>
                     <motion.div
-                      key={isExpanded ? activeModule : 'peek'}
+                      key={surface}
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
@@ -128,7 +193,19 @@ export default function NotchShell({
                       style={{ position: 'absolute', inset: 0 }}
                     >
                       {isExpanded ? (
-                        <ModuleContent module={activeModule} session={session} shelf={shelf} />
+                        <ModuleContent
+                          module={activeModule}
+                          session={session}
+                          shelf={shelf}
+                          notifications={notifications}
+                          notificationsEnabled={notificationsEnabled}
+                          openNotificationId={openNotificationId}
+                          onOpenNotification={onOpenNotification}
+                        />
+                      ) : isAnnouncing && announcement?.kind === 'notification' ? (
+                        <NotificationAnnounce notification={announcement.notification} />
+                      ) : isAnnouncing ? (
+                        <MediaAnnounce media={session.media} />
                       ) : (
                         <CollapsedPill session={session} />
                       )}

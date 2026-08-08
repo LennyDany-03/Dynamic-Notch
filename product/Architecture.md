@@ -66,13 +66,14 @@ src-tauri/
 Single source of truth in `useNotchState.ts`:
 
 ```
-type NotchState = 'hidden' | 'peek' | 'expanded'
+type NotchState = 'hidden' | 'peek' | 'announce' | 'expanded'
 ```
 
 - `hidden → peek`: cursor enters hotzone (via `useHotzone`), no delay.
 - `peek → expanded`: cursor remains in hotzone/pill for 800ms continuous dwell (timer via `setTimeout`, cleared on `mouseleave`).
 - `expanded → peek → hidden`: cursor leaves expanded bounds, ~300-500ms grace delay before each step down, timer cleared if cursor re-enters during the grace window.
 - Which "page" is showing while `expanded` (Media / Launcher / Clipboard / Files+Notes) is a separate piece of state (`activeModule`), independent of `NotchState`, so switching modules doesn't retrigger the expand animation.
+- `announce(announcement, ms)`: `→ announce`, a banner the notch puts up by itself to report something — music starting, or a Windows notification arriving — retracted after `ms`. Pinned like the tray's openings; the cursor arriving cancels the retract. A `media` announcement dwells through to the media card, a `notification` has nothing to open into and is only held up to be read.
 
 All feature components read `NotchState` and `activeModule` from context/hook — they don't independently decide whether to render or animate.
 
@@ -127,6 +128,18 @@ Each command should be added only when its corresponding feature is being built 
   the exception: design state 02 draws a 124px card whose own contents measure
   ~104px against 96px of available space, so the export overflows itself and clips
   the transport row. Its content height is 138.
+- **The notifications card is sized to its list; every other card is fixed.** Every
+  other module's contents are fixed too — the media card always holds one track,
+  the launcher always the same grid — but this one holds however many notifications
+  Windows is sitting on. At a fixed 300 it drew a stripe of empty Mica under two
+  notifications and held the notch open over it, which is the dead-zone problem
+  from the hit rect, this time inside the visible card.
+  `layout.notificationsCardHeight` grows it one 44px row at a time up to the 300 in
+  `tokens.ts`, which is now a ceiling rather than the card, and past that the list
+  scrolls on a half-cut row. Two consequences worth knowing: every box the
+  arithmetic counts is pinned to an explicit height in `NotificationsModule` (a row
+  that measured itself would drift from the hit rect), and the open detail sheet is
+  an input to the height — so which row is open lives in `App`, not in the module.
 - **Interactive bounds while expanded are constant across modules** (the largest
   card's width and height, plus the nav row) for the same reason — a hit rect that
   shrinks under a stationary cursor collapses the notch mid-interaction.
@@ -195,6 +208,88 @@ Each command should be added only when its corresponding feature is being built 
   anything asks whether the notch grew or shrank, and that Rust has to broadcast
   `settings-changed`, since the switch lives in a window that is not the notch and
   neither window is ever rebuilt.
+- **Music starting announces itself on its own surface, not the media card.**
+  A track beginning drops a 300×64 banner — art, title, artist, equalizer — for
+  `timing.announceMs` (3s) and retracts it. It is a fourth `NotchState` rather
+  than a timed `expanded`,
+  because opening the player is the wrong event: the full card is 380 wide with a
+  scrub bar and three transport buttons the user has no time to aim at, and every
+  track change would look like the app opening itself. As a state it also gets
+  the two things a card-shaped hack does not — its own hit rect from `layout.ts`
+  (so the window is interactive over exactly what is drawn) and the ordinary
+  dwell, which carries a hover through to the real media card where the controls
+  live. `announce()` is pinned like the tray's openings, since the cursor is off
+  wherever the user was working; it declines while the cursor is on the notch or
+  a card is already open, on the grounds that the notch is up and nothing is
+  being missed.
+
+  Detecting the start is `useMediaAnnounce`, keyed on app + title + artist while
+  playing, off the poll everything else reads. The consequence is that
+  `useMediaSession` can no longer stop polling while hidden — hidden is precisely
+  when this has to fire — so it drops to a 2s watch rate instead of stopping, and
+  keeps the 1s rate only while something is on screen to interpolate for. The
+  first settled poll is a baseline and never announces: music already playing
+  when the overlay launches is not something the user just started.
+- **Windows notifications use the same banner, and can replace Windows' own.**
+  `useWindowsNotifications` polls `UserNotificationListener` every 2s and
+  announces ids the previous poll did not have (first poll is a baseline, or
+  launching Crest replays the whole notification centre; the seen set is pruned
+  to what the centre still holds so it cannot grow all day). Polled rather than
+  subscribed because the WinRT change event is not raised for unpackaged desktop
+  apps. A burst announces one banner, not ten — the API does not order its
+  results, so there is no "newest" to pick, and the rest are in the notification
+  centre regardless.
+
+  The banner carries the raising app's icon, resolved through the launcher's
+  `icons::app_icon` on `shell:AppsFolder\<AUMID>` — the same shell imaging call
+  that puts icons on launcher tiles. **Not** `AppInfo.DisplayInfo.GetLogo`, which
+  is a trap twice over: `OpenReadAsync().get()` on the stream it returns never
+  completes on a worker thread (the operation is created and never signalled, in
+  either apartment — measured: every icon cost a 3s timeout and came back
+  `None`), and `AppInfo::GetFromAppUserModelId` cannot see unpackaged apps at all
+  ("element not found" for Discord, i.e. most of what notifies you). The shell
+  route answers in ~250ms cold and from cache thereafter. It is fetched by the
+  banner itself, not handed to it, so an icon can never delay or block the
+  notification; and per announcement rather than with the poll, since an icon for
+  every entry in the centre re-serialised every two seconds is a lot of base64 to
+  draw one of them. What no route reaches is the picture inside the toast, the
+  contact photo on a message: `NotificationBinding` exposes text elements and
+  nothing else.
+
+  The banner is read-only, unlike Windows' own: clicking a toast button activates
+  the notification in the app that raised it, and the listener API cannot do that
+  — a button that only looked like Windows' would be worse than no button.
+
+  `muteWindowsBanners` is the other half, and the mechanism took two attempts.
+  `NOC_GLOBAL_SETTING_TOASTS_ENABLED = 0` under
+  `HKCU\...\CurrentVersion\Notifications\Settings` is widely described as the
+  global "show notification banners" switch, and on Windows 11 26200 it simply
+  does not work — verified: the value read back as `0` while banners kept
+  arriving. What does work is the *per-app* `ShowBanner = 0` under that key's
+  `<AUMID>` subkeys, the value behind the per-app checkbox in Settings, which the
+  shell reads as each notification arrives (so it takes effect immediately, with
+  no sign-out). Muting is therefore a sweep over every app the shell knows about;
+  the global value is still written for the builds that honour it, but nothing
+  depends on it. Never `Enabled` (per-app) or `PushNotifications\ToastEnabled`
+  (global): both stop delivery, which would silence the notch along with the
+  shell.
+
+  An app that registers after a sweep is caught at the first notification it
+  raises — `mute_app_on_sight`, off the poll that was reading the centre anyway —
+  so it costs one banner rather than waiting for the next restart.
+
+  This is the one preference that changes something outside the app, so it is
+  fenced on all sides: refused unless the notch's own half is on *and* the
+  listener has access (either way the user would end up with no notification
+  anywhere); un-muted when the notch's half is switched off, and on the next
+  apply if access is revoked; and undone by `settings::shutdown` on
+  `RunEvent::Exit`, since a muted shell outliving the app that stood in for it is
+  nobody's preference. The memo of what to put back lives in
+  `notification-banners.json` in the app-data dir rather than in `settings.json`
+  — it is a record of changes made outside the app, it is the size of the user's
+  installed software, and the settings window has no business reading it. An app
+  whose banner was already off is deliberately left out of it: giving that one
+  back later would hand the user a setting they never had.
 - **Preferences live in `settings.json`, applied through one function.**
   `settings::apply` is the only place that maps a stored preference onto window
   state, and it runs at startup, on every change, and on every appearance — so a
@@ -206,6 +301,30 @@ Each command should be added only when its corresponding feature is being built 
   reset every other preference with it. The always-on-top default must agree with
   `alwaysOnTop` in `tauri.conf.json`, since the window is built from that config
   and only corrected afterwards.
+- **The position preference moves the window, not the card.** `notchPosition`
+  (`left | center | right`) is applied by `settings::apply_position`, which sets
+  the overlay's origin along the free span between the two edges of the primary
+  monitor — the window is never resized, so its origin is the only thing to
+  decide. Everything on the frontend lays out from `window.innerWidth / 2` and
+  follows for free; nothing there reads the preference except the picker that
+  edits it. Offsetting the card *inside* the 560px canvas was the alternative and
+  is not a position change: the widest card is 440, so the whole travel would be
+  60px. This is also why `lib.rs` no longer centres the window at startup —
+  `apply` places it, so the stored position is honoured on the first frame rather
+  than as a visible correction afterwards.
+
+  The one thing that does not follow for free is `useHotzone`'s cached window
+  origin: it refreshes on a 2s cadence, and a stale origin means the notch
+  hit-tests where it used to be. It invalidates on the `settings-changed`
+  broadcast — twice, 250ms apart, because `set_position` is queued onto the window
+  thread and can still be in flight when Rust emits.
+- **`hotzoneHint` is a hint, not a surface.** A 80×4 mark at the top edge, exactly
+  the width of the trigger strip, drawn only while `state === 'hidden'`: the notch
+  is invisible until the cursor finds it, and where to send the cursor is the one
+  question a new install cannot answer for itself. It needs no behaviour — it sits
+  in the shell's click-through canvas with pointer events off, and hovering it is
+  just the ordinary hotzone entry. Nothing is drawn once the pill rests on screen
+  (always-on-top), because then there is nothing left to point at.
 
 ## Open decisions (fill in as they're made)
 

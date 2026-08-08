@@ -1,3 +1,47 @@
+## 0.4.0 — 2026-08-09
+
+**Your notifications come to the notch.** Anything Windows would have popped in
+the corner drops down from the top of your screen instead, carrying the app's own
+icon — and if you want, Windows stops drawing its banners at all. Music does the
+same: start a track and the notch tells you what is playing, then gets out of the
+way.
+
+### New
+
+- **Notifications in the notch** — an arriving notification drops down for a few
+  seconds and leaves on its own. Hover it to hold it there while you read.
+  Windows needs "Let apps access your notifications" turned on for this
+- **A notifications page** — a fourth panel listing what is in your notification
+  centre. Open one to read it in full, dismiss it, or clear the lot
+- **Mute Windows' own banners** — a setting that stops the pop-up in the
+  bottom-right corner, so a notification appears in the notch and nowhere else.
+  It still lands in the notification centre, and Windows gets its banners back
+  the moment you turn this off or quit Crest
+- **Now playing** — starting a track, skipping to another, or resuming drops the
+  now-playing banner in for a few seconds. Hover it to keep it, and keep hovering
+  to open the full player
+- **Where the notch sits** — put it at the left, centre, or right of your top edge
+- **Background opacity** — a slider for how much of what is behind the notch
+  shows through it
+- **A mark showing where the notch is** — a small strip on the top edge while the
+  notch is hidden, so a new install can answer "where do I point?". Can be turned
+  off once you know
+- **Pin an app from a picker** — the empty launcher slot now opens a list of
+  everything installed, instead of asking you to search for a name you already
+  have to know
+
+### Improved
+
+- Settings has been rebuilt around a sidebar: "About this app" and "Settings" are
+  separate pages now, so the switches are not at the bottom of the pitch
+- The tray menu sizes itself to what is in it
+
+### Fixed
+
+- The scrub bar no longer jumps back to an older position while a track plays —
+  Crest now accounts for how long ago the player last reported where it was,
+  rather than trusting a number that can be seconds stale
+
 ## 0.3.1 — 2026-08-08
 
 **The notch opens where you can see it.** However "Always on top" is set, a card
