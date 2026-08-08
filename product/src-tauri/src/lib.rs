@@ -75,6 +75,8 @@ pub fn run() {
             shelf::write_shelf,
             shelf::start_file_drag,
             notifications::get_windows_notifications,
+            notifications::notifications_available,
+            notifications::notification_logo,
             notifications::dismiss_notification,
             notifications::clear_all_notifications,
             tray::tray_menu_close,
@@ -85,6 +87,8 @@ pub fn run() {
             tray::tray_quit,
             settings::read_settings,
             settings::set_always_on_top,
+            settings::set_notifications,
+            settings::set_mute_windows_banners,
             settings::notch_raise,
             settings::notch_settle,
             settings::settings_open,
@@ -117,6 +121,13 @@ pub fn run() {
 
             clipboard::start_listener();
 
+            // Consent for reading the notification centre, asked for once. On a
+            // thread because the WinRT request is blocking and setup runs before
+            // the first frame — a notch that appears a beat late on every launch
+            // to ask about a feature the user may not have turned on is a worse
+            // trade than the notch missing the first notification of the session.
+            std::thread::spawn(notifications::request_access);
+
             let window = app.get_webview_window("notch-widget").unwrap();
 
             // Center the window horizontally on the primary monitor
@@ -129,6 +140,10 @@ pub fn run() {
                     y: 0,
                 }))?;
             }
+
+            // Before `settings::init`, which applies the banner preference and so
+            // needs the memo of what Windows' own settings were beforehand.
+            notifications::init(app.handle());
 
             // The window was just built from `tauri.conf.json`, which hardcodes
             // always-on-top. Anyone who turned that off expects it to stay off.
@@ -175,6 +190,14 @@ pub fn run() {
 
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        // Built rather than run outright so there is somewhere to hook `Exit`:
+        // silencing Windows' notification banners is a system-wide change that
+        // must not outlive the app making up for it. See `settings::shutdown`.
+        .build(tauri::generate_context!())
+        .expect("error while running tauri application")
+        .run(|app, event| {
+            if let tauri::RunEvent::Exit = event {
+                settings::shutdown(app);
+            }
+        });
 }

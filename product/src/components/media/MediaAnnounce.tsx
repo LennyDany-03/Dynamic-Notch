@@ -2,8 +2,8 @@ import type { MediaInfo } from '../../types/media'
 import { color, radius } from '../../tokens'
 
 /**
- * The now-playing banner — what the notch shows for the couple of seconds after
- * music starts.
+ * The now-playing banner — what the notch shows for the few seconds after music
+ * starts.
  *
  * A report, not a player: art, title, artist, and a mark that says it is
  * playing. Deliberately none of the media card's transport, scrub bar, or nav —

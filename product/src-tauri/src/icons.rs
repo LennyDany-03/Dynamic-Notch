@@ -49,7 +49,7 @@ pub async fn app_icon(path: String) -> Result<Option<String>, String> {
 }
 
 #[cfg(windows)]
-fn extract(path: &str) -> Option<String> {
+pub(crate) fn extract(path: &str) -> Option<String> {
     use windows::core::PCWSTR;
     use windows::Win32::Foundation::SIZE;
     use windows::Win32::Graphics::Gdi::{DeleteObject, HGDIOBJ};

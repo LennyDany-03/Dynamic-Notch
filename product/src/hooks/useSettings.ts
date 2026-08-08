@@ -2,9 +2,15 @@ import { useCallback, useEffect, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 
-/** Mirrors `Settings` in `src-tauri/src/settings.rs`. */
+/**
+ * Mirrors `Settings` in `src-tauri/src/settings.rs`, minus `bannersRestore` —
+ * that field is Rust's memo of what the shell's banner switch was before Crest
+ * touched it, not a preference, and nothing here has any business reading it.
+ */
 export interface Settings {
   alwaysOnTop: boolean
+  notifications: boolean
+  muteWindowsBanners: boolean
 }
 
 /**
@@ -12,7 +18,11 @@ export interface Settings {
  * added on the Rust side but missing from an old file still renders something,
  * and so the browser fallback (where `invoke` rejects) has a coherent state.
  */
-const DEFAULTS: Settings = { alwaysOnTop: true }
+const DEFAULTS: Settings = {
+  alwaysOnTop: true,
+  notifications: true,
+  muteWindowsBanners: false,
+}
 
 /**
  * The settings window's state. Rust owns the file and the window flags; this only
@@ -69,17 +79,74 @@ export function useSettings() {
     }
   }, [])
 
-  const setAlwaysOnTop = useCallback((enabled: boolean) => {
-    setSettings((prev) => ({ ...prev, alwaysOnTop: enabled }))
-    setError(null)
+  /**
+   * Optimistic write, reconciled against what Rust reports actually reaching.
+   *
+   * The failure message comes from Rust when it has one to give: refusing to
+   * silence Windows' banners is a decision with a reason ("nothing would show
+   * them"), and "Couldn't save that setting" would throw the reason away.
+   */
+  const write = useCallback(
+    <K extends keyof Settings>(command: string, key: K, enabled: boolean) => {
+      setSettings((prev) => ({ ...prev, [key]: enabled }))
+      setError(null)
 
-    void invoke<boolean>('set_always_on_top', { enabled })
-      .then((reached) => setSettings((prev) => ({ ...prev, alwaysOnTop: reached })))
-      .catch(() => {
-        setSettings((prev) => ({ ...prev, alwaysOnTop: !enabled }))
-        setError("Couldn't save that setting.")
-      })
+      void invoke<boolean>(command, { enabled })
+        .then((reached) => setSettings((prev) => ({ ...prev, [key]: reached })))
+        .catch((reason) => {
+          setSettings((prev) => ({ ...prev, [key]: !enabled }))
+          setError(typeof reason === 'string' && reason ? reason : "Couldn't save that setting.")
+        })
+    },
+    [],
+  )
+
+  const setAlwaysOnTop = useCallback(
+    (enabled: boolean) => write('set_always_on_top', 'alwaysOnTop', enabled),
+    [write],
+  )
+
+  const setNotifications = useCallback(
+    (enabled: boolean) => write('set_notifications', 'notifications', enabled),
+    [write],
+  )
+
+  const setMuteWindowsBanners = useCallback(
+    (enabled: boolean) => write('set_mute_windows_banners', 'muteWindowsBanners', enabled),
+    [write],
+  )
+
+  return { settings, loaded, error, setAlwaysOnTop, setNotifications, setMuteWindowsBanners }
+}
+
+/**
+ * Whether Windows will let Crest read the notification centre.
+ *
+ * A separate hook because it is not a preference and not stored: it is a privacy
+ * setting the user can revoke at any time, from outside this app. Settings shows
+ * it because the notification rows are inert without it, and because Rust refuses
+ * to silence Windows' banners while it is false — this is what explains that
+ * refusal before the user meets it.
+ */
+export function useNotificationAccess(): boolean | null {
+  const [allowed, setAllowed] = useState<boolean | null>(null)
+
+  const read = useCallback(() => {
+    void invoke<boolean>('notifications_available')
+      .then(setAllowed)
+      .catch(() => setAllowed(false))
   }, [])
 
-  return { settings, loaded, error, setAlwaysOnTop }
+  useEffect(() => read(), [read])
+
+  // Re-read per open: the user may have just been sent to Windows' own settings
+  // to grant this, and the window is reshown rather than remounted.
+  useEffect(() => {
+    const pending = listen('settings-opened', read)
+    return () => {
+      void pending.then((unlisten) => unlisten())
+    }
+  }, [read])
+
+  return allowed
 }

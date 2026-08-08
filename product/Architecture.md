@@ -73,7 +73,7 @@ type NotchState = 'hidden' | 'peek' | 'announce' | 'expanded'
 - `peek → expanded`: cursor remains in hotzone/pill for 800ms continuous dwell (timer via `setTimeout`, cleared on `mouseleave`).
 - `expanded → peek → hidden`: cursor leaves expanded bounds, ~300-500ms grace delay before each step down, timer cleared if cursor re-enters during the grace window.
 - Which "page" is showing while `expanded` (Media / Launcher / Clipboard / Files+Notes) is a separate piece of state (`activeModule`), independent of `NotchState`, so switching modules doesn't retrigger the expand animation.
-- `announce(module, ms)`: `→ announce`, a banner the notch puts up by itself to report something (today, music starting), retracted after `ms`. Pinned like the tray's openings; the cursor arriving cancels the retract, and dwelling on it opens `module` as a full card.
+- `announce(announcement, ms)`: `→ announce`, a banner the notch puts up by itself to report something — music starting, or a Windows notification arriving — retracted after `ms`. Pinned like the tray's openings; the cursor arriving cancels the retract. A `media` announcement dwells through to the media card, a `notification` has nothing to open into and is only held up to be read.
 
 All feature components read `NotchState` and `activeModule` from context/hook — they don't independently decide whether to render or animate.
 
@@ -198,7 +198,8 @@ Each command should be added only when its corresponding feature is being built 
   neither window is ever rebuilt.
 - **Music starting announces itself on its own surface, not the media card.**
   A track beginning drops a 300×64 banner — art, title, artist, equalizer — for
-  2s and retracts it. It is a fourth `NotchState` rather than a timed `expanded`,
+  `timing.announceMs` (3s) and retracts it. It is a fourth `NotchState` rather
+  than a timed `expanded`,
   because opening the player is the wrong event: the full card is 380 wide with a
   scrub bar and three transport buttons the user has no time to aim at, and every
   track change would look like the app opening itself. As a state it also gets
@@ -217,6 +218,66 @@ Each command should be added only when its corresponding feature is being built 
   keeps the 1s rate only while something is on screen to interpolate for. The
   first settled poll is a baseline and never announces: music already playing
   when the overlay launches is not something the user just started.
+- **Windows notifications use the same banner, and can replace Windows' own.**
+  `useWindowsNotifications` polls `UserNotificationListener` every 2s and
+  announces ids the previous poll did not have (first poll is a baseline, or
+  launching Crest replays the whole notification centre; the seen set is pruned
+  to what the centre still holds so it cannot grow all day). Polled rather than
+  subscribed because the WinRT change event is not raised for unpackaged desktop
+  apps. A burst announces one banner, not ten — the API does not order its
+  results, so there is no "newest" to pick, and the rest are in the notification
+  centre regardless.
+
+  The banner carries the raising app's icon, resolved through the launcher's
+  `icons::app_icon` on `shell:AppsFolder\<AUMID>` — the same shell imaging call
+  that puts icons on launcher tiles. **Not** `AppInfo.DisplayInfo.GetLogo`, which
+  is a trap twice over: `OpenReadAsync().get()` on the stream it returns never
+  completes on a worker thread (the operation is created and never signalled, in
+  either apartment — measured: every icon cost a 3s timeout and came back
+  `None`), and `AppInfo::GetFromAppUserModelId` cannot see unpackaged apps at all
+  ("element not found" for Discord, i.e. most of what notifies you). The shell
+  route answers in ~250ms cold and from cache thereafter. It is fetched by the
+  banner itself, not handed to it, so an icon can never delay or block the
+  notification; and per announcement rather than with the poll, since an icon for
+  every entry in the centre re-serialised every two seconds is a lot of base64 to
+  draw one of them. What no route reaches is the picture inside the toast, the
+  contact photo on a message: `NotificationBinding` exposes text elements and
+  nothing else.
+
+  The banner is read-only, unlike Windows' own: clicking a toast button activates
+  the notification in the app that raised it, and the listener API cannot do that
+  — a button that only looked like Windows' would be worse than no button.
+
+  `muteWindowsBanners` is the other half, and the mechanism took two attempts.
+  `NOC_GLOBAL_SETTING_TOASTS_ENABLED = 0` under
+  `HKCU\...\CurrentVersion\Notifications\Settings` is widely described as the
+  global "show notification banners" switch, and on Windows 11 26200 it simply
+  does not work — verified: the value read back as `0` while banners kept
+  arriving. What does work is the *per-app* `ShowBanner = 0` under that key's
+  `<AUMID>` subkeys, the value behind the per-app checkbox in Settings, which the
+  shell reads as each notification arrives (so it takes effect immediately, with
+  no sign-out). Muting is therefore a sweep over every app the shell knows about;
+  the global value is still written for the builds that honour it, but nothing
+  depends on it. Never `Enabled` (per-app) or `PushNotifications\ToastEnabled`
+  (global): both stop delivery, which would silence the notch along with the
+  shell.
+
+  An app that registers after a sweep is caught at the first notification it
+  raises — `mute_app_on_sight`, off the poll that was reading the centre anyway —
+  so it costs one banner rather than waiting for the next restart.
+
+  This is the one preference that changes something outside the app, so it is
+  fenced on all sides: refused unless the notch's own half is on *and* the
+  listener has access (either way the user would end up with no notification
+  anywhere); un-muted when the notch's half is switched off, and on the next
+  apply if access is revoked; and undone by `settings::shutdown` on
+  `RunEvent::Exit`, since a muted shell outliving the app that stood in for it is
+  nobody's preference. The memo of what to put back lives in
+  `notification-banners.json` in the app-data dir rather than in `settings.json`
+  — it is a record of changes made outside the app, it is the size of the user's
+  installed software, and the settings window has no business reading it. An app
+  whose banner was already off is deliberately left out of it: giving that one
+  back later would hand the user a setting they never had.
 - **Preferences live in `settings.json`, applied through one function.**
   `settings::apply` is the only place that maps a stored preference onto window
   state, and it runs at startup, on every change, and on every appearance — so a

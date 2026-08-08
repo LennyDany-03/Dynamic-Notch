@@ -7,8 +7,10 @@ import { useMediaAnnounce } from './hooks/useMediaAnnounce'
 import { useMediaSession } from './hooks/useMediaSession'
 import { useFileShelf } from './hooks/useFileShelf'
 import { useSettings } from './hooks/useSettings'
+import { useWindowsNotifications } from './hooks/useWindowsNotifications'
 import { timing } from './tokens'
 import { MODULES, STATE_RANK, type NotchModule, type NotchState } from './types/notch'
+import type { WinNotification } from './types/notifications'
 
 export default function App() {
   // "Always on top" is both a z-order and a visibility preference: it keeps the
@@ -17,11 +19,19 @@ export default function App() {
   // visibility half. A notch that is actually on screen is promoted either way —
   // see the raise/settle pair in `useNotchState`.
   const { settings, loaded } = useSettings()
-  const { state, activeModule, showModule, expand, announce, nextModule, previousModule } =
-    useNotchState({
-      // Gated on `loaded` so the default never shows a pill it is about to retract.
-      alwaysVisible: loaded && settings.alwaysOnTop,
-    })
+  const {
+    state,
+    activeModule,
+    announcement,
+    showModule,
+    expand,
+    announce,
+    nextModule,
+    previousModule,
+  } = useNotchState({
+    // Gated on `loaded` so the default never shows a pill it is about to retract.
+    alwaysVisible: loaded && settings.alwaysOnTop,
+  })
 
   // The tray popup can only ask; the state machine still owns what opens. Both
   // are pinned, because the cursor is down by the taskbar when they arrive.
@@ -43,13 +53,36 @@ export default function App() {
   // registers with nothing on screen.
   const session = useMediaSession(state !== 'hidden')
 
-  // Starting music drops the now-playing banner in for a couple of seconds, so
+  // Starting music drops the now-playing banner in for a few seconds, so
   // the notch says what is playing without being asked. The state machine still
   // decides whether that happens — a notch the cursor is already using is left
-  // alone — and 'media' is what a hover on the banner opens onto.
+  // alone.
   useMediaAnnounce(
     session,
-    useCallback(() => announce('media', timing.announceMs), [announce]),
+    useCallback(() => announce({ kind: 'media' }, timing.announceMs), [announce]),
+  )
+
+  // The same banner for arriving Windows notifications. Gated on `loaded` as
+  // well as the preference, so a default that is about to be corrected does not
+  // start a poll — and, more to the point, does not put a banner on screen for
+  // someone who turned the feature off.
+  useWindowsNotifications(
+    loaded && settings.notifications,
+    useCallback(
+      (arrived: WinNotification[]) => {
+        // One banner per batch. A backlog that lands at once (waking the machine,
+        // reconnecting) would otherwise queue up minutes of notch; the rest are
+        // in the notification centre either way.
+        //
+        // Announced on the spot. The app's logo is a second WinRT call and the
+        // banner does not wait on it — it is fetched by the banner itself and
+        // appears when it appears. A version of this that resolved the icon first
+        // showed nothing at all whenever that call was slow, which is a poor
+        // trade for an icon arriving a frame early.
+        announce({ kind: 'notification', notification: arrived[0] }, timing.announceMs)
+      },
+      [announce],
+    ),
   )
 
   // A drag reaching the notch is an unambiguous request for the shelf, so it
@@ -83,6 +116,7 @@ export default function App() {
       <NotchShell
         state={state}
         activeModule={activeModule}
+        announcement={announcement}
         onPreviousModule={previousModule}
         onNextModule={nextModule}
         session={session}

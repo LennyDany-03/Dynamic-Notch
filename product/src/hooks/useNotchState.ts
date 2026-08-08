@@ -3,7 +3,13 @@ import { invoke } from '@tauri-apps/api/core'
 import { useHotzone } from './useHotzone'
 import { contentRect } from '../layout'
 import { timing } from '../tokens'
-import { MODULES, STATE_RANK, type NotchModule, type NotchState } from '../types/notch'
+import {
+  MODULES,
+  STATE_RANK,
+  type Announcement,
+  type NotchModule,
+  type NotchState,
+} from '../types/notch'
 
 /**
  * The notch visibility state machine — the single source of truth for whether the
@@ -41,6 +47,13 @@ export function useNotchState({ alwaysVisible = false }: { alwaysVisible?: boole
   const [state, setState] = useState<NotchState>('hidden')
   const [activeModule, setActiveModule] = useState<NotchModule>('media')
 
+  /**
+   * What the banner is reporting. Never cleared: the card fades out over a
+   * frame or two after the state leaves `announce`, and blanking the content
+   * would empty the banner before it has finished leaving.
+   */
+  const [announcement, setAnnouncement] = useState<Announcement | null>(null)
+
   /** The lowest state the notch may come to rest in. */
   const resting: NotchState = alwaysVisible ? 'peek' : 'hidden'
 
@@ -66,6 +79,10 @@ export function useNotchState({ alwaysVisible = false }: { alwaysVisible?: boole
   // already using the notch.
   const insideRef = useRef(inside)
   insideRef.current = inside
+  // Read by the hover effect, which must not re-run merely because the banner's
+  // contents changed.
+  const announcementRef = useRef(announcement)
+  announcementRef.current = announcement
 
   const dwellRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const graceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -123,9 +140,15 @@ export function useNotchState({ alwaysVisible = false }: { alwaysVisible?: boole
         return
       }
 
-      // A banner dwells through to the full card just as the pill does: reaching
-      // for something that reported a track is a request to see the rest of it.
-      if (state === 'peek' || state === 'announce') {
+      // A music banner dwells through to the full card just as the pill does:
+      // reaching for something that reported a track is a request to see the
+      // rest of it. A notification has no card behind it, so hovering only holds
+      // it up to be read — the cancelled retract above is the whole behaviour,
+      // and it collapses on the ordinary grace once the cursor leaves.
+      const dwells =
+        state === 'peek' ||
+        (state === 'announce' && announcementRef.current?.kind === 'media')
+      if (dwells) {
         // Guarded so a re-render mid-dwell does not restart the countdown.
         if (!dwellRef.current) {
           dwellRef.current = setTimeout(() => {
@@ -227,12 +250,8 @@ export function useNotchState({ alwaysVisible = false }: { alwaysVisible?: boole
 
   /**
    * Drop the banner in for `durationMs` and then take it away again: something
-   * happened that the user should see without having gone looking for it — today,
-   * a track starting to play.
-   *
-   * `module` is not what gets drawn (the banner is its own surface); it is what a
-   * dwell on the banner opens onto, so reaching for a report about music lands on
-   * the media card rather than wherever the notch was last left.
+   * happened that the user should see without having gone looking for it — a
+   * track starting to play, a notification arriving.
    *
    * Pinned like the tray's openings, and for the same reason: the cursor is
    * wherever the user was working, so the ordinary rules would count it as
@@ -243,7 +262,7 @@ export function useNotchState({ alwaysVisible = false }: { alwaysVisible?: boole
    * because there is nothing between a banner and rest — the intermediate pill
    * would blink for a grace window on the way out and read as a second event.
    */
-  const announce = useCallback((module: NotchModule, durationMs: number) => {
+  const announce = useCallback((next: Announcement, durationMs: number) => {
     // Already in use, by the cursor or by a card waiting to be read. Whatever is
     // on screen is more relevant than a report, and replacing it is worse than
     // staying quiet — the notch is already up, so nothing is being missed.
@@ -253,7 +272,12 @@ export function useNotchState({ alwaysVisible = false }: { alwaysVisible?: boole
     clearDwell()
     clearAnnounce()
     pinnedRef.current = true
-    setActiveModule(module)
+    setAnnouncement(next)
+    // Music is the one announcement with a card behind it, so a dwell on that
+    // banner should land on the media card rather than wherever the notch was
+    // last left. A notification has nothing to open into and leaves the
+    // selection alone.
+    if (next.kind === 'media') setActiveModule('media')
     setState('announce')
 
     announceRef.current = setTimeout(() => {
@@ -297,5 +321,14 @@ export function useNotchState({ alwaysVisible = false }: { alwaysVisible?: boole
   const nextModule = useCallback(() => cycleModule(1), [cycleModule])
   const previousModule = useCallback(() => cycleModule(-1), [cycleModule])
 
-  return { state, activeModule, showModule, expand, announce, nextModule, previousModule }
+  return {
+    state,
+    activeModule,
+    announcement,
+    showModule,
+    expand,
+    announce,
+    nextModule,
+    previousModule,
+  }
 }

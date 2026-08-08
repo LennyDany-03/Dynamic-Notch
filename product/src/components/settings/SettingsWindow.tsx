@@ -4,7 +4,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { getVersion } from '@tauri-apps/api/app'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import Toggle from '../Toggle'
-import { useSettings } from '../../hooks/useSettings'
+import { useNotificationAccess, useSettings } from '../../hooks/useSettings'
 import { color, font, radius, sectionLabel, spring } from '../../tokens'
 
 /**
@@ -155,12 +155,15 @@ function SettingRow({
   on,
   onToggle,
   icon,
+  disabled = false,
 }: {
   title: string
   body: string
   on: boolean
   onToggle: () => void
   icon: ReactNode
+  /** For a preference that cannot be honoured yet — see the note under the row. */
+  disabled?: boolean
 }) {
   const [hovered, setHovered] = useState(false)
 
@@ -168,9 +171,12 @@ function SettingRow({
     <button
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      onClick={onToggle}
+      onClick={() => {
+        if (!disabled) onToggle()
+      }}
       role="switch"
       aria-checked={on}
+      aria-disabled={disabled}
       style={{
         width: '100%',
         padding: 12,
@@ -179,8 +185,12 @@ function SettingRow({
         gap: 12,
         borderRadius: radius.tile,
         textAlign: 'left',
-        background: hovered ? color.tile : 'transparent',
-        transition: 'background 90ms linear',
+        background: hovered && !disabled ? color.tile : 'transparent',
+        // Dimmed rather than hidden: the preference still exists, and a row that
+        // vanished would leave the note underneath explaining nothing.
+        opacity: disabled ? 0.45 : 1,
+        cursor: disabled ? 'default' : 'pointer',
+        transition: 'background 90ms linear, opacity 90ms linear',
       }}
     >
       <span style={{ color: on ? color.accent : color.text.icon, display: 'flex', marginTop: 1 }}>
@@ -219,7 +229,8 @@ function SettingRow({
 }
 
 export default function SettingsWindow() {
-  const { settings, error, setAlwaysOnTop } = useSettings()
+  const { settings, error, setAlwaysOnTop, setNotifications, setMuteWindowsBanners } = useSettings()
+  const notificationAccess = useNotificationAccess()
   const [version, setVersion] = useState('')
   const [closeHovered, setCloseHovered] = useState(false)
 
@@ -429,6 +440,57 @@ export default function SettingsWindow() {
                   </Icon>
                 }
               />
+
+              <SettingRow
+                title="Notifications in the notch"
+                body="Anything Windows notifies you about drops down from the notch for a few seconds, then gets out of the way. Hovering it holds it there while you read."
+                on={settings.notifications}
+                onToggle={() => setNotifications(!settings.notifications)}
+                disabled={notificationAccess === false}
+                icon={
+                  <Icon>
+                    <path d="M18 8a6 6 0 1 0-12 0c0 5-2 6-2 6h16s-2-1-2-6" />
+                    <path d="M13.7 19a2 2 0 0 1-3.4 0" />
+                  </Icon>
+                }
+              />
+
+              <SettingRow
+                title="Mute Windows' own banners"
+                body="Stops Windows drawing its pop-up in the bottom-right corner, so a notification appears in the notch and nowhere else. It still lands in the notification centre, and Windows gets its banners back if you turn this off or quit Crest."
+                on={settings.muteWindowsBanners}
+                onToggle={() => setMuteWindowsBanners(!settings.muteWindowsBanners)}
+                disabled={notificationAccess === false || !settings.notifications}
+                icon={
+                  <Icon>
+                    <path d="M18 8a6 6 0 0 0-9.3-5" />
+                    <path d="M6 9v-1a6 6 0 0 1 .4-2.1" />
+                    <path d="M6 8c0 5-2 6-2 6h13" />
+                    <path d="M13.7 19a2 2 0 0 1-3.4 0" />
+                    <path d="M4 3l16 18" />
+                  </Icon>
+                }
+              />
+
+              {/* The one thing neither switch can fix from in here. Without this
+                  access the notch has nothing to announce, so both rows are inert
+                  and Rust refuses to silence Windows on top of that. */}
+              {notificationAccess === false && (
+                <p
+                  style={{
+                    margin: '2px 12px 0',
+                    fontSize: 11.5,
+                    lineHeight: 1.5,
+                    color: color.text.muted,
+                  }}
+                >
+                  Windows hasn't given Crest access to your notifications. Turn on{' '}
+                  <strong style={{ color: color.text.secondary, fontWeight: 500 }}>
+                    Settings → Privacy &amp; security → Notifications
+                  </strong>
+                  , then reopen this window.
+                </p>
+              )}
 
               {error && (
                 <p

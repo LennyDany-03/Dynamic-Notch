@@ -136,13 +136,14 @@ export const timing = {
   /** Grace period after the cursor leaves, before stepping down a state. */
   graceMs: 300,
   /**
-   * How long a card the user did not open stays up before retracting — today,
-   * the media card announcing a track that has just started playing.
+   * How long a banner the user did not ask for stays up before retracting — a
+   * track starting, a notification arriving.
    *
-   * Long enough to read a title and reach for the notch, short enough that it
-   * reads as a notification rather than the overlay opening itself.
+   * Long enough to read a message and reach for the notch, short enough that it
+   * still reads as a report rather than the overlay opening itself. Two seconds
+   * was the first cut and ran out while you were still reading the second line.
    */
-  announceMs: 2000,
+  announceMs: 3000,
 } as const
 
 /** Top-center trigger strip at the very top edge of the screen, in CSS px. */
