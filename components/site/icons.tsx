@@ -134,6 +134,19 @@ export const ArrowRight: Icon = (p) => (
   </svg>
 );
 
+export const Sparkles: Icon = (p) => (
+  <svg {...base(p)}>
+    <path d="M12 3.5 13.7 8l4.5 1.7-4.5 1.7L12 15.9l-1.7-4.5L5.8 9.7 10.3 8Z" />
+    <path d="M18.5 15.5 19.3 17.7l2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8Z" />
+  </svg>
+);
+
+export const Close: Icon = (p) => (
+  <svg {...base(p)}>
+    <path d="m6 6 12 12M18 6 6 18" />
+  </svg>
+);
+
 export const Search: Icon = (p) => (
   <svg {...base(p)}>
     <circle cx="11" cy="11" r="6.5" />

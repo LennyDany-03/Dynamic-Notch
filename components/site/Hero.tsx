@@ -1,6 +1,7 @@
 import Button from "./Button";
 import NotchDemo from "./NotchDemo";
-import { Download, Github, Windows } from "./icons";
+import { ArrowRight, Download, Github, Windows } from "./icons";
+import { WhatsNewTrigger } from "./WhatsNew";
 import { site } from "@/lib/site";
 
 const stats = [
@@ -18,17 +19,21 @@ export default function Hero() {
 
       <div className="relative mx-auto max-w-6xl px-5">
         <div className="mx-auto max-w-3xl text-center">
-          <a
-            href={site.releases}
-            target="_blank"
-            rel="noreferrer noopener"
-            className="rise inline-flex items-center gap-2 rounded-full border border-[var(--hairline)] bg-white/[.04] py-1.5 pr-4 pl-2 text-[13px] text-[var(--muted)] backdrop-blur transition-colors hover:border-[var(--hairline-bright)] hover:text-white"
-          >
+          {/*
+            The badge opens the release notes in place instead of sending a
+            first-time visitor off to GitHub before they know what the app is.
+          */}
+          <WhatsNewTrigger className="rise group inline-flex items-center gap-2 rounded-full border border-[var(--hairline)] bg-white/[.04] py-1.5 pr-3 pl-2 text-[13px] text-[var(--muted)] backdrop-blur transition-colors hover:border-[var(--hairline-bright)] hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent-bright)]">
             <span className="rounded-full bg-[var(--accent)] px-2 py-0.5 text-[11px] font-semibold text-white">
               v{site.version}
             </span>
-            First public release is out
-          </a>
+            See what&rsquo;s new
+            <ArrowRight
+              width={14}
+              height={14}
+              className="transition-transform duration-200 group-hover:translate-x-0.5"
+            />
+          </WhatsNewTrigger>
 
           <h1
             className="rise gradient-text mt-7 text-[clamp(2.6rem,7vw,4.6rem)] leading-[1.03] font-semibold tracking-[-0.035em]"

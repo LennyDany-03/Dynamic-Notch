@@ -6,6 +6,8 @@ import HowItWorks from "@/components/site/HowItWorks";
 import SiteFooter from "@/components/site/SiteFooter";
 import SiteHeader from "@/components/site/SiteHeader";
 import UnderTheHood from "@/components/site/UnderTheHood";
+import WhatsNew from "@/components/site/WhatsNew";
+import { getReleases } from "@/lib/changelog";
 import { site } from "@/lib/site";
 
 /*
@@ -28,6 +30,12 @@ const jsonLd = {
 };
 
 export default function Home() {
+  /*
+    Read on the server at build time. The dialog is a Client Component, so the
+    parsed notes travel down as props rather than the changelog being fetched.
+  */
+  const releases = getReleases();
+
   return (
     <>
       <script
@@ -45,6 +53,7 @@ export default function Home() {
         <Faq />
       </main>
       <SiteFooter />
+      <WhatsNew releases={releases} />
     </>
   );
 }

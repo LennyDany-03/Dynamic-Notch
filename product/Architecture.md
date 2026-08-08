@@ -152,18 +152,38 @@ Each command should be added only when its corresponding feature is being built 
   position at the one moment it matters. Do not "simplify" either of these back
   into a single `set_always_on_top` call.
 
-  `notch_raise` asks Rust to *match the stored preference*, not to rise: it reads
-  `Current` and applies whichever band the switch selects. It once promoted
-  unconditionally, on the theory that a switched-off notch could still be topmost
-  for the moments it was on screen — which made the switch unobservable, since the
-  hover that revealed the notch also undid the demotion the switch had just
-  performed. The band tracks the preference at all times now, which is also why
-  there is no counterpart on the way down: nothing to undo.
+  `notch_raise` promotes unconditionally, and `notch_settle` puts the window back
+  in whichever band the switch selects. The pair is the point: the band follows
+  *whether the notch is on screen*, not the preference alone. A card the user
+  reached for and cannot see is a broken notch however the switch is set, and with
+  the preference off the window is otherwise below every focused window — click on
+  anything, reach for the notch, and it expands behind the app you are using, or
+  behind a fullscreen video, with nothing to show for the reach.
 
-  It fires whenever the notch *grows* rather than when it leaves `hidden`. With
+  Two earlier versions each got half of this. Promoting unconditionally *without*
+  `notch_settle` left a switched-off notch permanently topmost after the first
+  hover, which made the switch unobservable. Matching the preference on the way up
+  instead — reading `Current` in `notch_raise` — made the switch observable by
+  making the notch useless. Scoping promotion to the moments a card is drawn is
+  what satisfies both: the switch still decides where the window rests, which is
+  also what keeps a transparent click-through window out of the topmost band while
+  idle, where Windows would weigh it when deciding whether an app may take
+  exclusive fullscreen.
+
+  The frontend raises on two rising edges, both in `useNotchState`. The notch
+  *growing* — keyed on `STATE_RANK` rather than on leaving `hidden`, because with
   the pill resting on screen the notch leaves `hidden` exactly once, at startup,
   so an edge-triggered reclaim would never run again and a band lost to a
-  fullscreen app hours later would stay lost.
+  fullscreen app hours later would stay lost. And the *cursor arriving*, because a
+  pill already resting at `peek` has no growth to key on, and waiting for the
+  dwell would leave the user hovering a buried pill with no feedback for 600ms.
+  `notch_settle` fires on the opposite edge, when the notch shrinks back to
+  `hidden`.
+
+  What none of this reaches is a game in genuine exclusive fullscreen, which owns
+  the display outright: no window is composited over it, topmost or otherwise.
+  Borderless-fullscreen apps and fullscreen video, which are ordinary topmost
+  windows, are covered.
 - **"Always on top" is a visibility preference as well as a z-order one.**
   Users read the name as "the notch is always there", not "the notch wins a
   z-order comparison during the moments it happens to be drawn" — an overlay that
@@ -180,7 +200,7 @@ Each command should be added only when its corresponding feature is being built 
   state, and it runs at startup, on every change, and on every appearance — so a
   preference cannot be honoured live but forgotten on relaunch. The running app
   answers from `settings::Current`, an in-memory copy seeded at startup, because
-  `notch_raise` is on a hot path and has no business reading a file. Every field is
+  `notch_settle` is on a hot path and has no business reading a file. Every field is
   `#[serde(default = ...)]`-ed: the first launch after any new preference ships
   reads a file that predates it, and a bare derive would fail the whole parse and
   reset every other preference with it. The always-on-top default must agree with

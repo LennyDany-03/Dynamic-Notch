@@ -45,9 +45,9 @@ impl Default for Settings {
 
 /// In-memory copy of the preferences, seeded at startup.
 ///
-/// `notch_raise` runs every time the overlay appears, which is often enough that
-/// it has no business reading a file. Disk stays the durable record; this is what
-/// the running app answers from.
+/// `notch_settle` runs every time the overlay collapses, which is often enough
+/// that it has no business reading a file. Disk stays the durable record; this is
+/// what the running app answers from.
 #[derive(Default)]
 pub struct Current(Mutex<Settings>);
 
@@ -208,22 +208,43 @@ pub fn read_settings(current: State<'_, Current>) -> Settings {
     current.get()
 }
 
-/// Re-assert the overlay's z-order against the stored preference, called each
-/// time it becomes visible.
+/// Put the overlay at the top of the topmost band, whatever the preference says.
+/// Called every time the notch is about to be looked at — the cursor reaching for
+/// it, or the card growing.
 ///
-/// With the preference on, being in the topmost band once is not the same as
-/// staying at the top of it: the overlay never takes focus, so anything else that
-/// goes topmost lands above it and stays there. Reclaiming the position at the
-/// moment the notch is about to be looked at is what makes "always on top" true
-/// rather than "on top until something else asks".
+/// Unconditional on purpose. Being in the topmost band once is not the same as
+/// staying at the top of it: the overlay never takes focus, so anything that goes
+/// topmost afterwards — a maximised window, a fullscreen video — lands above it
+/// and stays there. A notch that is drawn underneath the app you are using is a
+/// notch that does not work, and that is true no matter which way the switch is
+/// set: a surface you reached for and cannot see is indistinguishable from a
+/// broken one.
 ///
-/// With it off this asserts *normal* z-order instead — it is deliberately not a
-/// no-op. Appearing is the one moment the band is observable, so it is also the
-/// moment a window left topmost by anything else has to be put back. Promoting
-/// here unconditionally, as this once did, made the switch unobservable: every
-/// hover undid the demotion the switch had just performed.
+/// What keeps the preference observable is `notch_settle`, its counterpart on the
+/// way down. Promotion is scoped to the moments the notch is actually on screen;
+/// the rest of the time the window sits in the band the switch selects. An earlier
+/// version promoted here unconditionally *without* that counterpart, which left a
+/// switched-off notch permanently topmost after the first hover — the two calls
+/// only make sense as a pair.
 #[tauri::command]
-pub fn notch_raise(app: AppHandle, current: State<'_, Current>) {
+pub fn notch_raise(app: AppHandle) {
+    let _ = apply_topmost(&app, true);
+}
+
+/// Return the overlay to the band the preference selects, called when the notch
+/// has collapsed back out of sight.
+///
+/// This is what the switch actually buys once `notch_raise` promotes regardless
+/// of it: with the preference off the window is topmost only for the moments a
+/// card is drawn, and drops back to normal z-order as soon as the notch is gone.
+/// A transparent, click-through window left in the topmost band is not merely
+/// untidy — Windows weighs topmost windows when deciding whether an app may take
+/// exclusive fullscreen.
+///
+/// With the preference on this is the same call `notch_raise` makes, and the
+/// notch never collapses far enough to fire it anyway.
+#[tauri::command]
+pub fn notch_settle(app: AppHandle, current: State<'_, Current>) {
     let _ = apply_topmost(&app, current.get().always_on_top);
 }
 

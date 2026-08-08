@@ -9,9 +9,11 @@ import { useSettings } from './hooks/useSettings'
 import { MODULES, STATE_RANK, type NotchModule, type NotchState } from './types/notch'
 
 export default function App() {
-  // "Always on top" is both a z-order and a visibility preference: it pins the
-  // window above other windows *and* keeps the pill on screen instead of letting
-  // it collapse away. Rust owns the z-order half; this is the visibility half.
+  // "Always on top" is both a z-order and a visibility preference: it keeps the
+  // window above other windows *while idle* and keeps the pill on screen instead
+  // of letting it collapse away. Rust owns the z-order half; this is the
+  // visibility half. A notch that is actually on screen is promoted either way —
+  // see the raise/settle pair in `useNotchState`.
   const { settings, loaded } = useSettings()
   const { state, activeModule, showModule, expand, nextModule, previousModule } = useNotchState({
     // Gated on `loaded` so the default never shows a pill it is about to retract.

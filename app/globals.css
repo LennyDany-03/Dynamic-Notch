@@ -92,6 +92,16 @@ body {
   );
 }
 
+/*
+  A dialog is a `.pane` with the whole page moving behind it, not a card resting
+  on one — at the pane's own 4% fill the hero's aurora shows through the release
+  notes and reads as part of the text. Same recipe, opaque enough to be a
+  surface. Declared after `.pane` so it wins on order, not specificity.
+*/
+.modal-panel {
+  background: rgba(11, 11, 17, 0.92);
+}
+
 /* Aurora wash behind the hero and download sections. */
 .aurora {
   position: absolute;
@@ -265,6 +275,56 @@ body {
   animation: eq 0.9s ease-in-out infinite;
 }
 
+/*
+  The "What's new" dialog. The panel rises from the bottom edge on a phone,
+  where it is a sheet, and scales up from centre on a wider screen — two
+  keyframes rather than one because the two shapes read as different objects.
+*/
+@keyframes modal-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modal-sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes modal-panel-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.modal-backdrop {
+  animation: modal-backdrop-in 0.2s ease-out;
+}
+
+.modal-panel {
+  animation: modal-sheet-in 0.34s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (min-width: 640px) {
+  .modal-panel {
+    animation-name: modal-panel-in;
+  }
+}
+
 @keyframes caret {
   0%,
   49% {
@@ -287,7 +347,9 @@ body {
 
   .rise,
   .eq,
-  .caret {
+  .caret,
+  .modal-backdrop,
+  .modal-panel {
     animation: none;
   }
 }

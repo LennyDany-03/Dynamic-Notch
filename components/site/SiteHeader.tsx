@@ -1,5 +1,6 @@
 import Logo from "./Logo";
-import { Download, Github } from "./icons";
+import { Download, Github, Sparkles } from "./icons";
+import { WhatsNewTrigger } from "./WhatsNew";
 import { site } from "@/lib/site";
 
 const links = [
@@ -30,6 +31,15 @@ export default function SiteHeader() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/*
+            Sits with the actions rather than the nav links: it opens a dialog,
+            it does not scroll the page to a section like everything to its left.
+          */}
+          <WhatsNewTrigger className="mr-1 hidden h-10 items-center gap-2 rounded-xl px-3 text-[14px] text-[var(--muted)] transition-colors hover:text-white sm:inline-flex focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent-bright)]">
+            <Sparkles width={16} height={16} className="text-[var(--accent-bright)]" />
+            What&rsquo;s new
+          </WhatsNewTrigger>
+
           <a
             href={site.repo}
             target="_blank"

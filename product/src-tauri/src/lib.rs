@@ -86,6 +86,7 @@ pub fn run() {
             settings::read_settings,
             settings::set_always_on_top,
             settings::notch_raise,
+            settings::notch_settle,
             settings::settings_open,
             settings::settings_close,
             updater::updater_check,

@@ -134,29 +134,47 @@ export function useNotchState({ alwaysVisible = false }: { alwaysVisible?: boole
   }, [])
 
   /**
-   * Re-assert the overlay's z-order every time it grows.
+   * Keep the overlay's z-order in step with whether it is on screen: topmost for
+   * as long as anything is drawn, back to the band the preference selects once it
+   * is gone.
    *
-   * The window is created always-on-top, but it never takes focus, so anything
-   * else that goes topmost afterwards — a fullscreen video, another overlay —
-   * lands above it and stays there. Growing is the cheapest moment that matters:
-   * it costs one call per reach, not one per module switch, and it runs just
-   * before the card is actually looked at.
+   * The window never takes focus, so anything that goes topmost after it — a
+   * maximised window, a fullscreen video, another overlay — lands above it and
+   * stays there. Nothing about that is specific to the preference being off: a
+   * card the user reached for and cannot see is a broken notch either way. So the
+   * raise is unconditional, and `notch_settle` on the way down is what keeps the
+   * preference meaningful.
    *
-   * Keyed on the rank rather than on leaving `hidden`, because with the pill
-   * resting on screen the notch leaves `hidden` exactly once — at startup — and a
-   * band lost hours later would never be reclaimed. Every peek → expanded counts.
+   * Two rising edges trigger it, because either can be the first sign the user
+   * wants the notch:
    *
-   * Rust decides what "raise" means, by reading the always-on-top preference:
-   * this is a request to *match* the setting, not to rise. There is deliberately
-   * no matching call on the way down — the window's band tracks the preference at
-   * all times, so there is nothing to undo. Rejects harmlessly in the browser
-   * fallback.
+   *  - the notch grew. Keyed on the rank rather than on leaving `hidden`, because
+   *    with the pill resting on screen the notch leaves `hidden` exactly once, at
+   *    startup, and a band lost hours later would never be reclaimed.
+   *  - the cursor arrived. With the pill already resting at `peek` there is no
+   *    growth to key on, and waiting for the dwell would leave the user hovering a
+   *    pill buried under a fullscreen window with no feedback for 600ms.
+   *
+   * Both are edges, so this costs one call per reach rather than one per frame.
+   * Rejects harmlessly in the browser fallback.
    */
   const lastRankRef = useRef(STATE_RANK.hidden)
+  const wasInsideRef = useRef(false)
   useEffect(() => {
-    if (STATE_RANK[state] > lastRankRef.current) void invoke('notch_raise').catch(() => {})
-    lastRankRef.current = STATE_RANK[state]
-  }, [state])
+    const rank = STATE_RANK[state]
+    const grew = rank > lastRankRef.current
+    // Only the floor of a preference-off machine, i.e. nothing is drawn at all.
+    // With the preference on the notch never gets here, and its band is already
+    // the one `settle` would ask for.
+    const gone = rank < lastRankRef.current && rank === STATE_RANK.hidden
+    const reached = inside && !wasInsideRef.current
+
+    lastRankRef.current = rank
+    wasInsideRef.current = inside
+
+    if (grew || reached) void invoke('notch_raise').catch(() => {})
+    else if (gone) void invoke('notch_settle').catch(() => {})
+  }, [state, inside])
 
   // Clicking away is the user moving on, so a pinned card should give up its hold
   // and collapse on the normal schedule.
