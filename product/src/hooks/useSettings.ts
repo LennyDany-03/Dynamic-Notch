@@ -26,10 +26,21 @@ export function useSettings() {
   const [settings, setSettings] = useState<Settings>(DEFAULTS)
   const [error, setError] = useState<string | null>(null)
 
+  /**
+   * False until the first read settles, either way.
+   *
+   * `DEFAULTS` is a guess, and the notch acts on this hook — it would put the
+   * pill on screen on the strength of that guess and snatch it back a frame
+   * later for everyone who had the preference off. Callers whose behaviour is
+   * visible should wait for the real value; it arrives within a frame or two.
+   */
+  const [loaded, setLoaded] = useState(false)
+
   const read = useCallback(() => {
     void invoke<Settings>('read_settings')
       .then((stored) => setSettings({ ...DEFAULTS, ...stored }))
       .catch(() => setSettings(DEFAULTS))
+      .finally(() => setLoaded(true))
   }, [])
 
   useEffect(() => read(), [read])
@@ -46,6 +57,18 @@ export function useSettings() {
     }
   }, [read])
 
+  // Rust broadcasts every accepted change. That is what carries a preference to a
+  // window that did not make it — the notch reads this hook too, and the switch it
+  // has to obey lives in another window entirely.
+  useEffect(() => {
+    const pending = listen<Settings>('settings-changed', (event) => {
+      setSettings({ ...DEFAULTS, ...event.payload })
+    })
+    return () => {
+      void pending.then((unlisten) => unlisten())
+    }
+  }, [])
+
   const setAlwaysOnTop = useCallback((enabled: boolean) => {
     setSettings((prev) => ({ ...prev, alwaysOnTop: enabled }))
     setError(null)
@@ -58,5 +81,5 @@ export function useSettings() {
       })
   }, [])
 
-  return { settings, error, setAlwaysOnTop }
+  return { settings, loaded, error, setAlwaysOnTop }
 }

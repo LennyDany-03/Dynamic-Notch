@@ -151,6 +151,30 @@ Each command should be added only when its corresponding feature is being built 
   frontend calls `notch_raise` on the hidden → visible edge to reclaim the
   position at the one moment it matters. Do not "simplify" either of these back
   into a single `set_always_on_top` call.
+
+  `notch_raise` asks Rust to *match the stored preference*, not to rise: it reads
+  `Current` and applies whichever band the switch selects. It once promoted
+  unconditionally, on the theory that a switched-off notch could still be topmost
+  for the moments it was on screen — which made the switch unobservable, since the
+  hover that revealed the notch also undid the demotion the switch had just
+  performed. The band tracks the preference at all times now, which is also why
+  there is no counterpart on the way down: nothing to undo.
+
+  It fires whenever the notch *grows* rather than when it leaves `hidden`. With
+  the pill resting on screen the notch leaves `hidden` exactly once, at startup,
+  so an edge-triggered reclaim would never run again and a band lost to a
+  fullscreen app hours later would stay lost.
+- **"Always on top" is a visibility preference as well as a z-order one.**
+  Users read the name as "the notch is always there", not "the notch wins a
+  z-order comparison during the moments it happens to be drawn" — an overlay that
+  is topmost but invisible looks identical to one that is off. So the switch also
+  moves the floor of the visibility machine from `hidden` to `peek`, and the pill
+  stays put. Implemented as a floor rather than a mode: every transition above it
+  is untouched, so there is no second set of rules to drift out of step with the
+  first. The consequences are that `STATE_RANK` — not a test for `hidden` — is how
+  anything asks whether the notch grew or shrank, and that Rust has to broadcast
+  `settings-changed`, since the switch lives in a window that is not the notch and
+  neither window is ever rebuilt.
 - **Preferences live in `settings.json`, applied through one function.**
   `settings::apply` is the only place that maps a stored preference onto window
   state, and it runs at startup, on every change, and on every appearance — so a

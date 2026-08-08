@@ -131,41 +131,60 @@ fn apply_topmost(app: &AppHandle, enabled: bool) -> Result<(), String> {
         .set_always_on_top(enabled)
         .map_err(|error| format!("could not set always-on-top: {error}"))?;
 
-    // Tauri keeps its own window-state cache in sync through the calls above,
-    // but Windows is the final authority on z-order. In particular, a focused
-    // webview window can remain above the notch even after tao believes it has
-    // promoted it. SetWindowPos makes the requested band and position explicit.
+    // Tauri queues its own window updates on the main thread. Queue the native
+    // operation there too, after those updates, so it is the final z-order write
+    // rather than being overwritten by an earlier queued focus/show operation.
     #[cfg(windows)]
     {
         use windows::Win32::UI::WindowsAndMessaging::{
-            SetWindowPos, HWND_NOTOPMOST, HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOMOVE,
-            SWP_NOOWNERZORDER, SWP_NOSIZE,
+            GetWindowLongPtrW, SetWindowPos, GWL_EXSTYLE, HWND_NOTOPMOST, HWND_TOPMOST,
+            SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOOWNERZORDER, SWP_NOSIZE, WS_EX_TOPMOST,
         };
 
         let hwnd = notch
             .hwnd()
             .map_err(|error| format!("could not get notch window handle: {error}"))?;
-        // Tauri currently exposes its handle through a newer `windows` crate
-        // than this app's direct Win32 dependency. HWND is a transparent pointer
-        // wrapper, so rebuilding it from the raw value is lossless.
-        let native_hwnd = windows::Win32::Foundation::HWND(hwnd.0);
-        let insert_after = if enabled {
-            HWND_TOPMOST
-        } else {
-            HWND_NOTOPMOST
-        };
-        unsafe {
-            SetWindowPos(
-                native_hwnd,
-                insert_after,
-                0,
-                0,
-                0,
-                0,
-                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER,
-            )
-            .map_err(|error| format!("could not apply native always-on-top: {error}"))?;
-        }
+        let hwnd = hwnd.0 as isize;
+        app.run_on_main_thread(move || {
+            // Tauri currently exposes its handle through a newer `windows` crate
+            // than this app's direct Win32 dependency. HWND is a transparent
+            // pointer wrapper, so rebuilding it from the raw value is lossless.
+            let native_hwnd = windows::Win32::Foundation::HWND(hwnd as _);
+            let insert_after = if enabled {
+                HWND_TOPMOST
+            } else {
+                HWND_NOTOPMOST
+            };
+
+            // Ask, then check that it landed, because `WS_EX_TOPMOST` is the bit
+            // Windows actually picks the z-order band from and nothing above this
+            // point reads it back — every failed request was previously silent.
+            // A single retry is the whole budget: this runs on the window thread
+            // on every appearance, and a request that fails twice is a condition
+            // a third call will not clear either.
+            for _ in 0..2 {
+                unsafe {
+                    if let Err(error) = SetWindowPos(
+                        native_hwnd,
+                        insert_after,
+                        0,
+                        0,
+                        0,
+                        0,
+                        SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER,
+                    ) {
+                        eprintln!("could not apply native always-on-top: {error}");
+                        break;
+                    }
+
+                    let ex_style = GetWindowLongPtrW(native_hwnd, GWL_EXSTYLE) as u32;
+                    if (ex_style & WS_EX_TOPMOST.0 != 0) == enabled {
+                        break;
+                    }
+                }
+            }
+        })
+        .map_err(|error| format!("could not reach the window thread: {error}"))?;
     }
 
     Ok(())
@@ -189,28 +208,23 @@ pub fn read_settings(current: State<'_, Current>) -> Settings {
     current.get()
 }
 
-/// Re-assert the overlay's z-order, called each time it becomes visible.
+/// Re-assert the overlay's z-order against the stored preference, called each
+/// time it becomes visible.
 ///
-/// Being in the topmost band once is not the same as staying at the top of it:
-/// the overlay never takes focus, so anything else that goes topmost lands above
-/// it and stays there. Reclaiming the position at the moment the notch is about to
-/// be looked at is what makes "always on top" true rather than "on top until
-/// something else asks".
+/// With the preference on, being in the topmost band once is not the same as
+/// staying at the top of it: the overlay never takes focus, so anything else that
+/// goes topmost lands above it and stays there. Reclaiming the position at the
+/// moment the notch is about to be looked at is what makes "always on top" true
+/// rather than "on top until something else asks".
+///
+/// With it off this asserts *normal* z-order instead — it is deliberately not a
+/// no-op. Appearing is the one moment the band is observable, so it is also the
+/// moment a window left topmost by anything else has to be put back. Promoting
+/// here unconditionally, as this once did, made the switch unobservable: every
+/// hover undid the demotion the switch had just performed.
 #[tauri::command]
-pub fn notch_raise(app: AppHandle) {
-    // With the preference off, the notch only enters the topmost band while it
-    // is visible. That lets the hotzone reveal it above the active app without
-    // leaving an invisible, permanently topmost window behind afterwards.
-    let _ = apply_topmost(&app, true);
-}
-
-/// Return a hover-only notch to normal z-order once it is hidden.
-#[tauri::command]
-pub fn notch_demote(app: AppHandle, current: State<'_, Current>) {
-    let settings = current.get();
-    if !settings.always_on_top {
-        let _ = apply_topmost(&app, false);
-    }
+pub fn notch_raise(app: AppHandle, current: State<'_, Current>) {
+    let _ = apply_topmost(&app, current.get().always_on_top);
 }
 
 /// Apply and persist the always-on-top preference, returning the state actually
@@ -230,13 +244,21 @@ pub fn set_always_on_top(
     apply_topmost(&app, enabled)?;
     current.set(settings.clone());
     save(&app, &settings)?;
+
+    // The notch decides from this whether its pill rests on screen or collapses
+    // away, and the switch that moved lives in a different window. Broadcasting
+    // is what closes that gap — neither window is ever rebuilt, so nothing else
+    // would tell the notch until the next relaunch. Emitted after the write so a
+    // listener can never see a value that failed to persist.
+    let _ = app.emit("settings-changed", settings.clone());
+
     Ok(enabled)
 }
 
 /// Show the settings window, closing the tray popup that usually opened it so
 /// focus does not bounce between the two.
 #[tauri::command]
-pub fn settings_open(app: AppHandle) -> tauri::Result<()> {
+pub fn settings_open(app: AppHandle, current: State<'_, Current>) -> tauri::Result<()> {
     hide_menu(&app);
 
     let Some(win) = app.get_webview_window(SETTINGS_LABEL) else {
@@ -251,6 +273,12 @@ pub fn settings_open(app: AppHandle) -> tauri::Result<()> {
     let _ = win.unminimize();
     win.show()?;
     win.set_focus()?;
+
+    // Showing and focusing Settings happens after the notch's startup promotion.
+    // Re-apply the preference afterwards so this ordinary focused window cannot
+    // cover a notch that is meant to stay above it. Routed through `apply` rather
+    // than a hardcoded promotion so the switch being off is honoured here too.
+    apply(&app, &current.get());
 
     // The window is hidden and reshown, never rebuilt, so React does not remount.
     // This is what tells it to re-read preferences that may have changed

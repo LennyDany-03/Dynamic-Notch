@@ -2,6 +2,20 @@
 export type NotchState = 'hidden' | 'peek' | 'expanded'
 
 /**
+ * How much of the notch each state puts on screen, so callers can compare two
+ * states rather than enumerate them.
+ *
+ * The floor is not always `hidden` — with the always-on-top preference set the
+ * pill rests on screen permanently — so "did the notch just grow or shrink?" can
+ * no longer be answered by testing against a single state name.
+ */
+export const STATE_RANK: Record<NotchState, number> = {
+  hidden: 0,
+  peek: 1,
+  expanded: 2,
+}
+
+/**
  * Which page is showing while expanded. Independent of `NotchState` so that
  * switching modules resizes the card without retriggering the expand animation.
  *

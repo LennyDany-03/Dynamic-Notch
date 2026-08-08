@@ -418,7 +418,7 @@ export default function SettingsWindow() {
             <Section label="Settings">
               <SettingRow
                 title="Always on top"
-                body="Pins the notch above other windows, so it is there the moment you reach for it. Off means it sits behind whatever app is in front."
+                body="Keeps the notch on screen and above other windows, so it is there without reaching for it. Off means it stays hidden until your cursor finds it, and sits behind whatever app is in front."
                 on={settings.alwaysOnTop}
                 onToggle={() => setAlwaysOnTop(!settings.alwaysOnTop)}
                 icon={

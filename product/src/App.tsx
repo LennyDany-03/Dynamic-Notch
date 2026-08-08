@@ -1,14 +1,22 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { listen } from '@tauri-apps/api/event'
 import ContextMenu, { type MenuAnchor } from './components/ContextMenu'
 import NotchShell from './components/NotchShell'
 import { useNotchState } from './hooks/useNotchState'
 import { useMediaSession } from './hooks/useMediaSession'
 import { useFileShelf } from './hooks/useFileShelf'
-import { MODULES, type NotchModule } from './types/notch'
+import { useSettings } from './hooks/useSettings'
+import { MODULES, STATE_RANK, type NotchModule, type NotchState } from './types/notch'
 
 export default function App() {
-  const { state, activeModule, showModule, expand, nextModule, previousModule } = useNotchState()
+  // "Always on top" is both a z-order and a visibility preference: it pins the
+  // window above other windows *and* keeps the pill on screen instead of letting
+  // it collapse away. Rust owns the z-order half; this is the visibility half.
+  const { settings, loaded } = useSettings()
+  const { state, activeModule, showModule, expand, nextModule, previousModule } = useNotchState({
+    // Gated on `loaded` so the default never shows a pill it is about to retract.
+    alwaysVisible: loaded && settings.alwaysOnTop,
+  })
 
   // The tray popup can only ask; the state machine still owns what opens. Both
   // are pinned, because the cursor is down by the taskbar when they arrive.
@@ -38,9 +46,14 @@ export default function App() {
   const closeMenu = useCallback(() => setMenu(null), [])
 
   // A menu outlives the card that opened it otherwise — the notch collapses on
-  // its own timer and would leave the menu floating over nothing.
+  // its own timer and would leave the menu floating over nothing. Any step down
+  // closes it, rather than only `hidden`: with the pill resting on screen the
+  // notch never reaches `hidden`, so keying off that alone would strand a menu
+  // over a card that had already shrunk out from under it.
+  const menuStateRef = useRef<NotchState>(state)
   useEffect(() => {
-    if (state === 'hidden') setMenu(null)
+    if (STATE_RANK[state] < STATE_RANK[menuStateRef.current]) setMenu(null)
+    menuStateRef.current = state
   }, [state])
 
   return (

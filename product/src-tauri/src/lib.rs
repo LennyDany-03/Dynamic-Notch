@@ -31,8 +31,9 @@ fn acquire_instance_lock() -> bool {
         if GetLastError() == ERROR_ALREADY_EXISTS {
             return false;
         }
-        // Keep the mutex alive for the process lifetime; Windows releases it on
-        // exit, including a crash.
+        // HANDLE is a Copy type without a Rust destructor, so merely keeping the
+        // value until here is enough: Windows owns the handle and releases it on
+        // process exit, including a crash.
         let _ = handle;
         true
     }
@@ -85,7 +86,6 @@ pub fn run() {
             settings::read_settings,
             settings::set_always_on_top,
             settings::notch_raise,
-            settings::notch_demote,
             settings::settings_open,
             settings::settings_close,
             updater::updater_check,
