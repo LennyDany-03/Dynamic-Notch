@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
-import Fuse from 'fuse.js'
 
 export interface AppEntry {
   name: string
@@ -9,16 +8,16 @@ export interface AppEntry {
 }
 
 const MAX_PINNED = 4
-const MAX_RESULTS = 6
 
 const isTauri = () => !!(window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__
 
 /**
- * Start Menu index plus fuzzy search.
+ * Start Menu index and the pinned set.
  *
  * The index is fetched once on mount and held in memory — it is a few hundred
- * entries and only changes when something is installed, so re-scanning per
- * keystroke would be wasted work.
+ * entries and only changes when something is installed. `apps` is handed out
+ * whole; the one place that searches it is `AppPicker`, which filters its own
+ * copy, so there is no query state here.
  *
  * Rust answers from a cached index, so this normally resolves immediately rather
  * than waiting on a scan. When that cache is stale it re-scans in the background
@@ -27,7 +26,6 @@ const isTauri = () => !!(window as unknown as { __TAURI_INTERNALS__?: unknown })
 export function useAppLauncher(active: boolean) {
   const [apps, setApps] = useState<AppEntry[]>([])
   const [pinnedPaths, setPinnedPaths] = useState<string[]>([])
-  const [query, setQuery] = useState('')
   const [loaded, setLoaded] = useState(false)
   // Scan lazily: nothing happens until the launcher is actually opened.
   useEffect(() => {
@@ -82,24 +80,6 @@ export function useAppLauncher(active: boolean) {
     }
   }, [])
 
-  const fuse = useMemo(
-    () =>
-      new Fuse(apps, {
-        keys: ['name'],
-        threshold: 0.4,
-        ignoreLocation: true,
-      }),
-    [apps],
-  )
-
-  const results = useMemo(() => {
-    const trimmed = query.trim()
-    if (!trimmed) return []
-    return fuse
-      .search(trimmed, { limit: MAX_RESULTS })
-      .map((r) => r.item)
-  }, [fuse, query])
-
   const pinned = useMemo(() => {
     const byPath = new Map(apps.map((a) => [a.path, a]))
     return pinnedPaths
@@ -141,9 +121,6 @@ export function useAppLauncher(active: boolean) {
     apps,
     pinned,
     pinnedPaths,
-    results,
-    query,
-    setQuery,
     loaded,
     launch,
     togglePin,

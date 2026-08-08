@@ -1,8 +1,17 @@
-import { useCallback, useEffect, useState, type ReactElement, type ReactNode } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactElement,
+  type ReactNode,
+  type RefObject,
+} from 'react'
 import { motion } from 'framer-motion'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { getVersion } from '@tauri-apps/api/app'
+import { getCurrentWindow, LogicalSize } from '@tauri-apps/api/window'
 import Toggle from '../Toggle'
 import { useSettings } from '../../hooks/useSettings'
 import { useSurfaceOpacity } from '../../hooks/useSurfaceOpacity'
@@ -10,23 +19,64 @@ import { color, radius, sectionLabel, spring } from '../../tokens'
 import type { NotchModule } from '../../types/notch'
 
 /*
- * Fixed metrics. The window is sized to these in tauri.conf.json — the card must
- * measure exactly CARD_W × CARD_H or the transparent margin around it changes and
- * the popup stops sitting flush against the taskbar.
+ * The card's height is whatever its rows add up to, and the window is told to be
+ * that plus a gutter (see `useFitWindow` below).
  *
- *   6 + 40 + 9 + 34 + 9 + (34×4) + 9 + (34×3) + 9 + 34 + 6 = 394
- *
- * The 34×4 is the module group. Adding the notifications row to it moved this
- * from 360, and the window height in `tauri.conf.json` moved with it — the two
- * are one number written twice.
+ * It used to be a number in `tauri.conf.json` kept in step with an arithmetic
+ * comment here. Adding one row to one group meant editing both, and getting it
+ * wrong does not fail anywhere — it clips the card against a window too short for
+ * it and, because `tray.rs` positions from the window size, slides the whole
+ * popup down over the taskbar. The config height is now only the size the window
+ * is born at, before the webview has measured anything.
  */
 const CARD_W = 248
 const ROW_H = 34
 /** Separator block: 4px margin, 1px rule, 4px margin. */
 const SEP_H = 9
 
-/** Transparent gutter left for the drop shadow; window is CARD + 2×MARGIN. */
+/**
+ * Transparent gutter left for the drop shadow; window is CARD + 2×MARGIN.
+ *
+ * `tray.rs` knows this number too (`CARD_MARGIN`), because it anchors the card
+ * against the taskbar and has to subtract the gutter to find it. Change one and
+ * the popup drifts off the taskbar by 12px; change both.
+ */
 const MARGIN = 12
+
+const isTauri = () => !!(window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__
+
+/**
+ * Size the OS window to the card the webview actually laid out.
+ *
+ * The popup is the one window here whose height is a function of its content —
+ * rows come and go with releases — and it is also the one whose position is
+ * computed from its size, by `tray.rs`, at the moment it is shown. Measuring is
+ * what keeps those two facts from disagreeing.
+ *
+ * Runs per open as well as on mount: the window is shown and hidden, never
+ * rebuilt, and the update row can appear between one open and the next.
+ */
+function useFitWindow(card: RefObject<HTMLDivElement | null>, openCount: number) {
+  useEffect(() => {
+    const el = card.current
+    if (!el || !isTauri()) return
+
+    // `offsetWidth`/`offsetHeight`, not `getBoundingClientRect()`. The card
+    // enters at `scale: 0.96` and this runs on the frame it mounts, so the
+    // bounding rect would report 96% of the card and shrink the window a little
+    // more on every open. The offset box is the layout size and ignores the
+    // transform.
+    const width = el.offsetWidth
+    const height = el.offsetHeight
+    if (height < 1) return
+
+    void getCurrentWindow()
+      .setSize(new LogicalSize(width + MARGIN * 2, height + MARGIN * 2))
+      .catch(() => {})
+    // Row heights are fixed in CSS rather than derived from text, so one
+    // measurement per open is stable — no observer needed to catch a late reflow.
+  }, [card, openCount])
+}
 
 type Action =
   | { kind: 'show' }
@@ -254,6 +304,11 @@ export default function TrayMenu() {
   const { settings } = useSettings()
   useSurfaceOpacity(settings.backgroundOpacity)
 
+  // `tray.rs` positions this window from its size, so the size has to be the
+  // truth about the card rather than a number in the config hoping to be.
+  const cardRef = useRef<HTMLDivElement>(null)
+  useFitWindow(cardRef, openCount)
+
   const close = useCallback(() => {
     void invoke('tray_menu_close')
   }, [])
@@ -358,6 +413,7 @@ export default function TrayMenu() {
     >
       <motion.div
         key={openCount}
+        ref={cardRef}
         className="mica"
         initial={{ opacity: 0, scale: 0.96, y: 6 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}

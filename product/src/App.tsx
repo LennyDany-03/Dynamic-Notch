@@ -136,6 +136,10 @@ export default function App() {
         shelf={shelf}
         notifications={notifications}
         notificationsEnabled={notificationsEnabled}
+        // Gated on `loaded` for the same reason as the pill: the default is on,
+        // and painting a mark on someone's wallpaper on the strength of a guess
+        // is a mark they watch disappear a frame later.
+        hotzoneHint={loaded && settings.hotzoneHint}
       />
 
       {menu && <ContextMenu anchor={menu} onClose={closeMenu} />}

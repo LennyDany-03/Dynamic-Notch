@@ -10,7 +10,6 @@ mod tray;
 mod updater;
 
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-use tauri::Manager;
 use tauri_plugin_autostart::MacosLauncher;
 use tauri_plugin_autostart::ManagerExt;
 
@@ -90,6 +89,8 @@ pub fn run() {
             settings::set_notifications,
             settings::set_mute_windows_banners,
             settings::set_background_opacity,
+            settings::set_notch_position,
+            settings::set_hotzone_hint,
             settings::notch_raise,
             settings::notch_settle,
             settings::settings_open,
@@ -129,25 +130,16 @@ pub fn run() {
             // trade than the notch missing the first notification of the session.
             std::thread::spawn(notifications::request_access);
 
-            let window = app.get_webview_window("notch-widget").unwrap();
-
-            // Center the window horizontally on the primary monitor
-            if let Some(monitor) = window.primary_monitor()? {
-                let screen_size = monitor.size();
-                let win_size = window.outer_size()?;
-                let x = (screen_size.width as i32 - win_size.width as i32) / 2;
-                window.set_position(tauri::Position::Physical(tauri::PhysicalPosition {
-                    x,
-                    y: 0,
-                }))?;
-            }
-
             // Before `settings::init`, which applies the banner preference and so
             // needs the memo of what Windows' own settings were beforehand.
             notifications::init(app.handle());
 
             // The window was just built from `tauri.conf.json`, which hardcodes
             // always-on-top. Anyone who turned that off expects it to stay off.
+            //
+            // This also places the window: `tauri.conf.json` can only pin `y`, and
+            // where it sits along the top edge is a preference now, so the
+            // horizontal centring that used to live here is `apply_position`'s.
             settings::init(app.handle());
 
             let icon = app

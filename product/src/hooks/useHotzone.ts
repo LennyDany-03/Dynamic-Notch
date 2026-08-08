@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { listen } from '@tauri-apps/api/event'
 import { cursorPosition, getCurrentWindow, primaryMonitor } from '@tauri-apps/api/window'
 import { hotzone } from '../tokens'
 import { rectContains, type Rect } from '../types/notch'
@@ -150,6 +151,25 @@ export function useHotzone(getContentRect: (x: number, y: number) => Rect | null
       }
     }
 
+    // The window origin is cached, and the position preference moves the window
+    // out from under that cache: every cursor position would be converted against
+    // the old origin until the next scheduled refresh, i.e. the notch would open
+    // from where it used to be for up to two seconds after the setting changed.
+    //
+    // Invalidated twice because `set_position` is queued onto the window thread
+    // and can still be in flight when Rust broadcasts — the first pass catches the
+    // common case, the second one catches a move that had not landed yet. Both are
+    // a single extra geometry read, and only on a preference change.
+    const invalidate = () => {
+      lastGeometryRead = 0
+    }
+    let settled: ReturnType<typeof setTimeout> | null = null
+    const pendingUnlisten = listen('settings-changed', () => {
+      invalidate()
+      if (settled) clearTimeout(settled)
+      settled = setTimeout(invalidate, 250)
+    })
+
     // Start click-through so the transparent window never blocks the desktop.
     setIgnoreEvents(true)
 
@@ -157,6 +177,8 @@ export function useHotzone(getContentRect: (x: number, y: number) => Rect | null
     return () => {
       cancelled = true
       clearInterval(interval)
+      if (settled) clearTimeout(settled)
+      void pendingUnlisten.then((unlisten) => unlisten())
       window.removeEventListener('native-file-drag', onNativeFileDrag)
     }
   }, [])

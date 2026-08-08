@@ -12,10 +12,17 @@ import type { MediaInfo } from '../types/media'
  * Polling never stops, but it slows down while nothing is drawn: the overlay
  * announces a track that has just started (see `useMediaAnnounce`), and it can
  * only notice that if it is still watching the session while hidden. `visible`
- * therefore picks the *rate*, not whether to poll at all. Between polls the
- * position is interpolated locally, which keeps the scrub bar moving smoothly at
- * 1 poll/sec instead of visibly stepping; that only runs while visible, since
- * nothing is on screen to interpolate for otherwise.
+ * therefore picks the *rate*, not whether to poll at all.
+ *
+ * Between polls the position is interpolated locally, which keeps the scrub bar
+ * moving smoothly at 1 poll/sec instead of visibly stepping; that only runs while
+ * visible, since nothing is on screen to interpolate for otherwise.
+ *
+ * The interpolation is on top of a `progressMs` that `media.rs` has already
+ * brought up to date — Windows' `Position` is a snapshot taken whenever the
+ * player last pushed a timeline update, so the two halves solve different
+ * problems. Removing either one stops the bar: without Rust's the poll re-anchors
+ * to the same stale number every second, without this one it steps once a second.
  */
 
 /** While the notch is on screen and a scrub bar is moving. */

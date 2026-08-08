@@ -7,12 +7,22 @@ import { listen } from '@tauri-apps/api/event'
  * that field is Rust's memo of what the shell's banner switch was before Crest
  * touched it, not a preference, and nothing here has any business reading it.
  */
+/** Where along the top edge the notch sits. Mirrors `NotchPosition` in Rust. */
+export type NotchPosition = 'left' | 'center' | 'right'
+
 export interface Settings {
   alwaysOnTop: boolean
   notifications: boolean
   muteWindowsBanners: boolean
   /** Opacity of every Mica surface, as a percentage. See `useSurfaceOpacity`. */
   backgroundOpacity: number
+  /**
+   * Rust moves the overlay window for this; the notch never reads it to lay
+   * anything out. Settings reads it because it draws the picker.
+   */
+  notchPosition: NotchPosition
+  /** Whether the trigger strip is marked while the notch is away. */
+  hotzoneHint: boolean
 }
 
 /**
@@ -29,7 +39,16 @@ const DEFAULTS: Settings = {
   notifications: true,
   muteWindowsBanners: false,
   backgroundOpacity: 92,
+  notchPosition: 'center',
+  hotzoneHint: true,
 }
+
+/** The position picker's options, in the order they are drawn. */
+export const NOTCH_POSITIONS: { id: NotchPosition; label: string }[] = [
+  { id: 'left', label: 'Left' },
+  { id: 'center', label: 'Center' },
+  { id: 'right', label: 'Right' },
+]
 
 /**
  * Bounds for the opacity slider. Mirrors `OPACITY_MIN`/`OPACITY_MAX` in
@@ -150,6 +169,17 @@ export function useSettings() {
     [write],
   )
 
+  const setNotchPosition = useCallback(
+    (position: NotchPosition) =>
+      write('set_notch_position', 'notchPosition', position, { position }),
+    [write],
+  )
+
+  const setHotzoneHint = useCallback(
+    (enabled: boolean) => write('set_hotzone_hint', 'hotzoneHint', enabled, { enabled }),
+    [write],
+  )
+
   return {
     settings,
     loaded,
@@ -158,6 +188,8 @@ export function useSettings() {
     setNotifications,
     setMuteWindowsBanners,
     setBackgroundOpacity,
+    setNotchPosition,
+    setHotzoneHint,
   }
 }
 

@@ -289,6 +289,30 @@ Each command should be added only when its corresponding feature is being built 
   reset every other preference with it. The always-on-top default must agree with
   `alwaysOnTop` in `tauri.conf.json`, since the window is built from that config
   and only corrected afterwards.
+- **The position preference moves the window, not the card.** `notchPosition`
+  (`left | center | right`) is applied by `settings::apply_position`, which sets
+  the overlay's origin along the free span between the two edges of the primary
+  monitor — the window is never resized, so its origin is the only thing to
+  decide. Everything on the frontend lays out from `window.innerWidth / 2` and
+  follows for free; nothing there reads the preference except the picker that
+  edits it. Offsetting the card *inside* the 560px canvas was the alternative and
+  is not a position change: the widest card is 440, so the whole travel would be
+  60px. This is also why `lib.rs` no longer centres the window at startup —
+  `apply` places it, so the stored position is honoured on the first frame rather
+  than as a visible correction afterwards.
+
+  The one thing that does not follow for free is `useHotzone`'s cached window
+  origin: it refreshes on a 2s cadence, and a stale origin means the notch
+  hit-tests where it used to be. It invalidates on the `settings-changed`
+  broadcast — twice, 250ms apart, because `set_position` is queued onto the window
+  thread and can still be in flight when Rust emits.
+- **`hotzoneHint` is a hint, not a surface.** A 80×4 mark at the top edge, exactly
+  the width of the trigger strip, drawn only while `state === 'hidden'`: the notch
+  is invisible until the cursor finds it, and where to send the cursor is the one
+  question a new install cannot answer for itself. It needs no behaviour — it sits
+  in the shell's click-through canvas with pointer events off, and hovering it is
+  just the ordinary hotzone entry. Nothing is drawn once the pill rests on screen
+  (always-on-top), because then there is nothing left to point at.
 
 ## Open decisions (fill in as they're made)
 

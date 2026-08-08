@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import CollapsedPill from './CollapsedPill'
+import HotzoneHint from './HotzoneHint'
 import ModulePlaceholder from './ModulePlaceholder'
 import NavArrows from './NavArrows'
 import MediaAnnounce from './media/MediaAnnounce'
@@ -26,6 +27,8 @@ interface Props {
   notifications: NotificationFeed
   /** The "notifications in the notch" preference, for the module's empty state. */
   notificationsEnabled: boolean
+  /** The "show me where the notch is" preference. See `HotzoneHint`. */
+  hotzoneHint: boolean
 }
 
 function ModuleContent({
@@ -73,6 +76,7 @@ export default function NotchShell({
   shelf,
   notifications,
   notificationsEnabled,
+  hotzoneHint,
 }: Props) {
   const { width, height } = cardSize(state, activeModule)
   const isExpanded = state === 'expanded'
@@ -93,6 +97,13 @@ export default function NotchShell({
 
   return (
     <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none' }}>
+      {/* Outside the card's wrapper, and its own AnimatePresence: the two swap —
+          the hint is only up while the card is not — and sharing a presence
+          group would make one wait on the other's exit. */}
+      <AnimatePresence>
+        {hotzoneHint && state === 'hidden' && <HotzoneHint key="hint" />}
+      </AnimatePresence>
+
       <div
         style={{
           position: 'absolute',

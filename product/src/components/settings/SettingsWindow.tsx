@@ -5,7 +5,7 @@ import { getVersion } from '@tauri-apps/api/app'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import Toggle from '../Toggle'
 import Slider from './Slider'
-import { OPACITY, useNotificationAccess, useSettings } from '../../hooks/useSettings'
+import { NOTCH_POSITIONS, OPACITY, useNotificationAccess, useSettings } from '../../hooks/useSettings'
 import { useSurfaceOpacity } from '../../hooks/useSurfaceOpacity'
 import { color, font, radius, sectionLabel, spring } from '../../tokens'
 
@@ -409,6 +409,104 @@ function RangeRow({
   )
 }
 
+/**
+ * A preference with a handful of named states. Same anatomy as `RangeRow` — the
+ * control gets its own line, because three segments squeezed into the trailing
+ * column would be three 40px targets.
+ *
+ * The selected segment is drawn by one shared element (`layoutId`), as in the
+ * sidebar: picking a position slides the fill across rather than blinking it out
+ * of one segment and into the next, which is what says the three are one choice.
+ */
+function ChoiceRow<T extends string>({
+  title,
+  body,
+  icon,
+  options,
+  value,
+  onSelect,
+}: {
+  title: string
+  body: string
+  icon: ReactNode
+  options: { id: T; label: string }[]
+  value: T
+  onSelect: (id: T) => void
+}) {
+  return (
+    <div
+      style={{
+        padding: 12,
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: 12,
+        borderRadius: radius.tile,
+      }}
+    >
+      <span style={{ color: color.accent, display: 'flex', marginTop: 1, flex: 'none' }}>
+        {icon}
+      </span>
+
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13, fontWeight: 500, color: color.text.primary }}>{title}</div>
+        <div style={{ marginTop: 3, fontSize: 12, lineHeight: 1.5, color: color.text.muted }}>
+          {body}
+        </div>
+
+        <div
+          role="radiogroup"
+          aria-label={title}
+          style={{
+            marginTop: 12,
+            padding: 3,
+            display: 'flex',
+            gap: 3,
+            borderRadius: radius.tile,
+            background: color.inset,
+            boxShadow: color.insetShadow,
+          }}
+        >
+          {options.map((option) => {
+            const active = option.id === value
+            return (
+              <button
+                key={option.id}
+                role="radio"
+                aria-checked={active}
+                onClick={() => onSelect(option.id)}
+                style={{
+                  position: 'relative',
+                  flex: 1,
+                  height: 28,
+                  borderRadius: radius.small,
+                  fontSize: 12,
+                  fontWeight: active ? 600 : 500,
+                  color: active ? color.text.primary : color.text.secondary,
+                  transition: 'color 90ms linear',
+                }}
+              >
+                {active && (
+                  <motion.span
+                    layoutId="position-segment"
+                    transition={spring.peek}
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      borderRadius: radius.small,
+                      background: color.accent,
+                    }}
+                  />
+                )}
+                <span style={{ position: 'relative' }}>{option.label}</span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function AboutPane({ version }: { version: string }) {
   return (
     <>
@@ -501,6 +599,8 @@ function SettingsPane({
     setNotifications,
     setMuteWindowsBanners,
     setBackgroundOpacity,
+    setNotchPosition,
+    setHotzoneHint,
   } = api
   const notificationAccess = useNotificationAccess()
 
@@ -538,6 +638,35 @@ function SettingsPane({
       </RangeRow>
 
       <GroupLabel>General</GroupLabel>
+
+      <ChoiceRow
+        title="Position"
+        body="Which end of the top edge the notch lives on. Everything moves with it — the strip you hover to summon it included."
+        options={NOTCH_POSITIONS}
+        value={settings.notchPosition}
+        onSelect={setNotchPosition}
+        icon={
+          <Icon>
+            <rect x="3" y="5" width="18" height="13" rx="2" />
+            <path d="M9 5h6v2a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1z" fill="currentColor" stroke="none" />
+          </Icon>
+        }
+      />
+
+      <SettingRow
+        title="Show me where it is"
+        body="Marks the top edge with a thin line at the spot that summons the notch, so you know where to send your cursor. It disappears the moment the notch comes down, and stays out of the way when the notch is already on screen."
+        on={settings.hotzoneHint}
+        onToggle={() => setHotzoneHint(!settings.hotzoneHint)}
+        icon={
+          <Icon>
+            <path d="M8 4h8" />
+            <path d="M12 8v6" />
+            <path d="M9 11l3 3 3-3" />
+            <path d="M6 19h12" />
+          </Icon>
+        }
+      />
 
       <SettingRow
         title="Always on top"

@@ -31,6 +31,47 @@ fn notifications_default() -> bool {
     true
 }
 
+/// Where along the top edge the notch sits.
+///
+/// The overlay window is a fixed 560×420 canvas and the card is drawn centred
+/// inside it, so this moves the *window* rather than the card: everything that
+/// reads geometry — `layout.ts`, the hotzone poll, the guide bar — works off
+/// `window.innerWidth / 2` and follows for free. Offsetting the card inside the
+/// canvas instead would have ~60px of slack to play with (the widest card is
+/// 440), which is not a position change anyone would notice.
+#[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum NotchPosition {
+    Left,
+    Center,
+    Right,
+}
+
+impl NotchPosition {
+    /// Window origin along the free horizontal span (screen width − window width).
+    fn offset(self, span: i32) -> i32 {
+        match self {
+            NotchPosition::Left => 0,
+            NotchPosition::Center => span / 2,
+            NotchPosition::Right => span,
+        }
+    }
+}
+
+fn notch_position_default() -> NotchPosition {
+    NotchPosition::Center
+}
+
+/// Whether a hairline is drawn at the top edge marking the trigger strip.
+///
+/// On by default: the notch is invisible until the cursor finds it, and "where do
+/// I put my cursor" is the first question a new install raises. It costs nothing
+/// once the pill is resting on screen — the hint is only drawn while nothing else
+/// is (see `NotchShell`).
+fn hotzone_hint_default() -> bool {
+    true
+}
+
 /// Opacity of the Mica surface, as a percentage.
 ///
 /// Must agree with the `--mica-alpha` fallback in `src/index.css` and with
@@ -78,6 +119,16 @@ pub struct Settings {
     /// is stored, clamped and broadcast in one place.
     #[serde(default = "background_opacity_default")]
     pub background_opacity: u8,
+
+    /// Where along the top edge of the primary monitor the overlay sits.
+    #[serde(default = "notch_position_default")]
+    pub notch_position: NotchPosition,
+
+    /// Whether the trigger strip is marked with a hairline while the notch is
+    /// away. Purely a frontend concern, like `background_opacity` — the notch
+    /// draws it from the broadcast and there is no window state behind it.
+    #[serde(default = "hotzone_hint_default")]
+    pub hotzone_hint: bool,
 }
 
 impl Default for Settings {
@@ -87,6 +138,8 @@ impl Default for Settings {
             notifications: notifications_default(),
             mute_windows_banners: false,
             background_opacity: background_opacity_default(),
+            notch_position: notch_position_default(),
+            hotzone_hint: hotzone_hint_default(),
         }
     }
 }
@@ -244,6 +297,48 @@ fn apply_topmost(app: &AppHandle, enabled: bool) -> Result<(), String> {
     Ok(())
 }
 
+/// Move the overlay window along the top edge of the primary monitor.
+///
+/// This is the whole of the position preference. The window is never resized, so
+/// the only thing to decide is its origin: `y` is the top of the monitor and `x`
+/// walks the free span between the two screen edges. The card stays centred in
+/// its canvas, which is why nothing in the frontend has to know this happened —
+/// with one exception, the cursor poll's cached window origin, which is why every
+/// change is broadcast (see `useHotzone`).
+///
+/// This replaced the hardcoded centring `lib.rs` used to do at startup; it runs
+/// from `apply`, so the stored position is honoured on the first frame rather
+/// than as a correction afterwards.
+fn apply_position(app: &AppHandle, position: NotchPosition) -> Result<(), String> {
+    let Some(notch) = app.get_webview_window(NOTCH_LABEL) else {
+        return Err("notch window is unavailable".into());
+    };
+
+    let monitor = notch
+        .primary_monitor()
+        .map_err(|error| format!("could not read the monitor: {error}"))?;
+    let Some(monitor) = monitor else {
+        return Ok(());
+    };
+
+    let size = notch
+        .outer_size()
+        .map_err(|error| format!("could not read the notch size: {error}"))?;
+
+    // Monitor origin rather than 0, so a primary monitor that is not at the
+    // origin of the virtual desktop (a second screen placed to its left) still
+    // gets the notch on *it* rather than somewhere off its edge.
+    let origin = monitor.position();
+    let span = (monitor.size().width as i32 - size.width as i32).max(0);
+
+    notch
+        .set_position(tauri::Position::Physical(tauri::PhysicalPosition {
+            x: origin.x + position.offset(span),
+            y: origin.y,
+        }))
+        .map_err(|error| format!("could not move the notch: {error}"))
+}
+
 /// Push the banner preference onto Windows' own notification settings.
 ///
 /// Muting is conditional on the notch actually announcing notifications, and on
@@ -263,6 +358,7 @@ fn apply_banners(settings: &Settings) -> Result<(), String> {
 }
 
 pub fn apply(app: &AppHandle, settings: &Settings) {
+    let _ = apply_position(app, settings.notch_position);
     let _ = apply_topmost(app, settings.always_on_top);
     let _ = apply_banners(settings);
 }
@@ -452,6 +548,52 @@ pub fn set_background_opacity(
     let _ = app.emit("settings-changed", settings.clone());
 
     Ok(percent)
+}
+
+/// Move the notch along the top edge, and remember where.
+///
+/// The window is moved before the file is written, for the same reason as
+/// always-on-top: the visible change is what the user asked for, and a disk error
+/// should cost them the preference at next launch rather than the move.
+#[tauri::command]
+pub fn set_notch_position(
+    app: AppHandle,
+    current: State<'_, Current>,
+    position: NotchPosition,
+) -> Result<NotchPosition, String> {
+    let mut settings = current.get();
+    settings.notch_position = position;
+    apply_position(&app, position)?;
+    current.set(settings.clone());
+    save(&app, &settings)?;
+
+    // The notch itself does not read this — Rust moved the window — but its
+    // cursor poll caches the window origin, and the broadcast is what tells it to
+    // re-read rather than hit-testing against the old position for up to 2s.
+    let _ = app.emit("settings-changed", settings.clone());
+
+    Ok(position)
+}
+
+/// Whether the trigger strip is marked while the notch is away.
+///
+/// Nothing to apply: the notch draws the hint from the broadcast, exactly as it
+/// does the surface opacity. Stored and announced here so there is still only one
+/// path a preference travels.
+#[tauri::command]
+pub fn set_hotzone_hint(
+    app: AppHandle,
+    current: State<'_, Current>,
+    enabled: bool,
+) -> Result<bool, String> {
+    let mut settings = current.get();
+    settings.hotzone_hint = enabled;
+    current.set(settings.clone());
+    save(&app, &settings)?;
+
+    let _ = app.emit("settings-changed", settings.clone());
+
+    Ok(enabled)
 }
 
 /// Show the settings window, closing the tray popup that usually opened it so
