@@ -66,8 +66,8 @@ Use a PR instead of a local merge if you want a review/CI gate before code lands
 ### Step 5 — Tag and push from `main`
 
 ```bash
-git tag v0.3.0
-git push origin v0.3.0
+git tag vx.x.x
+git push origin vx.x.x
 ```
 
 That last line is what fires the build. Watch it at:
@@ -82,14 +82,14 @@ Cold Rust builds take ~10 minutes, cached ~2.
 Fix the problem on `lenny` as usual, merge into `main` again, then **move the tag** — a failed run publishes nothing, so reusing the version number is fine:
 
 ```bash
-git tag -d v0.3.0
-git push origin :refs/tags/v0.3.0
-git tag v0.3.0
-git push origin v0.3.0
+git tag -d vx.x.x
+git push origin :refs/tags/vx.x.x
+git tag vx.x.x
+git push origin vx.x.x
 ```
 
 If the code was fine and only the workflow hiccuped, re-run without touching the tag:
-**Actions tab → Release → Run workflow → enter `v0.3.0`**
+**Actions tab → Release → Run workflow → enter `vx.x.x`**
 
 ---
 
