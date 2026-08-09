@@ -1,3 +1,17 @@
+## 0.4.1 — 2026-08-09
+
+**"Always on top" is honoured from the moment Crest starts.** Turn it off, and
+the notch stays out of the way on the next launch too.
+
+### Fixed
+
+- With "Always on top" switched off, the notch no longer came up resting on
+  screen and in front of your windows anyway, and stayed there until you opened
+  Settings. It could read the setting before Crest had finished loading it and
+  fall back to the default — which is on — for the rest of the session
+- Opening Settings now brings every window back in step with your saved
+  preferences, rather than only the ones you change while it is open
+
 ## 0.4.0 — 2026-08-09
 
 **Your notifications come to the notch.** Anything Windows would have popped in

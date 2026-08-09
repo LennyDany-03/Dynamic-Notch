@@ -149,19 +149,44 @@ impl Default for Settings {
 /// `notch_settle` runs every time the overlay collapses, which is often enough
 /// that it has no business reading a file. Disk stays the durable record; this is
 /// what the running app answers from.
+///
+/// `None` until something has read the file, and **never a `Settings::default()`
+/// standing in for one**. That distinction is the whole point of the `Option`: a
+/// default here is a guess that says always-on-top is on, and the notch acts on
+/// the first answer it gets and never asks again. Handing it a guess once put the
+/// pill on screen for the life of the process for someone who had the preference
+/// off — see `get`.
 #[derive(Default)]
-pub struct Current(Mutex<Settings>);
+pub struct Current(Mutex<Option<Settings>>);
 
 impl Current {
-    /// A poisoned lock here means a previous holder panicked mid-update. The value
-    /// behind it is a plain `bool`, so it cannot be half-written — recovering beats
-    /// propagating a panic into every later call.
-    fn get(&self) -> Settings {
-        self.0.lock().unwrap_or_else(|e| e.into_inner()).clone()
+    /// The stored preferences, reading them from disk if nothing has yet.
+    ///
+    /// The fallback is not laziness for its own sake: a reader can arrive before
+    /// `init` has seeded this. The webview posts its first `read_settings` while
+    /// `setup` is still running, and `setup` pumps the message loop wherever it
+    /// touches WinRT (the notification listener) — so the IPC is dispatched in the
+    /// middle of startup, not after it. Loading here means the first reader gets
+    /// the file whoever it is, rather than a default that is only correct for
+    /// users who never changed anything.
+    ///
+    /// A poisoned lock means a previous holder panicked mid-update. The value
+    /// behind it is a handful of scalars, so it cannot be half-written —
+    /// recovering beats propagating a panic into every later call.
+    fn get(&self, app: &AppHandle) -> Settings {
+        let mut slot = self.0.lock().unwrap_or_else(|e| e.into_inner());
+        match slot.as_ref() {
+            Some(settings) => settings.clone(),
+            None => {
+                let stored = load(app);
+                *slot = Some(stored.clone());
+                stored
+            }
+        }
     }
 
     fn set(&self, settings: Settings) {
-        *self.0.lock().unwrap_or_else(|e| e.into_inner()) = settings;
+        *self.0.lock().unwrap_or_else(|e| e.into_inner()) = Some(settings);
     }
 }
 
@@ -363,13 +388,21 @@ pub fn apply(app: &AppHandle, settings: &Settings) {
     let _ = apply_banners(settings);
 }
 
-/// Read the file, apply it, and seed the in-memory copy. Startup only.
+/// Read the file, seed the in-memory copy, and apply it. Startup only.
+///
+/// Seeded **before** `apply`, not after. `apply` reaches WinRT and sweeps the
+/// registry, and both pump the message loop on this thread — which is enough for
+/// WebView2 to dispatch the notch's first `read_settings` in the middle of it. It
+/// used to be answered from an unseeded `Current`, i.e. from defaults, and the
+/// notch reads the preferences exactly once: a preference the user had turned off
+/// came back on for the whole session. `Current::get` covers a reader that beats
+/// even this line; the order is what stops the common case from needing it.
 pub fn init(app: &AppHandle) {
     let stored = load(app);
-    apply(app, &stored);
     if let Some(current) = app.try_state::<Current>() {
-        current.set(stored);
+        current.set(stored.clone());
     }
+    apply(app, &stored);
 }
 
 /// Give Windows its banners back on the way out.
@@ -385,8 +418,8 @@ pub fn shutdown(_app: &AppHandle) {
 }
 
 #[tauri::command]
-pub fn read_settings(current: State<'_, Current>) -> Settings {
-    current.get()
+pub fn read_settings(app: AppHandle, current: State<'_, Current>) -> Settings {
+    current.get(&app)
 }
 
 /// Put the overlay at the top of the topmost band, whatever the preference says.
@@ -426,7 +459,7 @@ pub fn notch_raise(app: AppHandle) {
 /// notch never collapses far enough to fire it anyway.
 #[tauri::command]
 pub fn notch_settle(app: AppHandle, current: State<'_, Current>) {
-    let _ = apply_topmost(&app, current.get().always_on_top);
+    let _ = apply_topmost(&app, current.get(&app).always_on_top);
 }
 
 /// Apply and persist the always-on-top preference, returning the state actually
@@ -441,7 +474,7 @@ pub fn set_always_on_top(
     current: State<'_, Current>,
     enabled: bool,
 ) -> Result<bool, String> {
-    let mut settings = current.get();
+    let mut settings = current.get(&app);
     settings.always_on_top = enabled;
     apply_topmost(&app, enabled)?;
     current.set(settings.clone());
@@ -468,7 +501,7 @@ pub fn set_notifications(
     current: State<'_, Current>,
     enabled: bool,
 ) -> Result<bool, String> {
-    let mut settings = current.get();
+    let mut settings = current.get(&app);
     settings.notifications = enabled;
     apply_banners(&settings)?;
     current.set(settings.clone());
@@ -496,7 +529,7 @@ pub fn set_mute_windows_banners(
     current: State<'_, Current>,
     enabled: bool,
 ) -> Result<bool, String> {
-    let mut settings = current.get();
+    let mut settings = current.get(&app);
 
     if enabled {
         if !settings.notifications {
@@ -538,7 +571,7 @@ pub fn set_background_opacity(
 ) -> Result<u8, String> {
     let percent = percent.clamp(OPACITY_MIN, OPACITY_MAX);
 
-    let mut settings = current.get();
+    let mut settings = current.get(&app);
     settings.background_opacity = percent;
     current.set(settings.clone());
     save(&app, &settings)?;
@@ -561,7 +594,7 @@ pub fn set_notch_position(
     current: State<'_, Current>,
     position: NotchPosition,
 ) -> Result<NotchPosition, String> {
-    let mut settings = current.get();
+    let mut settings = current.get(&app);
     settings.notch_position = position;
     apply_position(&app, position)?;
     current.set(settings.clone());
@@ -586,7 +619,7 @@ pub fn set_hotzone_hint(
     current: State<'_, Current>,
     enabled: bool,
 ) -> Result<bool, String> {
-    let mut settings = current.get();
+    let mut settings = current.get(&app);
     settings.hotzone_hint = enabled;
     current.set(settings.clone());
     save(&app, &settings)?;
@@ -619,12 +652,21 @@ pub fn settings_open(app: AppHandle, current: State<'_, Current>) -> tauri::Resu
     // Re-apply the preferences afterwards so this ordinary focused window cannot
     // cover a notch that is meant to stay above it. Routed through `apply` rather
     // than a hardcoded promotion so the switch being off is honoured here too.
-    apply(&app, &current.get());
+    let settings = current.get(&app);
+    apply(&app, &settings);
 
     // The window is hidden and reshown, never rebuilt, so React does not remount.
     // This is what tells it to re-read preferences that may have changed
     // elsewhere — autostart-style external edits, or the tray's own rows.
     let _ = win.emit("settings-opened", ());
+
+    // And the same values to every *other* window, on the channel they already
+    // reconcile on. Nothing has changed here, so this is not a broadcast of a
+    // change — it is the one moment the app knows a user is looking at the
+    // preferences, spent making sure the windows agree with them. The notch reads
+    // them exactly once, at mount, and has no other way back if that read was ever
+    // wrong; `apply` above already re-asserts the half Rust owns.
+    let _ = app.emit("settings-changed", settings);
 
     Ok(())
 }
