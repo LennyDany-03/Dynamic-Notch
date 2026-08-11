@@ -73,7 +73,7 @@ type NotchState = 'hidden' | 'peek' | 'announce' | 'expanded'
 - `peek → expanded`: cursor remains in hotzone/pill for 800ms continuous dwell (timer via `setTimeout`, cleared on `mouseleave`).
 - `expanded → peek → hidden`: cursor leaves expanded bounds, ~300-500ms grace delay before each step down, timer cleared if cursor re-enters during the grace window.
 - Which "page" is showing while `expanded` (Media / Launcher / Clipboard / Files+Notes) is a separate piece of state (`activeModule`), independent of `NotchState`, so switching modules doesn't retrigger the expand animation.
-- `announce(announcement, ms)`: `→ announce`, a banner the notch puts up by itself to report something — music starting, or a Windows notification arriving — retracted after `ms`. Pinned like the tray's openings; the cursor arriving cancels the retract. A `media` announcement dwells through to the media card, a `notification` has nothing to open into and is only held up to be read.
+- `announce(announcement, ms)`: `→ announce`, a banner the notch puts up by itself to report something — music starting, a Windows notification arriving, or the machine's own state changing (a charger, a Bluetooth device, the network) — retracted after `ms`. Pinned like the tray's openings; the cursor arriving cancels the retract. A `media` announcement dwells through to the media card; `notification` and `system` have nothing to open into and are only held up to be read.
 
 All feature components read `NotchState` and `activeModule` from context/hook — they don't independently decide whether to render or animate.
 
@@ -85,6 +85,7 @@ All feature components read `NotchState` and `activeModule` from context/hook �
 | `list_installed_apps` | Populate launcher index | Start Menu shortcut scan + registry uninstall keys |
 | `start_clipboard_listener` | Push new clipboard entries to frontend | `AddClipboardFormatListener` (via `windows` crate) or `arboard` for a simpler first pass |
 | `begin_drag_out` | Let a File Shelf item be dragged into another app's window | `IDropSource` / `IDataObject` (via `windows-rs`) — no equivalent in the webview, must be native |
+| `get_system_status` | One snapshot of charger, network and connected Bluetooth devices, for the system banners | `GetSystemPowerStatus` + `NetworkInformation` + `DeviceInformation` / `BluetoothDevice` (via `windows` crate) |
 
 Each command should be added only when its corresponding feature is being built (see build order in the master prompt) — don't scaffold all four upfront.
 
@@ -325,6 +326,72 @@ Each command should be added only when its corresponding feature is being built 
   in the shell's click-through canvas with pointer events off, and hovering it is
   just the ordinary hotzone entry. Nothing is drawn once the pill rests on screen
   (always-on-top), because then there is nothing left to point at.
+- **The machine's own state is a banner, not a module.** Charger, Bluetooth and
+  Wi-Fi come in through `announce` as a third kind of `Announcement`, drawn by
+  `SystemAnnounce` on the same 300×64 surface as the other two — so they cost no
+  new geometry at all: the announce hit rect stays a function of `state` alone,
+  and no card grows `EXPANDED_BOUNDS`. A page was the obvious alternative and is
+  the wrong shape for this. Windows already keeps all three in its tray, a click
+  away, so a card would be a worse copy of something that exists; what it cannot
+  do is *tell* you, at the instant it happens, that the charger you thought you
+  plugged in is not charging. None of the three has anything actionable on it
+  either — the cable is in your hand.
+
+  The charge itself *is* a standing value, and that half is a badge rather than a
+  banner: `BatteryBadge` draws it on the collapsed pill and in the nav strip of
+  every expanded card, which between them are what is on screen whenever anything
+  is. The pill was re-laid out around it — 264×34 and a three-column grid with
+  equal outer columns, so the clock sits on the centre line by construction rather
+  than by being absolutely positioned across the pill and kept clear by arithmetic.
+  The marks either side are matched chips: the same height, radius and surface, so
+  a wordless music indicator and a number read as the same kind of thing. The
+  right-hand playing dot went with it, being a second copy of what the equalizer
+  already says. It hangs off the end of the nav strip with its own width mirrored on the
+  other side, so the chevrons stay symmetric about the card's centre; nothing
+  about the card's geometry changes. This is also why the preference gates the
+  *announcing* and not the poll — the badge needs the data either way — and why
+  `get_system_status` takes a `bluetooth` flag: the device enumeration is ~50ms of
+  a snapshot that is otherwise microseconds, and it feeds nothing but the banner.
+  With it off no baseline is kept, so turning the preference back on re-baselines
+  rather than announcing every device that was connected all along.
+
+  `system.rs` answers one command with one snapshot and keeps no memory of its
+  own; `useSystemStatus` polls it at 2s and owns the whole notion of what counts
+  as an event. That split is deliberate: the diff has to live next to the thing
+  that knows whether the notch is free to show a banner, and the three
+  subsystems are polled together because they are read together — one timer, one
+  bridge round trip, one consistent moment.
+
+  Two rules in that hook are load-bearing, and both come from the difference
+  between an arrival and a loss. Arrivals are reported on sight, because the
+  latency is the whole point: a plug that is acknowledged four seconds later
+  reads as a coincidence. Losses have to survive a second poll first, because
+  losses flap — Wi-Fi drops for a DHCP renew, a headset drops for a moment when
+  it switches between its handsfree and stereo profiles, and both come back
+  within a poll. Without that, a user who did nothing and noticed nothing gets a
+  "disconnected" banner followed by a "connected" one. And only the first event
+  of a poll is announced: waking a laptop finds the charger out, the network
+  changed and the headset gone at once, and three banners in a row is a notch
+  that will not go away.
+
+  Everything WinRT here goes through `system::await_op` rather than `.get()`.
+  The poll runs every two seconds on a Tauri worker; one operation that is
+  created and never signalled — see the logo trap in `notifications.rs` — would
+  take a thread with it every time. A bounded wait costs a missing field
+  instead. The class of device is cached per device id for the same reason in
+  miniature: a headset connected all day is one lookup, not one per poll, and a
+  device that fails the lookup caches `Other` rather than being retried forever.
+- **The system banner's animation is the message.** `SystemGlyphs` draws the plug
+  sliding into the battery, the charge running out to the level Windows reports,
+  the arcs coming in from the Wi-Fi dot, the rings going out from a device that
+  just connected. The words underneath are the detail you read only if the
+  movement was not what you expected — which is why the glyphs are stroke-only
+  (a stroked path can be *drawn*; a filled one can only appear) and why a loss
+  gets no ring of its own: inventing a movement for it would give the two events
+  equal weight. A connected Bluetooth device is drawn as the thing it is —
+  headphones, a phone, a watch — from the class of device in the snapshot,
+  because a picture of the object is recognised before a name is read, and three
+  seconds is all there is.
 
 ## Open decisions (fill in as they're made)
 

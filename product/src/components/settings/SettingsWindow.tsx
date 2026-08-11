@@ -597,6 +597,7 @@ function SettingsPane({
     error,
     setAlwaysOnTop,
     setNotifications,
+    setSystemAlerts,
     setMuteWindowsBanners,
     setBackgroundOpacity,
     setNotchPosition,
@@ -727,6 +728,25 @@ function SettingsPane({
           , then reopen this window.
         </p>
       )}
+
+      {/* Its own group rather than a third row under Notifications: these arrive
+          on the same banner, but nothing here comes from Windows' notification
+          centre, and the note above belongs to the two rows it sits under. */}
+      <GroupLabel>Your machine</GroupLabel>
+
+      <SettingRow
+        title="Charger, Bluetooth and Wi-Fi"
+        body="Tells you the moment a charger goes in or comes out, a Bluetooth device connects or drops, or your network changes — with the charge left and the device's own name. A few seconds in the notch, then gone."
+        on={settings.systemAlerts}
+        onToggle={() => setSystemAlerts(!settings.systemAlerts)}
+        icon={
+          <Icon>
+            <rect x="2" y="8" width="15" height="8" rx="2" />
+            <path d="M20 11v2" />
+            <path d="M11.6 9.4L8.9 13h2.2l-.5 2.5 2.9-3.5h-2.3z" fill="currentColor" stroke="none" />
+          </Icon>
+        }
+      />
 
       {error && (
         <p style={{ margin: '8px 12px 0', fontSize: 11.5, color: color.fileRed }}>{error}</p>

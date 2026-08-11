@@ -8,6 +8,7 @@ import { useMediaSession } from './hooks/useMediaSession'
 import { useFileShelf } from './hooks/useFileShelf'
 import { useSettings } from './hooks/useSettings'
 import { useSurfaceOpacity } from './hooks/useSurfaceOpacity'
+import { useSystemStatus } from './hooks/useSystemStatus'
 import { useWindowsNotifications } from './hooks/useWindowsNotifications'
 import { timing } from './tokens'
 import {
@@ -18,6 +19,7 @@ import {
   type NotchState,
 } from './types/notch'
 import type { WinNotification } from './types/notifications'
+import type { SystemEvent } from './types/system'
 
 export default function App() {
   // "Always on top" is both a z-order and a visibility preference: it keeps the
@@ -131,6 +133,23 @@ export default function App() {
     useCallback(() => announce({ kind: 'media' }, timing.announceMs), [announce]),
   )
 
+  // The machine reporting itself: a charger going in or coming out, a Bluetooth
+  // device connecting, the network changing. Same banner, same rules — `announce`
+  // still decides whether anything is shown.
+  //
+  // The same poll answers what the charge *is*, which the pill and every card's
+  // nav strip draw, so it runs whatever the preference says; the preference gates
+  // the announcing. Gated on `loaded` all the same, for the reason the
+  // notification poll is: the default is on, and announcing on the strength of a
+  // guess is a banner in front of someone who turned this off.
+  const battery = useSystemStatus(
+    loaded && settings.systemAlerts,
+    useCallback(
+      (event: SystemEvent) => announce({ kind: 'system', event }, timing.announceMs),
+      [announce],
+    ),
+  )
+
   // A drag reaching the notch is an unambiguous request for the shelf, so it
   // skips the dwell timer and opens straight to it.
   const revealShelf = useCallback(() => showModule('files'), [showModule])
@@ -172,6 +191,7 @@ export default function App() {
         openNotificationId={openNotificationId}
         onOpenNotification={setOpenNotificationId}
         notificationsFit={notificationsFit}
+        battery={battery}
         // Gated on `loaded` for the same reason as the pill: the default is on,
         // and painting a mark on someone's wallpaper on the strength of a guess
         // is a mark they watch disappear a frame later.

@@ -6,6 +6,7 @@ import NavArrows from './NavArrows'
 import MediaAnnounce from './media/MediaAnnounce'
 import MediaControls from './media/MediaControls'
 import NotificationAnnounce from './notifications/NotificationAnnounce'
+import SystemAnnounce from './system/SystemAnnounce'
 import FilesModule from './modules/FilesModule'
 import LauncherModule from './modules/LauncherModule'
 import NotificationsModule from './modules/NotificationsModule'
@@ -15,6 +16,7 @@ import type { NotificationFeed } from '../hooks/useWindowsNotifications'
 import { CARD_TOP, NAV_STRIP_HEIGHT, cardSize, type NotificationsFit } from '../layout'
 import { radius, spring } from '../tokens'
 import type { Announcement, NotchModule, NotchState } from '../types/notch'
+import type { BatteryStatus } from '../types/system'
 
 interface Props {
   state: NotchState
@@ -35,6 +37,11 @@ interface Props {
   openNotificationId: string | null
   onOpenNotification: (id: string | null) => void
   notificationsFit: NotificationsFit
+  /**
+   * The standing charge, drawn on both resting surfaces — the pill and the nav
+   * strip of every expanded card. Null on a machine with no battery.
+   */
+  battery: BatteryStatus | null
   /** The "show me where the notch is" preference. See `HotzoneHint`. */
   hotzoneHint: boolean
 }
@@ -78,6 +85,46 @@ function ModuleContent({
 }
 
 /**
+ * What is drawn on the banner, and the key its cross-fade runs on.
+ *
+ * Every announcement keys on the specific thing being reported rather than on
+ * "an announcement": a second notification arriving while the first is still up,
+ * or a charger going back in a second after coming out, has to fade one surface
+ * out and the next in. A shared key would swap the text under a fixed surface and
+ * read as the first banner having been wrong.
+ */
+function announceKey(announcement: Announcement | null): string {
+  switch (announcement?.kind) {
+    case 'notification':
+      return `notification:${announcement.notification.id}`
+    case 'system':
+      return `system:${announcement.event.id}`
+    default:
+      return 'announce'
+  }
+}
+
+function AnnounceContent({
+  announcement,
+  session,
+}: {
+  announcement: Announcement | null
+  session: MediaSession
+}) {
+  switch (announcement?.kind) {
+    case 'notification':
+      return <NotificationAnnounce notification={announcement.notification} />
+    case 'system':
+      return <SystemAnnounce event={announcement.event} />
+    default:
+      // Media is the fallback rather than a case of its own: the announcement is
+      // never cleared (see `useNotchState`), so this is also what the banner
+      // draws for the frame or two it spends leaving.
+      return <MediaAnnounce media={session.media} />
+  }
+}
+
+/**
  * The outer window frame: the Mica surface, its spring sizing, and whatever
  * content the current state calls for.
  *
@@ -98,6 +145,7 @@ export default function NotchShell({
   openNotificationId,
   onOpenNotification,
   notificationsFit,
+  battery,
   hotzoneHint,
 }: Props) {
   // The same call the state machine makes, with the same fit — the card that is
@@ -109,15 +157,7 @@ export default function NotchShell({
 
   // What is drawn inside the card, and the key the cross-fade runs on: a change
   // here fades one surface out and the next in without touching the card itself.
-  // Notifications key on the id as well, so a second one arriving while the first
-  // is still up cross-fades rather than swapping text under a fixed key.
-  const surface = isExpanded
-    ? activeModule
-    : isAnnouncing
-      ? announcement?.kind === 'notification'
-        ? `notification:${announcement.notification.id}`
-        : 'announce'
-      : 'peek'
+  const surface = isExpanded ? activeModule : isAnnouncing ? announceKey(announcement) : 'peek'
 
   return (
     <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none' }}>
@@ -172,6 +212,7 @@ export default function NotchShell({
                       active={activeModule}
                       onPrev={onPreviousModule}
                       onNext={onNextModule}
+                      battery={battery}
                     />
                   </div>
                 )}
@@ -202,12 +243,10 @@ export default function NotchShell({
                           openNotificationId={openNotificationId}
                           onOpenNotification={onOpenNotification}
                         />
-                      ) : isAnnouncing && announcement?.kind === 'notification' ? (
-                        <NotificationAnnounce notification={announcement.notification} />
                       ) : isAnnouncing ? (
-                        <MediaAnnounce media={session.media} />
+                        <AnnounceContent announcement={announcement} session={session} />
                       ) : (
-                        <CollapsedPill session={session} />
+                        <CollapsedPill session={session} battery={battery} />
                       )}
                     </motion.div>
                   </AnimatePresence>

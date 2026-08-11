@@ -13,6 +13,12 @@ export type NotchPosition = 'left' | 'center' | 'right'
 export interface Settings {
   alwaysOnTop: boolean
   notifications: boolean
+  /**
+   * Whether the notch reports the machine's own state — a charger going in or
+   * out, a Bluetooth device connecting, the network changing. Gates the poll
+   * behind it as well as the banner: off means the notch stops looking.
+   */
+  systemAlerts: boolean
   muteWindowsBanners: boolean
   /** Opacity of every Mica surface, as a percentage. See `useSurfaceOpacity`. */
   backgroundOpacity: number
@@ -37,6 +43,7 @@ export interface Settings {
 const DEFAULTS: Settings = {
   alwaysOnTop: true,
   notifications: true,
+  systemAlerts: true,
   muteWindowsBanners: false,
   backgroundOpacity: 92,
   notchPosition: 'center',
@@ -157,6 +164,11 @@ export function useSettings() {
     [write],
   )
 
+  const setSystemAlerts = useCallback(
+    (enabled: boolean) => write('set_system_alerts', 'systemAlerts', enabled, { enabled }),
+    [write],
+  )
+
   const setMuteWindowsBanners = useCallback(
     (enabled: boolean) =>
       write('set_mute_windows_banners', 'muteWindowsBanners', enabled, { enabled }),
@@ -186,6 +198,7 @@ export function useSettings() {
     error,
     setAlwaysOnTop,
     setNotifications,
+    setSystemAlerts,
     setMuteWindowsBanners,
     setBackgroundOpacity,
     setNotchPosition,

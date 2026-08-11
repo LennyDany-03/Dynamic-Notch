@@ -1,3 +1,42 @@
+## 0.5.0 — 2026-08-11
+
+**Crest keeps an eye on your machine.** Plug the charger in and the notch drops
+down to say so, with the charge you have left. Connect your headphones and it
+names them. Move to another network and it tells you which one. And the battery
+now lives on the notch itself, so what you have left is a glance up rather than a
+trip to the tray.
+
+### New
+
+- **Charger alerts** — the moment a charger goes in or comes out, the notch says
+  which, with the percentage and how much longer Windows expects the battery to
+  last. The plug slides into place as it arrives, and is pulled back out when it
+  goes
+- **Bluetooth alerts** — a device connecting or dropping is announced by name,
+  and drawn as the thing it is: headphones, a phone, a watch, a mouse, a laptop
+- **Wi-Fi and network alerts** — connecting, moving to another network, or losing
+  the connection altogether. Wi-Fi carries the network's name and as many bars as
+  the signal is worth
+- **The charge, always in view** — a battery and its percentage on the resting
+  pill and in the top strip of every panel. It turns purple with a bolt while
+  charging, and red once you are at a fifth or below
+- **Charger, Bluetooth and Wi-Fi** — one setting, under a new "Your machine"
+  group, for whether any of that is announced. Windows grants no permission for
+  this and none is asked for: all three are things your tray already shows
+
+Alerts are quiet by design. Something *going away* has to still be gone a moment
+later before Crest mentions it, so a Wi-Fi blip or a headset switching between
+its call and music modes no longer produces a "disconnected" banner chased by a
+"connected" one. Waking your laptop shows one banner rather than one for every
+change that piled up while it slept. And nothing drops down while your cursor is
+already on the notch, or while a panel is open — you are looking at it already.
+
+### Improved
+
+- The resting pill is wider and laid out again from scratch. The clock sits dead
+  centre with the music mark and the battery in matching chips either side,
+  instead of the three crowding each other for the same 200 pixels
+
 ## 0.4.1 — 2026-08-09
 
 **"Always on top" is honoured from the moment Crest starts.** Turn it off, and

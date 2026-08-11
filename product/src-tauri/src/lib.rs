@@ -6,6 +6,7 @@ mod notes;
 mod notifications;
 mod settings;
 mod shelf;
+mod system;
 mod tray;
 mod updater;
 
@@ -78,6 +79,7 @@ pub fn run() {
             notifications::notification_logo,
             notifications::dismiss_notification,
             notifications::clear_all_notifications,
+            system::get_system_status,
             tray::tray_menu_close,
             tray::tray_show_notch,
             tray::tray_navigate,
@@ -87,6 +89,7 @@ pub fn run() {
             settings::read_settings,
             settings::set_always_on_top,
             settings::set_notifications,
+            settings::set_system_alerts,
             settings::set_mute_windows_banners,
             settings::set_background_opacity,
             settings::set_notch_position,
