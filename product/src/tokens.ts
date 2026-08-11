@@ -106,7 +106,21 @@ export const sectionLabel = {
  * a little slack. Everything else is unchanged.
  */
 export const size = {
-  peek: { width: 200, height: 32 },
+  /**
+   * The resting pill. **Deliberately not the design export's 200×32.**
+   *
+   * The export's pill carried one thing — a track title — and 200 was generous
+   * for it. It now carries three: a music mark, the clock, and the charge. At 200
+   * the battery badge came within a pixel or two of the clock, and the whole pill
+   * read as crowded rather than resting (which is what the redesign was asked to
+   * fix). 264 gives each of the three its own column with air between them; 34
+   * lets the two chips sit inside it without touching the edges.
+   *
+   * The ceiling is `announce`'s 300: the banner has to stay visibly larger than
+   * the pill, or the notch reporting something looks the same as the notch simply
+   * being there. Anything that wants more room than this belongs in a card.
+   */
+  peek: { width: 264, height: 34 },
   /**
    * NOT from the design export — the export has no notification state. Sized to
    * the content it carries (44px art, two lines of type, an equalizer) and kept

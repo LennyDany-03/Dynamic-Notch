@@ -337,6 +337,24 @@ Each command should be added only when its corresponding feature is being built 
   plugged in is not charging. None of the three has anything actionable on it
   either — the cable is in your hand.
 
+  The charge itself *is* a standing value, and that half is a badge rather than a
+  banner: `BatteryBadge` draws it on the collapsed pill and in the nav strip of
+  every expanded card, which between them are what is on screen whenever anything
+  is. The pill was re-laid out around it — 264×34 and a three-column grid with
+  equal outer columns, so the clock sits on the centre line by construction rather
+  than by being absolutely positioned across the pill and kept clear by arithmetic.
+  The marks either side are matched chips: the same height, radius and surface, so
+  a wordless music indicator and a number read as the same kind of thing. The
+  right-hand playing dot went with it, being a second copy of what the equalizer
+  already says. It hangs off the end of the nav strip with its own width mirrored on the
+  other side, so the chevrons stay symmetric about the card's centre; nothing
+  about the card's geometry changes. This is also why the preference gates the
+  *announcing* and not the poll — the badge needs the data either way — and why
+  `get_system_status` takes a `bluetooth` flag: the device enumeration is ~50ms of
+  a snapshot that is otherwise microseconds, and it feeds nothing but the banner.
+  With it off no baseline is kept, so turning the preference back on re-baselines
+  rather than announcing every device that was connected all along.
+
   `system.rs` answers one command with one snapshot and keeps no memory of its
   own; `useSystemStatus` polls it at 2s and owns the whole notion of what counts
   as an event. That split is deliberate: the diff has to live next to the thing

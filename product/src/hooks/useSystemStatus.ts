@@ -1,28 +1,38 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
-import type { BluetoothDevice, NetworkStatus, SystemEvent, SystemStatus } from '../types/system'
+import type {
+  BatteryStatus,
+  BluetoothDevice,
+  NetworkStatus,
+  SystemEvent,
+  SystemStatus,
+} from '../types/system'
 
 /**
  * Watches the machine itself — the charger, connected Bluetooth devices, the
- * network — and reports each change once, so the notch can say what just
- * happened.
+ * network — reports each change once so the notch can say what just happened,
+ * and hands back the standing charge for `BatteryBadge` to draw.
  *
- * One poll for all three, because Rust answers all three in one call. The hook
- * holds no visible state and returns nothing: everything it knows is either in
- * the event it just reported or is the baseline it compares the next poll
- * against. A card showing the standing values would be a different feature (a
- * module), and this is deliberately not it — these are things you want to be
- * *told*, not things you go and look at.
- *
- * Polled rather than subscribed, the same as the notification centre. Each of the
- * three does have a WinRT change event, but they are three subscriptions with
- * three lifetimes to keep alive across a sleep/resume — against one timer reading
- * three cheap values.
+ * One poll for all of it, because Rust answers all of it in one call. Polled
+ * rather than subscribed, the same as the notification centre: each of the three
+ * does have a WinRT change event, but they are three subscriptions with three
+ * lifetimes to keep alive across a sleep/resume, against one timer reading three
+ * cheap values.
  *
  * The first poll is a baseline and reports nothing. Launching Crest with a
  * charger already in and a headset already paired is not three things that just
  * happened, and announcing them would open the notch uninvited on every start —
  * the same rule `useMediaAnnounce` and the notification poll follow.
+ *
+ * **The poll is not gated on the preference; the announcing is.** It used to be
+ * both, on the reasoning that "off means the notch stops looking" — but the pill
+ * now draws the charge whether or not anything is ever announced, and a battery
+ * readout that disappeared because you turned banners off would be a second,
+ * unasked-for answer to a question about banners. What the preference does gate
+ * is the expensive half: `bluetooth` tells Rust whether to enumerate devices at
+ * all, which is most of the cost of a snapshot and feeds nothing but the banner.
+ * While it is off no baseline is kept either, so switching it back on re-baselines
+ * rather than announcing every device that was connected the whole time.
  */
 
 /**
@@ -81,15 +91,36 @@ const emptyBaseline = (): Baseline => ({
   missingDevices: new Set(),
 })
 
-export function useSystemStatus(enabled: boolean, onEvent: (event: SystemEvent) => void) {
+/**
+ * Whether two readings differ in any way the badge would draw. The poll produces
+ * a fresh object every two seconds and almost all of them say exactly what the
+ * last one did; without this, every surface that shows the charge would re-render
+ * on a timer for the life of the process.
+ */
+function sameReading(a: BatteryStatus | null, b: BatteryStatus | null): boolean {
+  if (!a || !b) return a === b
+  return a.percent === b.percent && a.acPower === b.acPower && a.charging === b.charging
+}
+
+export function useSystemStatus(
+  /** Whether changes are announced. Does not stop the poll — see the note above. */
+  announce: boolean,
+  onEvent: (event: SystemEvent) => void,
+): BatteryStatus | null {
   // Held in a ref for the same reason as the notification poll's: a caller that
   // rebuilds the callback each render must not tear down the poll, which would
-  // re-baseline and swallow whatever happened next.
+  // re-baseline and swallow whatever happened next. The preference is a ref for a
+  // stronger version of the same reason — flipping it must not restart the poll,
+  // which is what keeps the charge on screen across the change.
   const onEventRef = useRef(onEvent)
   onEventRef.current = onEvent
+  const announceRef = useRef(announce)
+  announceRef.current = announce
+
+  const [battery, setBattery] = useState<BatteryStatus | null>(null)
 
   useEffect(() => {
-    if (!enabled || !isTauri()) return
+    if (!isTauri()) return
 
     let cancelled = false
     let baseline: Baseline | null = null
@@ -182,9 +213,14 @@ export function useSystemStatus(enabled: boolean, onEvent: (event: SystemEvent) 
     }
 
     const poll = async () => {
+      const announcing = announceRef.current
+
       let status: SystemStatus
       try {
-        status = await invoke<SystemStatus>('get_system_status')
+        // Rust skips the device enumeration when nothing will be announced —
+        // it is the expensive part of the snapshot and the badge has no use for
+        // it. The battery and the network cost a handful of microseconds.
+        status = await invoke<SystemStatus>('get_system_status', { bluetooth: announcing })
       } catch {
         // Nothing to report and nothing to be done from here. The next poll gets
         // another go; the baseline is left alone so a momentary failure does not
@@ -192,6 +228,16 @@ export function useSystemStatus(enabled: boolean, onEvent: (event: SystemEvent) 
         return
       }
       if (cancelled) return
+
+      setBattery((current) => (sameReading(current, status.battery) ? current : status.battery))
+
+      if (!announcing) {
+        // Dropped rather than kept: the snapshot has no device list in it, so a
+        // baseline taken from one would say every connected device had gone. The
+        // next poll after the preference comes back on takes a true one.
+        baseline = null
+        return
+      }
 
       if (!baseline) {
         // Baseline. Everything already true of the machine is recorded as
@@ -223,5 +269,10 @@ export function useSystemStatus(enabled: boolean, onEvent: (event: SystemEvent) 
       cancelled = true
       clearInterval(id)
     }
-  }, [enabled])
+    // No dependencies: one poll for the life of the window. Everything that can
+    // change while it runs is read from a ref, so nothing here can restart it —
+    // a restart would blank the badge for a poll and re-baseline the diff.
+  }, [])
+
+  return battery
 }

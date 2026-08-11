@@ -1,6 +1,8 @@
 import { useState } from 'react'
+import BatteryBadge from './system/BatteryBadge'
 import { color, sectionLabel } from '../tokens'
 import { MODULES, type NotchModule } from '../types/notch'
+import type { BatteryStatus } from '../types/system'
 
 const LABELS: Record<NotchModule, string> = {
   media: 'Media controls',
@@ -13,7 +15,23 @@ interface Props {
   active: NotchModule
   onPrev: () => void
   onNext: () => void
+  /** The charge, drawn in the corner of the strip. Null on a machine without one. */
+  battery: BatteryStatus | null
 }
+
+/**
+ * Width of the badge, mirrored on the other side of the strip.
+ *
+ * The chevrons have to stay symmetric about the card's centre — they are the one
+ * pair of controls that says "these do the same thing in opposite directions",
+ * and 40px of drift makes them read as unrelated buttons. Hanging the badge off
+ * the end and mirroring its width on the left keeps them where they were and puts
+ * the badge in the corner, which is where a status mark belongs.
+ *
+ * Must cover the badge at its widest: an 18px glyph, a 4px gap and the 26px the
+ * percentage is floored to.
+ */
+const BADGE_WIDTH = 48
 
 function Chevron({
   direction,
@@ -73,8 +91,9 @@ function Chevron({
  * were unreachable in practice. Arrows flanking the module name answer both
  * "where am I" and "how do I move".
  */
-export default function NavArrows({ active, onPrev, onNext }: Props) {
+export default function NavArrows({ active, onPrev, onNext, battery }: Props) {
   const position = MODULES.indexOf(active) + 1
+  const badge = battery !== null && battery.percent !== null
 
   return (
     <div
@@ -87,6 +106,11 @@ export default function NavArrows({ active, onPrev, onNext }: Props) {
         gap: 8,
       }}
     >
+      {/* The badge's mirror. Nothing is drawn in it — it exists so the chevrons
+          sit either side of the card's centre rather than either side of the
+          space left over once the badge has taken its corner. */}
+      {badge && <span aria-hidden style={{ width: BADGE_WIDTH, flex: 'none' }} />}
+
       <Chevron direction="left" label="Previous panel" onClick={onPrev} />
 
       <span
@@ -107,6 +131,19 @@ export default function NavArrows({ active, onPrev, onNext }: Props) {
       </span>
 
       <Chevron direction="right" label="Next panel" onClick={onNext} />
+
+      {badge && (
+        <span
+          style={{
+            width: BADGE_WIDTH,
+            flex: 'none',
+            display: 'flex',
+            justifyContent: 'flex-end',
+          }}
+        >
+          <BatteryBadge battery={battery} />
+        </span>
+      )}
     </div>
   )
 }

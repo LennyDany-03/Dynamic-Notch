@@ -16,6 +16,7 @@ import type { NotificationFeed } from '../hooks/useWindowsNotifications'
 import { CARD_TOP, NAV_STRIP_HEIGHT, cardSize, type NotificationsFit } from '../layout'
 import { radius, spring } from '../tokens'
 import type { Announcement, NotchModule, NotchState } from '../types/notch'
+import type { BatteryStatus } from '../types/system'
 
 interface Props {
   state: NotchState
@@ -36,6 +37,11 @@ interface Props {
   openNotificationId: string | null
   onOpenNotification: (id: string | null) => void
   notificationsFit: NotificationsFit
+  /**
+   * The standing charge, drawn on both resting surfaces — the pill and the nav
+   * strip of every expanded card. Null on a machine with no battery.
+   */
+  battery: BatteryStatus | null
   /** The "show me where the notch is" preference. See `HotzoneHint`. */
   hotzoneHint: boolean
 }
@@ -139,6 +145,7 @@ export default function NotchShell({
   openNotificationId,
   onOpenNotification,
   notificationsFit,
+  battery,
   hotzoneHint,
 }: Props) {
   // The same call the state machine makes, with the same fit — the card that is
@@ -205,6 +212,7 @@ export default function NotchShell({
                       active={activeModule}
                       onPrev={onPreviousModule}
                       onNext={onNextModule}
+                      battery={battery}
                     />
                   </div>
                 )}
@@ -238,7 +246,7 @@ export default function NotchShell({
                       ) : isAnnouncing ? (
                         <AnnounceContent announcement={announcement} session={session} />
                       ) : (
-                        <CollapsedPill session={session} />
+                        <CollapsedPill session={session} battery={battery} />
                       )}
                     </motion.div>
                   </AnimatePresence>

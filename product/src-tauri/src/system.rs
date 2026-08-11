@@ -304,7 +304,7 @@ fn device_kind(id: &str, low_energy: bool) -> BluetoothKind {
 /// other's devices. A dual-mode device answers both with different ids, which is
 /// why the merge below drops repeats by *name* as well — one headset is one
 /// event, whatever the radio calls it.
-fn bluetooth() -> Vec<BluetoothDevice> {
+fn connected_devices() -> Vec<BluetoothDevice> {
     let selectors = [
         (
             WinBluetoothDevice::GetDeviceSelectorFromConnectionStatus(
@@ -360,12 +360,25 @@ fn bluetooth() -> Vec<BluetoothDevice> {
     devices
 }
 
+/// One snapshot of the machine.
+///
+/// `bluetooth` is asked for rather than assumed because the two callers want
+/// different things from the same poll: the banner needs the device list, and the
+/// battery badge on the pill needs only the charge. Enumerating devices is most of
+/// the cost here (~50ms against a handful of microseconds for the other two), and
+/// the notch polls this every couple of seconds for as long as it runs — so a
+/// user who has turned the banners off should not be paying for a list nothing
+/// will read.
 #[tauri::command]
-pub async fn get_system_status() -> SystemStatus {
+pub async fn get_system_status(bluetooth: bool) -> SystemStatus {
     SystemStatus {
         battery: battery(),
         network: network(),
-        bluetooth: bluetooth(),
+        bluetooth: if bluetooth {
+            connected_devices()
+        } else {
+            Vec::new()
+        },
     }
 }
 
@@ -382,12 +395,12 @@ mod tests {
     /// per process.
     #[tokio::test]
     async fn reads_a_snapshot() {
-        let mut status = get_system_status().await;
+        let mut status = get_system_status(true).await;
         let mut elapsed = Duration::ZERO;
 
         for _ in 0..2 {
             let started = Instant::now();
-            status = get_system_status().await;
+            status = get_system_status(true).await;
             elapsed = started.elapsed();
             println!("snapshot in {elapsed:?}");
         }
