@@ -8,6 +8,7 @@ import { useMediaSession } from './hooks/useMediaSession'
 import { useFileShelf } from './hooks/useFileShelf'
 import { useSettings } from './hooks/useSettings'
 import { useSurfaceOpacity } from './hooks/useSurfaceOpacity'
+import { useSystemStatus } from './hooks/useSystemStatus'
 import { useWindowsNotifications } from './hooks/useWindowsNotifications'
 import { timing } from './tokens'
 import {
@@ -18,6 +19,7 @@ import {
   type NotchState,
 } from './types/notch'
 import type { WinNotification } from './types/notifications'
+import type { SystemEvent } from './types/system'
 
 export default function App() {
   // "Always on top" is both a z-order and a visibility preference: it keeps the
@@ -129,6 +131,22 @@ export default function App() {
   useMediaAnnounce(
     session,
     useCallback(() => announce({ kind: 'media' }, timing.announceMs), [announce]),
+  )
+
+  // The machine reporting itself: a charger going in or coming out, a Bluetooth
+  // device connecting, the network changing. Same banner, same rules — the poll
+  // only runs while the preference is on, and `announce` still decides whether
+  // anything is shown.
+  //
+  // Gated on `loaded` for the same reason as the notification poll: the default
+  // is on, and starting a poll on the strength of a guess is a banner in front of
+  // someone who turned this off.
+  useSystemStatus(
+    loaded && settings.systemAlerts,
+    useCallback(
+      (event: SystemEvent) => announce({ kind: 'system', event }, timing.announceMs),
+      [announce],
+    ),
   )
 
   // A drag reaching the notch is an unambiguous request for the shelf, so it

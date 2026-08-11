@@ -1,4 +1,5 @@
 import type { WinNotification } from './notifications'
+import type { SystemEvent } from './system'
 
 /**
  * Visibility state machine. Single source of truth lives in `useNotchState`.
@@ -49,14 +50,20 @@ export const MODULES: readonly NotchModule[] = [
  * What an `announce` banner is reporting.
  *
  * The state machine carries this rather than a module, because an announcement
- * is not a module: `notification` has no card behind it to open, and `media`
- * borrows the media card only because one happens to exist. Kept as a tagged
- * union so a third source has to say what it is rather than being inferred from
- * whatever the notch was last showing.
+ * is not a module: `notification` and `system` have no card behind them to open,
+ * and `media` borrows the media card only because one happens to exist. Kept as a
+ * tagged union so each new source has to say what it is rather than being
+ * inferred from whatever the notch was last showing.
+ *
+ * `system` is the machine reporting itself — a charger, a Bluetooth device, the
+ * network. It carries the whole event rather than a subsystem name for the same
+ * reason `notification` carries the notification: the banner reports one specific
+ * thing having just happened, not the standing state of a thing.
  */
 export type Announcement =
   | { kind: 'media' }
   | { kind: 'notification'; notification: WinNotification }
+  | { kind: 'system'; event: SystemEvent }
 
 /** A rectangle in window-local CSS pixels. */
 export interface Rect {

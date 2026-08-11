@@ -31,6 +31,16 @@ fn notifications_default() -> bool {
     true
 }
 
+/// Whether the notch reports the machine's own state — a charger going in or
+/// out, a Bluetooth device connecting, the Wi-Fi changing.
+///
+/// On by default, unlike `mute_windows_banners`: this only reads state Windows
+/// already shows in the tray and changes nothing outside the app, and the events
+/// it reports are ones the user just caused with their hands.
+fn system_alerts_default() -> bool {
+    true
+}
+
 /// Where along the top edge the notch sits.
 ///
 /// The overlay window is a fixed 560×420 canvas and the card is drawn centred
@@ -104,6 +114,13 @@ pub struct Settings {
     #[serde(default = "notifications_default")]
     pub notifications: bool,
 
+    /// Whether the notch announces charger, Bluetooth and Wi-Fi changes.
+    ///
+    /// Nothing for `apply` to do — like `background_opacity` it is read by the
+    /// notch off the broadcast, and the poll behind it only runs while it is on.
+    #[serde(default = "system_alerts_default")]
+    pub system_alerts: bool,
+
     /// Whether Windows' own corner banner is suppressed while Crest runs, so the
     /// notch is the only place a notification appears. Off by default: this one
     /// reaches outside the app and changes a system setting, which is never
@@ -136,6 +153,7 @@ impl Default for Settings {
         Self {
             always_on_top: always_on_top_default(),
             notifications: notifications_default(),
+            system_alerts: system_alerts_default(),
             mute_windows_banners: false,
             background_opacity: background_opacity_default(),
             notch_position: notch_position_default(),
@@ -509,6 +527,28 @@ pub fn set_notifications(
 
     // The notch is what polls for notifications, and the switch lives in another
     // window; without this it would keep polling (or keep quiet) until relaunch.
+    let _ = app.emit("settings-changed", settings.clone());
+
+    Ok(enabled)
+}
+
+/// Whether the notch reports charger, Bluetooth and Wi-Fi changes.
+///
+/// Nothing to apply — the notch owns the poll and starts or stops it from the
+/// broadcast, exactly as it does the notification poll. Unlike that one this has
+/// no Windows permission behind it and nothing to refuse: the three reads are of
+/// state the shell already draws in the tray.
+#[tauri::command]
+pub fn set_system_alerts(
+    app: AppHandle,
+    current: State<'_, Current>,
+    enabled: bool,
+) -> Result<bool, String> {
+    let mut settings = current.get(&app);
+    settings.system_alerts = enabled;
+    current.set(settings.clone());
+    save(&app, &settings)?;
+
     let _ = app.emit("settings-changed", settings.clone());
 
     Ok(enabled)

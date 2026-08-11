@@ -40,6 +40,11 @@ windows = { version = "0.58", features = [
   "UI_Notifications",
   "UI_Notifications_Management",
   "ApplicationModel",
+  # The machine's own state, for the notch's system banners. See `system.rs`.
+  "Networking_Connectivity",
+  "Devices_Bluetooth",
+  "Devices_Enumeration",
+  "Win32_System_Power",
   # Foreground-window lookup, for clipboard capture exclusion.
   "Win32_Foundation",
   "Win32_UI_WindowsAndMessaging",
