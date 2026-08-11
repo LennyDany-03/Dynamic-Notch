@@ -2,7 +2,7 @@ const steps = [
   {
     n: "01",
     title: "Install and forget",
-    body: "One installer, no setup screen. Crest registers itself to start with Windows and then gets out of the way — there is nothing to configure before it is useful.",
+    body: "One installer, no setup screen. Crest registers itself to start with Windows and then gets out of the way — there is nothing to configure before it is useful. A thin mark on the top edge shows you where to point until you no longer need it.",
   },
   {
     n: "02",
@@ -12,12 +12,17 @@ const steps = [
   {
     n: "03",
     title: "Move between panels",
-    body: "Chevrons either side of the panel name step through Media, Launcher, and Shelf & Notes. Drag a file at the notch and it jumps straight to the shelf.",
+    body: "Chevrons either side of the panel name step through Media, Launcher, Shelf & Notes, and Notifications. Drag a file at the notch and it jumps straight to the shelf.",
   },
   {
     n: "04",
+    title: "Let it come to you",
+    body: "Some things do not wait to be hovered. A track starting or a notification arriving drops a small banner down for a few seconds and retracts it. Hover a notification to hold it while you read; keep hovering the music one and the full player opens.",
+  },
+  {
+    n: "05",
     title: "Move away",
-    body: "Leave the card and it steps back down — expanded, to pill, to nothing — with a short grace period at each step so a slipped cursor doesn't close it.",
+    body: "Leave the card and it steps back down — expanded, to pill, to nothing — with a short grace period at each step so a slipped cursor doesn't close it. Or switch \"Always on top\" on and the pill simply stays.",
   },
 ];
 

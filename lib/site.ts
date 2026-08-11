@@ -32,4 +32,67 @@ export const site = {
   releases: `${repo}/releases`,
   author: "LennyDany-03",
   authorUrl: "https://github.com/LennyDany-03",
+  /**
+   * The community server. A permanent invite — the community section, the
+   * header and the footer all point at this one string, so a re-issued invite
+   * is a one-line change.
+   */
+  discord: "https://discord.gg/GYcHnBmuMg",
 } as const;
+
+/**
+ * Every place Crest can be followed, in the order they are drawn.
+ *
+ * `icon` names a component in `components/site/icons.tsx` rather than importing
+ * one, so this file stays a plain data module that a Server Component, the
+ * footer and the community section can all read without pulling in React.
+ *
+ * **An entry with an empty `href` is not rendered.** The accounts below that
+ * have no URL yet are listed so the shape is already decided — fill in the
+ * handle and the link appears everywhere at once, with nothing else to edit.
+ * A placeholder that shipped live would be a 404 on the real site, so an empty
+ * string is deliberately the "not yet" value rather than a `#`.
+ */
+export type SocialId = "discord" | "github" | "instagram" | "x" | "youtube";
+
+export const socials: readonly {
+  id: SocialId;
+  label: string;
+  /** What following *this* one gets you — the footer shows it, the grid needs it. */
+  blurb: string;
+  href: string;
+}[] = [
+  {
+    id: "discord",
+    label: "Discord",
+    blurb: "Bug reports, changelogs and whatever gets built next.",
+    href: site.discord,
+  },
+  {
+    id: "github",
+    label: "GitHub",
+    blurb: "The whole source, every release, and the issue tracker.",
+    href: repo,
+  },
+  {
+    id: "instagram",
+    label: "Instagram",
+    blurb: "Clips of new panels as they land.",
+    href: "",
+  },
+  {
+    id: "x",
+    label: "X",
+    blurb: "Release notes in one post.",
+    href: "",
+  },
+  {
+    id: "youtube",
+    label: "YouTube",
+    blurb: "Walkthroughs and build logs.",
+    href: "",
+  },
+];
+
+/** The subset that actually has somewhere to point. */
+export const activeSocials = socials.filter((social) => social.href !== "");
