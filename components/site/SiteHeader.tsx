@@ -1,12 +1,13 @@
 import Logo from "./Logo";
-import { Download, Github, Sparkles } from "./icons";
+import { Discord, Download, Github, Sparkles } from "./icons";
 import { WhatsNewTrigger } from "./WhatsNew";
 import { site } from "@/lib/site";
 
 const links = [
   { href: "#features", label: "Features" },
+  { href: "#settings", label: "Settings" },
   { href: "#how", label: "How it works" },
-  { href: "#stack", label: "Under the hood" },
+  { href: "#community", label: "Community" },
   { href: "#faq", label: "FAQ" },
 ];
 
@@ -18,7 +19,8 @@ export default function SiteHeader() {
           <Logo />
         </a>
 
-        <div className="hidden items-center gap-8 md:flex">
+        {/* lg, not md: five links plus three actions do not fit at 768px. */}
+        <div className="hidden items-center gap-7 lg:flex">
           {links.map((link) => (
             <a
               key={link.href}
@@ -40,6 +42,21 @@ export default function SiteHeader() {
             What&rsquo;s new
           </WhatsNewTrigger>
 
+          {/*
+            Discord sits beside GitHub rather than in the nav: both are places
+            to go, not sections of this page. It keeps its brand colour on
+            hover — it is the one link on the header that is not about the
+            download, and the tint is what says so at a glance.
+          */}
+          <a
+            href={site.discord}
+            target="_blank"
+            rel="noreferrer noopener"
+            aria-label="Crest on Discord"
+            className="grid h-10 w-10 place-items-center rounded-xl border border-[var(--hairline)] text-[var(--muted)] transition-colors hover:bg-[#5865F2] hover:text-white"
+          >
+            <Discord width={18} height={18} />
+          </a>
           <a
             href={site.repo}
             target="_blank"

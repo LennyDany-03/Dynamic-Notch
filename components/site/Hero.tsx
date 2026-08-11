@@ -7,7 +7,7 @@ import { site } from "@/lib/site";
 const stats = [
   ["0", "icons in your taskbar"],
   ["600ms", "hover before it opens"],
-  ["5", "panels, one gesture"],
+  ["4", "panels, one gesture"],
   ["MIT", "free and open source"],
 ];
 
@@ -50,7 +50,8 @@ export default function Hero() {
           >
             Crest hides a Mica-glass panel at the top of your screen. Nudge it
             and your music, your apps, your clipboard, your files and your notes
-            slide down. Move away and the desktop is yours again.
+            slide down — and your notifications arrive there on their own. Move
+            away and the desktop is yours again.
           </p>
 
           <div

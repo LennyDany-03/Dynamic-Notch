@@ -1,20 +1,42 @@
-import { Clipboard, Clock, Files, Ghost, Grid, Music, Note } from "./icons";
+import {
+  Bell,
+  Clipboard,
+  Clock,
+  Files,
+  Ghost,
+  Grid,
+  Music,
+  Note,
+  Pin,
+} from "./icons";
 
 /*
-  One card per thing the app actually ships today. Nothing aspirational — the
-  panels listed here map 1:1 onto `NotchModule` in the product source.
+  One card per thing the app actually ships today. Nothing aspirational — what
+  is listed here maps onto the four `NotchModule` panels in the product source
+  plus the two things that arrive on their own (`announce`).
 */
 const features = [
   {
     icon: Music,
     title: "Now playing, always",
-    body: "Reads the Windows media session directly, so whatever is playing shows up — Spotify, YouTube in a browser tab, a local file. Album art, a live scrub bar, and transport controls that actually control it.",
+    body: "Reads the Windows media session directly, so whatever is playing shows up — Spotify, YouTube in a browser tab, a local file. Album art, a live scrub bar, and transport controls that actually control it. Start a track and the notch drops down to say what it is.",
+    span: "lg:col-span-2",
+  },
+  {
+    icon: Bell,
+    title: "Your notifications, up top",
+    body: "Anything Windows would have popped in the corner drops down from the notch instead, carrying the app's own icon, and leaves on its own. Hover to hold it while you read. A fourth panel keeps the standing list — open one in full, dismiss it, or clear the lot.",
     span: "lg:col-span-2",
   },
   {
     icon: Grid,
     title: "Quick launcher",
     body: "Every installed app, indexed once and searched fuzzily. Start typing and the results take over the whole card.",
+  },
+  {
+    icon: Pin,
+    title: "Pin what you live in",
+    body: "The apps you open all day get their own slots. An empty one opens a picker of everything installed, so you never have to type a name you half remember.",
   },
   {
     icon: Clipboard,
@@ -30,7 +52,6 @@ const features = [
     icon: Note,
     title: "Quick notes",
     body: "A scratchpad that is always one hover away and saves as you type. No file, no save button, no window to find again.",
-    span: "lg:col-span-2",
   },
   {
     icon: Clock,
@@ -51,13 +72,14 @@ export default function Features() {
         <div className="max-w-2xl">
           <p className="section-label">Panels</p>
           <h2 className="mt-4 text-[clamp(2rem,4.4vw,3rem)] leading-[1.1] font-semibold tracking-[-0.03em]">
-            Five things you reach for all day,
+            Everything you reach for all day,
             <span className="text-[var(--faint)]"> in one gesture.</span>
           </h2>
           <p className="mt-5 text-[16px] leading-relaxed text-[var(--muted)]">
-            Each panel is a page of the same card. Arrows on either side of the
-            title move between them, and the card morphs to fit — it never
-            collapses and reopens.
+            Four panels, each a page of the same card. Arrows on either side of
+            the title move between them, and the card morphs to fit — it never
+            collapses and reopens. Two things arrive without being asked for: a
+            track starting, and a notification landing.
           </p>
         </div>
 

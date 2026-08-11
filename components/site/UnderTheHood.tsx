@@ -9,7 +9,7 @@ const pillars = [
   {
     icon: Bolt,
     title: "Idle costs nothing",
-    body: "While the notch is hidden, the media poll stops entirely and nothing is rendered. Work only happens in the seconds you are actually looking at it.",
+    body: "Nothing renders while the notch is away, and the two things that must keep listening — what is playing, and what has just arrived — drop to a check every two seconds. Everything else happens only in the seconds you are looking at it.",
   },
   {
     icon: Shield,
@@ -19,7 +19,7 @@ const pillars = [
   {
     icon: Ghost,
     title: "It respects your desktop",
-    body: "Transparent, always-on-top, skipped from the taskbar, and click-through outside its own bounds — so a click meant for the desktop reaches the desktop.",
+    body: "Transparent, skipped from the taskbar and from Alt-Tab, and click-through outside its own bounds — so a click meant for the desktop reaches the desktop. It only claims the top of the window stack when there is something on screen to see.",
   },
 ];
 
