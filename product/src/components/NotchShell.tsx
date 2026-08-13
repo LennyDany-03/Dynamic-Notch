@@ -6,16 +6,19 @@ import NavArrows from './NavArrows'
 import MediaAnnounce from './media/MediaAnnounce'
 import MediaControls from './media/MediaControls'
 import NotificationAnnounce from './notifications/NotificationAnnounce'
+import PerfAnnounce from './system/PerfAnnounce'
 import SystemAnnounce from './system/SystemAnnounce'
 import FilesModule from './modules/FilesModule'
 import LauncherModule from './modules/LauncherModule'
 import NotificationsModule from './modules/NotificationsModule'
+import SystemModule from './modules/SystemModule'
 import type { MediaSession } from '../hooks/useMediaSession'
 import type { FileShelfState } from '../hooks/useFileShelf'
 import type { NotificationFeed } from '../hooks/useWindowsNotifications'
 import { CARD_TOP, NAV_STRIP_HEIGHT, cardSize, type NotificationsFit } from '../layout'
 import { radius, spring } from '../tokens'
 import type { Announcement, NotchModule, NotchState } from '../types/notch'
+import type { Performance } from '../types/perf'
 import type { BatteryStatus } from '../types/system'
 
 interface Props {
@@ -42,6 +45,8 @@ interface Props {
    * strip of every expanded card. Null on a machine with no battery.
    */
   battery: BatteryStatus | null
+  /** The standing load, for the system monitor's meters. Null until the first poll. */
+  performance: Performance | null
   /** The "show me where the notch is" preference. See `HotzoneHint`. */
   hotzoneHint: boolean
 }
@@ -54,6 +59,7 @@ function ModuleContent({
   notificationsEnabled,
   openNotificationId,
   onOpenNotification,
+  performance,
 }: {
   module: NotchModule
   session: MediaSession
@@ -62,6 +68,7 @@ function ModuleContent({
   notificationsEnabled: boolean
   openNotificationId: string | null
   onOpenNotification: (id: string | null) => void
+  performance: Performance | null
 }) {
   switch (module) {
     case 'media':
@@ -79,6 +86,8 @@ function ModuleContent({
           onOpen={onOpenNotification}
         />
       )
+    case 'system':
+      return <SystemModule performance={performance} />
     default:
       return <ModulePlaceholder module={module} />
   }
@@ -99,6 +108,8 @@ function announceKey(announcement: Announcement | null): string {
       return `notification:${announcement.notification.id}`
     case 'system':
       return `system:${announcement.event.id}`
+    case 'performance':
+      return `perf:${announcement.alert.id}`
     default:
       return 'announce'
   }
@@ -116,6 +127,8 @@ function AnnounceContent({
       return <NotificationAnnounce notification={announcement.notification} />
     case 'system':
       return <SystemAnnounce event={announcement.event} />
+    case 'performance':
+      return <PerfAnnounce alert={announcement.alert} />
     default:
       // Media is the fallback rather than a case of its own: the announcement is
       // never cleared (see `useNotchState`), so this is also what the banner
@@ -146,6 +159,7 @@ export default function NotchShell({
   onOpenNotification,
   notificationsFit,
   battery,
+  performance,
   hotzoneHint,
 }: Props) {
   // The same call the state machine makes, with the same fit — the card that is
@@ -242,6 +256,7 @@ export default function NotchShell({
                           notificationsEnabled={notificationsEnabled}
                           openNotificationId={openNotificationId}
                           onOpenNotification={onOpenNotification}
+                          performance={performance}
                         />
                       ) : isAnnouncing ? (
                         <AnnounceContent announcement={announcement} session={session} />

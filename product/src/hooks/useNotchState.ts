@@ -234,12 +234,16 @@ export function useNotchState({
 
       // A music banner dwells through to the full card just as the pill does:
       // reaching for something that reported a track is a request to see the
-      // rest of it. A notification has no card behind it, so hovering only holds
-      // it up to be read — the cancelled retract above is the whole behaviour,
-      // and it collapses on the ordinary grace once the cursor leaves.
+      // rest of it. An overload banner does the same, and more sharply — it has
+      // just said the machine is struggling, and the card behind it is where the
+      // other three meters and the power row are. A notification or a charger has
+      // no card behind it, so hovering those only holds them up to be read — the
+      // cancelled retract above is the whole behaviour, and they collapse on the
+      // ordinary grace once the cursor leaves.
+      const kind = announcementRef.current?.kind
       const dwells =
         state === 'peek' ||
-        (state === 'announce' && announcementRef.current?.kind === 'media')
+        (state === 'announce' && (kind === 'media' || kind === 'performance'))
       if (dwells) {
         // Guarded so a re-render mid-dwell does not restart the countdown.
         if (!dwellRef.current) {
@@ -369,11 +373,12 @@ export function useNotchState({
     clearAnnounce()
     pin()
     setAnnouncement(next)
-    // Music is the one announcement with a card behind it, so a dwell on that
-    // banner should land on the media card rather than wherever the notch was
-    // last left. A notification has nothing to open into and leaves the
-    // selection alone.
+    // The two announcements with a card behind them point the dwell at it, so
+    // reaching for the banner lands on the thing it was about rather than on
+    // wherever the notch was last left. The other two have nothing to open into
+    // and leave the selection alone.
     if (next.kind === 'media') setActiveModule('media')
+    if (next.kind === 'performance') setActiveModule('system')
     setState('announce')
 
     announceRef.current = setTimeout(() => {

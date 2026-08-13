@@ -735,8 +735,8 @@ function SettingsPane({
       <GroupLabel>Your machine</GroupLabel>
 
       <SettingRow
-        title="Charger, Bluetooth and Wi-Fi"
-        body="Tells you the moment a charger goes in or comes out, a Bluetooth device connects or drops, or your network changes — with the charge left and the device's own name. A few seconds in the notch, then gone."
+        title="Charger, Wi-Fi and system load"
+        body="Tells you the moment a charger goes in or comes out, a Bluetooth device connects or drops, or your network changes — and speaks up when your CPU, memory, GPU or disk has been pinned long enough to mean it. A few seconds in the notch, then gone. The system monitor keeps its meters either way."
         on={settings.systemAlerts}
         onToggle={() => setSystemAlerts(!settings.systemAlerts)}
         icon={

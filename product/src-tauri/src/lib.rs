@@ -4,6 +4,7 @@ mod launcher;
 mod media;
 mod notes;
 mod notifications;
+mod perf;
 mod settings;
 mod shelf;
 mod system;
@@ -80,6 +81,8 @@ pub fn run() {
             notifications::dismiss_notification,
             notifications::clear_all_notifications,
             system::get_system_status,
+            perf::get_performance,
+            perf::power_action,
             tray::tray_menu_close,
             tray::tray_show_notch,
             tray::tray_navigate,

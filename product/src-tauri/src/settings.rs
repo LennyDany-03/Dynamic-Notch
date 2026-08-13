@@ -32,11 +32,17 @@ fn notifications_default() -> bool {
 }
 
 /// Whether the notch reports the machine's own state — a charger going in or
-/// out, a Bluetooth device connecting, the Wi-Fi changing.
+/// out, a Bluetooth device connecting, the Wi-Fi changing, or the CPU, memory,
+/// GPU or disk pinned at the top of its range.
+///
+/// One switch for two polls (`system.rs` and `perf.rs`) because it answers one
+/// question: does the notch tell me about my machine. Splitting it would ask the
+/// user to answer that twice.
 ///
 /// On by default, unlike `mute_windows_banners`: this only reads state Windows
-/// already shows in the tray and changes nothing outside the app, and the events
-/// it reports are ones the user just caused with their hands.
+/// already shows in the tray and Task Manager, and changes nothing outside the
+/// app. The load half earns the default separately — an overload is precisely the
+/// thing a user would not otherwise notice until it had already cost them time.
 fn system_alerts_default() -> bool {
     true
 }
@@ -114,10 +120,14 @@ pub struct Settings {
     #[serde(default = "notifications_default")]
     pub notifications: bool,
 
-    /// Whether the notch announces charger, Bluetooth and Wi-Fi changes.
+    /// Whether the notch announces charger, Bluetooth, Wi-Fi and system-load
+    /// changes.
     ///
     /// Nothing for `apply` to do — like `background_opacity` it is read by the
-    /// notch off the broadcast, and the poll behind it only runs while it is on.
+    /// notch off the broadcast. Both polls behind it run regardless, because both
+    /// also feed something drawn all the time (the charge on the pill, the meters
+    /// on the system monitor); this switches off the announcing and, in
+    /// `system.rs`, the Bluetooth enumeration nothing else reads.
     #[serde(default = "system_alerts_default")]
     pub system_alerts: bool,
 
@@ -532,10 +542,10 @@ pub fn set_notifications(
     Ok(enabled)
 }
 
-/// Whether the notch reports charger, Bluetooth and Wi-Fi changes.
+/// Whether the notch reports charger, Bluetooth, Wi-Fi and system-load changes.
 ///
-/// Nothing to apply — the notch owns the poll and starts or stops it from the
-/// broadcast, exactly as it does the notification poll. Unlike that one this has
+/// Nothing to apply — the notch owns both polls and decides from the broadcast
+/// what they are allowed to announce. Unlike the notification one this has
 /// no Windows permission behind it and nothing to refuse: the three reads are of
 /// state the shell already draws in the tray.
 #[tauri::command]

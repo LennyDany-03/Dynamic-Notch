@@ -194,6 +194,16 @@ const GROUPS: Row[][] = [
         </Icon>
       ),
     },
+    {
+      id: 'system',
+      label: 'System monitor',
+      action: { kind: 'module', module: 'system' },
+      icon: (
+        <Icon>
+          <path d="M3 13h3.5l2-5 3 10 2.5-7 1.5 2H21" />
+        </Icon>
+      ),
+    },
   ],
   [
     {

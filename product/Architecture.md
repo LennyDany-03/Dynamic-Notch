@@ -73,7 +73,7 @@ type NotchState = 'hidden' | 'peek' | 'announce' | 'expanded'
 - `peek → expanded`: cursor remains in hotzone/pill for 800ms continuous dwell (timer via `setTimeout`, cleared on `mouseleave`).
 - `expanded → peek → hidden`: cursor leaves expanded bounds, ~300-500ms grace delay before each step down, timer cleared if cursor re-enters during the grace window.
 - Which "page" is showing while `expanded` (Media / Launcher / Clipboard / Files+Notes) is a separate piece of state (`activeModule`), independent of `NotchState`, so switching modules doesn't retrigger the expand animation.
-- `announce(announcement, ms)`: `→ announce`, a banner the notch puts up by itself to report something — music starting, a Windows notification arriving, or the machine's own state changing (a charger, a Bluetooth device, the network) — retracted after `ms`. Pinned like the tray's openings; the cursor arriving cancels the retract. A `media` announcement dwells through to the media card; `notification` and `system` have nothing to open into and are only held up to be read.
+- `announce(announcement, ms)`: `→ announce`, a banner the notch puts up by itself to report something — music starting, a Windows notification arriving, the machine's own state changing (a charger, a Bluetooth device, the network), or a load metric pinned long enough to mean it — retracted after `ms`. Pinned like the tray's openings; the cursor arriving cancels the retract. `media` and `performance` dwell through to the card behind them (the media controls, the system monitor); `notification` and `system` have nothing to open into and are only held up to be read.
 
 All feature components read `NotchState` and `activeModule` from context/hook — they don't independently decide whether to render or animate.
 
@@ -86,6 +86,8 @@ All feature components read `NotchState` and `activeModule` from context/hook �
 | `start_clipboard_listener` | Push new clipboard entries to frontend | `AddClipboardFormatListener` (via `windows` crate) or `arboard` for a simpler first pass |
 | `begin_drag_out` | Let a File Shelf item be dragged into another app's window | `IDropSource` / `IDataObject` (via `windows-rs`) — no equivalent in the webview, must be native |
 | `get_system_status` | One snapshot of charger, network and connected Bluetooth devices, for the system banners | `GetSystemPowerStatus` + `NetworkInformation` + `DeviceInformation` / `BluetoothDevice` (via `windows` crate) |
+| `get_performance` | One snapshot of CPU, memory, GPU, disk and temperature, for the system monitor and its overload banner | PDH (`\Processor Information`, `\PhysicalDisk`, `\GPU Engine`, `\Thermal Zone Information`) + `GlobalMemoryStatusEx` |
+| `power_action` | Sleep, restart or shut down, from the system monitor's power row | `SetSuspendState` / `ExitWindowsEx` with `SeShutdownPrivilege` enabled on the process token |
 
 Each command should be added only when its corresponding feature is being built (see build order in the master prompt) — don't scaffold all four upfront.
 
@@ -392,6 +394,73 @@ Each command should be added only when its corresponding feature is being built 
   headphones, a phone, a watch — from the class of device in the snapshot,
   because a picture of the object is recognised before a name is read, and three
   seconds is all there is.
+- **The system monitor is a fifth module, and the overload banner is a fourth
+  announcement.** `perf.rs` answers one snapshot of CPU, memory, GPU, disk and
+  temperature; `usePerformance` polls it, `SystemModule` draws it, and the same
+  poll decides when the machine has been struggling long enough to say so.
+
+  It is deliberately *not* folded into `system.rs`. That module answers "what is
+  attached" — every field in it is a state that changes because the user did
+  something with their hands, so an event is an edge and there is exactly one
+  moment to report. Load is a set of rates that move continuously, and nothing
+  but arithmetic can turn a level into a moment. Keeping them apart also keeps
+  the cheap snapshot cheap: the battery badge on the pill polls `system.rs` for
+  the life of the process and has no use for a PDH round trip.
+
+  **Almost everything is read through PDH rather than a Win32 call**, and the two
+  cases where that looks like the wrong choice are the reasons. CPU could be
+  `GetSystemTimes` diffed by hand; `% Processor Utility` is what Task Manager's
+  CPU column shows, and it is a *different number* — scaled by the frequency the
+  cores actually ran at — so a user comparing the notch against Task Manager
+  would find the notch wrong. Temperature could be WMI's
+  `MSAcpi_ThermalZoneTemperature`, which is the answer every search gives and
+  which needs a COM apartment, a proxy blanket and an elevation the notch does
+  not have; `\Thermal Zone Information(*)` is the same ACPI reading through a
+  handle the file already owns. Disk is `% Idle Time` subtracted from 100 and not
+  `% Disk Time`, which sums per-request service times and reports 800% at a queue
+  depth of eight. GPU sums `\GPU Engine(*)` within an engine type and takes the
+  busiest type, which is again what Task Manager does.
+
+  The counters are opened once and live for the process, because three of the
+  four are rates and PDH computes a rate between two collections — a query opened
+  and closed per call would answer "no data yet" forever. That is why CPU, GPU and
+  disk are `None` on the first snapshot, and why there is no "have we collected
+  yet" flag: each counter's own `CStatus` reports it, and a flag would wrongly
+  suppress the thermal zone, which is an instantaneous reading.
+
+  **Turning a level into an event takes four rules**, all in `usePerformance` and
+  all load-bearing. *Sustain*: three consecutive polls above the threshold, or the
+  notch announces every application launch. *Hysteresis*: no re-arm until the
+  metric has fallen 15 points below its threshold, or a machine sitting at 90.4%
+  crosses its own line a dozen times a minute. *Cooldown*: five minutes between
+  alerts about the same metric, because a long build genuinely does load and
+  unload the CPU for half an hour and the user learned what they needed from the
+  first banner. *Warm-up*: the first three polls are discarded, because Crest
+  launching is itself a CPU spike. One alert per poll, as in `useSystemStatus` —
+  a machine that is genuinely struggling has all four meters up.
+
+  The banner's third line is always the *other* meters, never a restatement of
+  the one that tripped. "CPU at 97%" alone is not actionable; next to a disk at
+  4% it is a build, and next to a disk at 99% it is a machine paging itself to
+  death, and those want different responses.
+
+  **The power row is armed before it fires.** Sleep, restart and shut down live
+  on this card because the reason to reach for them is usually the reason you are
+  looking at the meters — but the notch expands on *hover*, so a live shutdown
+  button is one stray click from taking the machine down. The first click turns
+  the row into a question and the second answers it, and the arming expires by
+  itself after four seconds, which matters because the notch collapses on its own
+  timer and a card reopened later must not still be primed. `power_action`
+  restores Windows' notification banners before handing over: the shell does not
+  reliably give a hidden always-on-top overlay a clean exit, and rebooting into a
+  silenced notification centre with nothing running to make up for it is the
+  worst thing this app could leave behind.
+
+  Both halves sit behind the existing `systemAlerts` preference rather than a new
+  one. It answers a single question — does the notch tell me about my machine —
+  and a second switch would ask the user to answer it twice. As with the charge
+  on the pill, the preference gates the *announcing* and not the poll: the meters
+  are drawn whether or not anything is ever announced.
 
 ## Open decisions (fill in as they're made)
 

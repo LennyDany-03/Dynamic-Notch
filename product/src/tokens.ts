@@ -31,6 +31,28 @@ export const color = {
   /** PDF glyph tint in the file shelf. */
   fileRed: '#F87171',
 
+  /**
+   * NOT from the design export — it has no system monitor. Severity for the load
+   * meters, and the one place in the app where colour carries meaning on its own
+   * rather than marking an active state.
+   *
+   * That is a deliberate exception to the accent rule, and it is narrow: a meter
+   * has no state to be active in, and "your machine is struggling" is exactly the
+   * message a colour is better at than a number. Three steps and no more, because
+   * a gradient would say a machine at 71% is meaningfully different from one at
+   * 69% — it is not, and the eye would keep asking.
+   *
+   * `busy` is the accent, so an ordinary working machine is drawn in the app's own
+   * colour rather than in a warning. `warn` and `hot` borrow Fluent's caution and
+   * critical hues, and `hot` is `fileRed` — the same red the shelf and the tray's
+   * quit row already use, so there is one red in the app rather than two.
+   */
+  load: {
+    busy: '#7C3AED',
+    warn: '#FBBF24',
+    hot: '#F87171',
+  },
+
   text: {
     primary: '#fff',
     /** Row text, app-tile glyphs. */
@@ -140,6 +162,22 @@ export const size = {
    * enlarges the region that holds the notch open.
    */
   notifications: { width: 420, height: 300 },
+  /**
+   * NOT from the design export either — the export predates the system monitor.
+   *
+   * Every number in it is load-bearing, because unlike `notifications` this card
+   * has fixed contents and so it is sized *to* them rather than the other way
+   * round. Vertically: 26 nav + 16 padding + 16 header + 10 + four 34px meters +
+   * 12 + 34 power row + 16 padding = 266. `SystemModule` pins every one of those
+   * boxes, so changing a row height here without changing it there leaves a
+   * stripe of empty Mica holding the notch open — the dead zone `layout.ts`
+   * warns about.
+   *
+   * 380 wide, matching the media card rather than reaching for the file shelf's
+   * 440: four meters and three buttons need less room than the shelf, and the
+   * widest card is what sets how much desktop the expanded notch covers.
+   */
+  system: { width: 380, height: 266 },
 } as const
 
 /** Springs — NOT from the design export (it is static). Tuned for Fluent motion. */

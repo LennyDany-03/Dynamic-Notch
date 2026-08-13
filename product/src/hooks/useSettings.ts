@@ -15,8 +15,14 @@ export interface Settings {
   notifications: boolean
   /**
    * Whether the notch reports the machine's own state — a charger going in or
-   * out, a Bluetooth device connecting, the network changing. Gates the poll
-   * behind it as well as the banner: off means the notch stops looking.
+   * out, a Bluetooth device connecting, the network changing, or the CPU, memory,
+   * GPU or disk sitting pinned at the top of its range.
+   *
+   * Gates the *announcing* only. Both polls behind it keep running whatever it
+   * says, because both feed something that is drawn regardless: the charge on the
+   * pill, and the meters on the system monitor. What it does switch off is the
+   * expensive half of each — the Bluetooth device enumeration in
+   * `useSystemStatus`, and every alert rule in `usePerformance`.
    */
   systemAlerts: boolean
   muteWindowsBanners: boolean

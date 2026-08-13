@@ -45,6 +45,10 @@ windows = { version = "0.58", features = [
   "Devices_Bluetooth",
   "Devices_Enumeration",
   "Win32_System_Power",
+  # CPU / GPU / disk / thermal counters and the power row, for `perf.rs`.
+  "Win32_System_Performance",
+  "Win32_System_SystemInformation",
+  "Win32_System_Shutdown",
   # Foreground-window lookup, for clipboard capture exclusion.
   "Win32_Foundation",
   "Win32_UI_WindowsAndMessaging",

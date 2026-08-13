@@ -6,6 +6,7 @@ import { useNotchState } from './hooks/useNotchState'
 import { useMediaAnnounce } from './hooks/useMediaAnnounce'
 import { useMediaSession } from './hooks/useMediaSession'
 import { useFileShelf } from './hooks/useFileShelf'
+import { usePerformance } from './hooks/usePerformance'
 import { useSettings } from './hooks/useSettings'
 import { useSurfaceOpacity } from './hooks/useSurfaceOpacity'
 import { useSystemStatus } from './hooks/useSystemStatus'
@@ -19,6 +20,7 @@ import {
   type NotchState,
 } from './types/notch'
 import type { WinNotification } from './types/notifications'
+import type { PerfAlert } from './types/perf'
 import type { SystemEvent } from './types/system'
 
 export default function App() {
@@ -150,6 +152,26 @@ export default function App() {
     ),
   )
 
+  // How hard the machine is working, for the system monitor's meters and for the
+  // banner that says one of them has been pinned long enough to mean it.
+  //
+  // Announcing is gated on the same preference as the charger and Wi-Fi banners
+  // rather than on one of its own: `systemAlerts` is "does the notch tell me
+  // about my machine", and an overload is squarely that. A second switch would
+  // ask the user to answer the same question twice.
+  //
+  // The poll itself is not gated — the card needs its meters however the switch
+  // is set — but it does speed up while the card is actually on screen, which is
+  // the same trade `useMediaSession` makes with its watch rate.
+  const performance = usePerformance(
+    state === 'expanded' && activeModule === 'system',
+    loaded && settings.systemAlerts,
+    useCallback(
+      (alert: PerfAlert) => announce({ kind: 'performance', alert }, timing.announceMs),
+      [announce],
+    ),
+  )
+
   // A drag reaching the notch is an unambiguous request for the shelf, so it
   // skips the dwell timer and opens straight to it.
   const revealShelf = useCallback(() => showModule('files'), [showModule])
@@ -192,6 +214,7 @@ export default function App() {
         onOpenNotification={setOpenNotificationId}
         notificationsFit={notificationsFit}
         battery={battery}
+        performance={performance}
         // Gated on `loaded` for the same reason as the pill: the default is on,
         // and painting a mark on someone's wallpaper on the strength of a guess
         // is a mark they watch disappear a frame later.
