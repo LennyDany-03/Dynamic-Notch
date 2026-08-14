@@ -40,7 +40,28 @@ const HEADER_H = 24
 const WEEKDAY_H = 16
 const CELL_H = 30
 const WEEKS = 6
-const GRID_W = 224
+
+/**
+ * Width of the month, and therefore of the day beside it.
+ *
+ * The two panes split what is left of `size.calendar.width` after 16 of padding
+ * either side, a 1px divider and the two 12px gaps — so this number is the only
+ * thing deciding how much room a reminder's title gets. At 224 in a 440 card it
+ * took more than half and left the day 155, of which a title saw 70 once the
+ * checkbox and the trailing button had taken theirs: about eleven characters a
+ * line, and titles broke mid-word.
+ *
+ * 210 is seven 30px columns, which is where the month started. It was briefly
+ * squeezed to 196 to find the day column room, and the card widening to 480 is
+ * what buys that back — the 40 extra pixels pay for both panes rather than
+ * moving the shortage from one to the other. Below about 28 a cell the grid
+ * stops looking like a month, so this is close to its floor either way.
+ *
+ * The split it lands on is 210 / 213, which is as near even as the arithmetic
+ * gets, and each pane is then the size its own contents ask for rather than one
+ * of them living on what the other did not need.
+ */
+const GRID_W = 210
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 
@@ -221,25 +242,61 @@ function Task({
           {reminder.title}
         </span>
 
-        {/* Only when it adds something. A done task does not need a countdown,
-            and neither does one three weeks out. */}
-        {!reminder.done && (overdue || reminder.dueAt - now < 24 * 60 * 60 * 1000) && (
+        {/* The time sits *under* the title rather than in a column beside it.
+            The day column is 155px wide, and a fixed 52px slot for the clock
+            left the title 70 — about eleven characters a line, so "NIC Close
+            Registration" clipped at two lines of four words. Underneath it costs
+            a row that the countdown was already drawing for anything due soon,
+            and hands those 32px back to the thing someone actually typed.
+
+            Which means it is no longer conditional: the countdown could come and
+            go because it only ever added colour to a row that already said when
+            it was due, but this is the *when*, and a task three weeks out needs
+            it as much as one due tonight. */}
+        <span style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
           <span
             style={{
-              display: 'block',
-              marginTop: 1,
+              flex: 'none',
               fontSize: 9.5,
-              color: overdue ? color.fileRed : color.text.muted,
+              fontWeight: 600,
+              fontVariantNumeric: 'tabular-nums',
+              padding: '2px 6px',
+              borderRadius: radius.pill,
+              background: color.tile,
+              color: reminder.done
+                ? color.text.muted
+                : overdue
+                  ? color.fileRed
+                  : color.text.secondary,
+              whiteSpace: 'nowrap',
             }}
           >
-            {relativeDue(reminder.dueAt, now)}
+            {formatTime(reminder.dueAt)}
           </span>
-        )}
+
+          {/* Only when it adds something. A done task does not need a countdown,
+              and neither does one three weeks out. */}
+          {!reminder.done && (overdue || reminder.dueAt - now < 24 * 60 * 60 * 1000) && (
+            <span
+              style={{
+                minWidth: 0,
+                overflow: 'hidden',
+                whiteSpace: 'nowrap',
+                textOverflow: 'ellipsis',
+                fontSize: 9.5,
+                color: overdue ? color.fileRed : color.text.muted,
+              }}
+            >
+              {relativeDue(reminder.dueAt, now)}
+            </span>
+          )}
+        </span>
       </span>
 
-      {/* Fixed width, so the swap on hover moves nothing. */}
-      <span style={{ width: 52, flex: 'none', display: 'flex', justifyContent: 'flex-end' }}>
-        {hovered ? (
+      {/* Just the button now, and still a fixed width so the row does not shift
+          as it appears. */}
+      <span style={{ width: 20, flex: 'none', display: 'flex', justifyContent: 'flex-end' }}>
+        {hovered && (
           <button
             type="button"
             onClick={onRemove}
@@ -259,25 +316,6 @@ function Task({
               <path d="M6 6l12 12M18 6L6 18" />
             </svg>
           </button>
-        ) : (
-          <span
-            style={{
-              fontSize: 9.5,
-              fontWeight: 600,
-              fontVariantNumeric: 'tabular-nums',
-              padding: '2px 6px',
-              borderRadius: radius.pill,
-              background: color.tile,
-              color: reminder.done
-                ? color.text.muted
-                : overdue
-                  ? color.fileRed
-                  : color.text.secondary,
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {formatTime(reminder.dueAt)}
-          </span>
         )}
       </span>
     </div>
@@ -378,7 +416,10 @@ export default function CalendarModule({ feed }: { feed: ReminderFeed }) {
         height: '100%',
         padding: 16,
         display: 'flex',
-        gap: 14,
+        // 12 rather than 14: the divider between the two halves is what separates
+        // them, and the extra 2px each side was reading as slack in a card whose
+        // right half has none to spare.
+        gap: 12,
         // The time picker opens as an absolutely-positioned panel inside this
         // box, which is what keeps it inside the card's hit rect.
         position: 'relative',

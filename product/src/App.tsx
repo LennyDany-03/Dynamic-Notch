@@ -15,6 +15,7 @@ import { useSurfaceOpacity } from './hooks/useSurfaceOpacity'
 import { useTheme } from './hooks/useTheme'
 import { useSystemStatus } from './hooks/useSystemStatus'
 import { useWeather } from './hooks/useWeather'
+import { useWheelCycle } from './hooks/useWheelCycle'
 import { useWindowsNotifications } from './hooks/useWindowsNotifications'
 import { timing } from './tokens'
 import {
@@ -122,6 +123,17 @@ export default function App() {
     modules: panels.visible,
   })
   announceRef.current = announce
+
+  // Scroll over an open card to move through the ring, alongside the arrows.
+  //
+  // Only while a card is actually open, and only when there is somewhere to go:
+  // this mirrors the arrows exactly, which hide themselves on a ring of one
+  // rather than offering a control that returns you to where you already are.
+  useWheelCycle({
+    enabled: state === 'expanded' && panels.visible.length > 1,
+    onNext: nextModule,
+    onPrevious: previousModule,
+  })
 
   // The sheet used to be state inside `NotificationsModule` and reset by being
   // unmounted; hoisted, it would still be open the next time the module is

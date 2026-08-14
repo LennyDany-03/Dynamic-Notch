@@ -610,7 +610,14 @@ function ChoiceRow<T extends string>({
                   borderRadius: radius.small,
                   fontSize: 12,
                   fontWeight: active ? 600 : 500,
-                  color: active ? color.text.primary : color.text.secondary,
+                  // The selected label is drawn *on* the accent fill below, so it
+                  // takes `onAccent` and not the primary text colour. It had the
+                  // latter, which was legible in Crest by coincidence and wrong
+                  // in the other four: white on Mono's near-white accent above
+                  // all, where the selected option was the one you could not
+                  // read, but also near-white on Ember's amber and Glacier's ice
+                  // and near-black on Daylight's blue.
+                  color: active ? color.onAccent : color.text.secondary,
                   transition: 'color 90ms linear',
                 }}
               >

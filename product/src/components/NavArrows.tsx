@@ -9,31 +9,32 @@ interface Props {
   onPrev: () => void
   onNext: () => void
   /**
-   * The cards in the ring, in order — the `panels` preference, resolved. The
-   * counter reads against this rather than against every module that exists, so
-   * a user who keeps three of the seven sees "2/3" and not "4/7".
+   * The cards in the ring — the `panels` preference, resolved.
+   *
+   * Only its length is read now that there is no counter, and only to tell a
+   * ring of one from a ring of several. It stays the resolved list rather than
+   * `MODULES` because that distinction is exactly what the preference changes:
+   * a user down to a single visible card has no arrows to draw.
    */
   modules: readonly NotchModule[]
   /** The charge, drawn in the corner of the strip. Null on a machine without one. */
   battery: BatteryStatus | null
 }
 
-/**
- * Width of the badge, mirrored on the other side of the strip.
+/*
+ * There is deliberately no position counter.
  *
- * The chevrons have to stay symmetric about the card's centre — they are the one
- * pair of controls that says "these do the same thing in opposite directions",
- * and 40px of drift makes them read as unrelated buttons. Hanging the badge off
- * the end and mirroring its width on the left keeps them where they were and puts
- * the badge in the corner, which is where a status mark belongs.
+ * The strip used to read "CALENDAR 2/5". It answered a question nobody was
+ * asking — the chevrons already say there is more than one card, and *which
+ * numbered slot* the calendar occupies is not a thing anyone navigates by; you
+ * go left or right until you see the card you wanted. What it cost was real:
+ * it sat inside the centred label, so the module name — the part actually being
+ * read — was parked left of centre by half the counter's width and slid
+ * sideways every time the ring stepped.
  *
- * Must cover the badge at its widest: a 22px glyph, a 5px gap and the 30px the
- * percentage is floored to. All three grew with the badge — a mirror left at the
- * old 48 would not have clipped anything (the badge is right-aligned in it and
- * the strip has slack), it would have pulled the chevrons a few pixels off the
- * card's centre, which is the one thing this constant exists to prevent.
+ * Removing it is what lets the name simply be centred, with no reserved box or
+ * mirror to keep in step.
  */
-const BADGE_WIDTH = 57
 
 function Chevron({
   direction,
@@ -94,7 +95,6 @@ function Chevron({
  * "where am I" and "how do I move".
  */
 export default function NavArrows({ active, onPrev, onNext, modules, battery }: Props) {
-  const position = modules.indexOf(active) + 1
   const badge = battery !== null && battery.percent !== null
   // The arrows say nothing useful with one card in the ring: there is nowhere to
   // go, and a pair of chevrons that return you to where you are is a control that
@@ -102,66 +102,64 @@ export default function NavArrows({ active, onPrev, onNext, modules, battery }: 
   const single = modules.length <= 1
 
   return (
+    // Three columns, with the outer two an equal `1fr`.
+    //
+    // That equality is the whole point: whatever the badge turns out to measure,
+    // the column holding it and the empty one opposite are the same width, so
+    // the middle group lands on the card's centre line by construction. The
+    // previous version mirrored a hand-kept `BADGE_WIDTH` on the left instead,
+    // which had to be edited in step with the badge every time it changed and
+    // was only ever as right as the last person to do the arithmetic.
+    //
+    // It also un-crowds the corner. In a flex row the badge was one more item
+    // eight pixels from the chevron; here it sits at the end of its own column
+    // with the leftover space between them, which is what a status mark in a
+    // corner should look like.
     <div
       style={{
-        display: 'flex',
+        display: 'grid',
+        gridTemplateColumns: '1fr auto 1fr',
         alignItems: 'center',
-        justifyContent: 'space-between',
         width: '100%',
         padding: '0 12px',
-        gap: 8,
       }}
     >
-      {/* The badge's mirror. Nothing is drawn in it — it exists so the chevrons
-          sit either side of the card's centre rather than either side of the
-          space left over once the badge has taken its corner. */}
-      {badge && <span aria-hidden style={{ width: BADGE_WIDTH, flex: 'none' }} />}
+      <span aria-hidden />
 
-      {/* A spacer of the chevron's own size when there is nowhere to go, so the
-          label stays on the card's centre line instead of sliding 20px left. */}
-      {single ? (
-        <span aria-hidden style={{ width: 20, flex: 'none' }} />
-      ) : (
-        <Chevron direction="left" label="Previous panel" onClick={onPrev} />
-      )}
-
-      <span
-        style={{
-          ...sectionLabel,
-          flex: 1,
-          minWidth: 0,
-          textAlign: 'center',
-          whiteSpace: 'nowrap',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-        }}
-      >
-        {MODULE_LABELS[active]}
-        {!single && (
-          <span style={{ color: color.text.muted, opacity: 0.6, marginLeft: 6 }}>
-            {position}/{modules.length}
-          </span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+        {/* A spacer of the chevron's own size when there is nowhere to go, so the
+            name stays on the centre line instead of sliding 20px left. */}
+        {single ? (
+          <span aria-hidden style={{ width: 20, flex: 'none' }} />
+        ) : (
+          <Chevron direction="left" label="Previous panel" onClick={onPrev} />
         )}
-      </span>
 
-      {single ? (
-        <span aria-hidden style={{ width: 20, flex: 'none' }} />
-      ) : (
-        <Chevron direction="right" label="Next panel" onClick={onNext} />
-      )}
-
-      {badge && (
         <span
           style={{
-            width: BADGE_WIDTH,
-            flex: 'none',
-            display: 'flex',
-            justifyContent: 'flex-end',
+            ...sectionLabel,
+            minWidth: 0,
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
           }}
         >
-          <BatteryBadge battery={battery} />
+          {MODULE_LABELS[active]}
         </span>
-      )}
+
+        {single ? (
+          <span aria-hidden style={{ width: 20, flex: 'none' }} />
+        ) : (
+          <Chevron direction="right" label="Next panel" onClick={onNext} />
+        )}
+      </div>
+
+      {/* Nothing at all on a machine without a battery, and the grid needs no
+          telling — an empty column is still the same width as the one opposite,
+          so the name does not move. */}
+      <span style={{ display: 'flex', justifyContent: 'flex-end', minWidth: 0 }}>
+        {badge && <BatteryBadge battery={battery} />}
+      </span>
     </div>
   )
 }

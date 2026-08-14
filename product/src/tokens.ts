@@ -275,15 +275,24 @@ export const size = {
    */
   weather: { width: 400, height: 268 },
   /**
-   * NOT from the design export either. The tallest and widest card in the app,
-   * tied with the launcher and the file shelf respectively — a month grid has six
-   * possible week rows and there is no honest way to draw fewer.
+   * NOT from the design export either. The tallest card in the app, tied with the
+   * launcher — a month grid has six possible week rows and there is no honest way
+   * to draw fewer — and now the widest outright.
    *
    * 26 nav + 16 padding + 24 month header + 8 + 16 weekday row + 6×30 grid + 16
    * padding = 286. The right pane rides alongside at the same height rather than
    * adding to it.
+   *
+   * 480 rather than the 440 it shipped at, and the only card that has ever been
+   * widened after the fact. It is the one card carrying two panes: a month, whose
+   * width is seven columns and not negotiable below about 30px a cell, and a list
+   * of things the user typed, which was getting whatever was left — 155px, of
+   * which a title saw 70. Every other way of finding room for it takes from the
+   * month. The extra 40 costs nothing structural, because `contentRect` is
+   * per-module and this card's rect only holds the notch open while the calendar
+   * is the card on screen; 480 in the 560 canvas still leaves 40px either side.
    */
-  calendar: { width: 440, height: 286 },
+  calendar: { width: 480, height: 286 },
 } as const
 
 /** Springs — NOT from the design export (it is static). Tuned for Fluent motion. */

@@ -25,23 +25,31 @@ import { color, radius } from '../../tokens'
 const LOW = 20
 
 /**
- * The glyph's own coordinate system — a 26×14 box, drawn at `GLYPH`.
+ * Two sizes, for the two surfaces this is drawn on.
  *
- * The box is unchanged; what it is *drawn* at is not. This started at 18×9.7
- * with a 10.5px number beside it, which is smaller than any other readout the
- * notch has and was reported as simply too small to read — a 9.7px tall shell
- * leaves the fill inside it under 5px, so "how much have I got left" came down
- * to a two-pixel difference in the length of a grey smear. The number carries
- * the answer and the glyph carries the shape of it, so both grew: the mark is
- * now about a fifth larger and the number matches the nav strip's own type
- * rather than sitting a size below it.
+ * The box the glyph is drawn in is 26×14 in both; what changes is what it is
+ * *rendered* at, and how big the number beside it is set.
  *
- * Both outer surfaces have room for it — the pill's side columns are fixed and
- * were already wider than the chip needed, and the nav strip is 26px tall — but
- * they are sized to this, so the two constants that mirror it (`COLUMN` in
- * `CollapsedPill`, `BADGE_WIDTH` in `NavArrows`) have to move with it.
+ * `full` is the pill. This started at the compact size everywhere, which is
+ * smaller than any other readout the notch has and was too small to read — a
+ * 9.7px tall shell leaves the fill inside it under 5px, so "how much have I got
+ * left" came down to a two-pixel difference in the length of a grey smear. On
+ * the pill the charge is one of three things on screen and has the room to be
+ * read properly.
+ *
+ * `compact` is the nav strip, and is a correction to that: the strip is 26px
+ * tall and already carries the module name, the counter and two chevrons, and
+ * the full-size badge in there stopped being a status mark in the corner and
+ * started competing with the name for the eye. Same drawing, less of it.
+ *
+ * Picked from `chip` rather than from a second prop, because there is only one
+ * decision here — which surface this is on — and two props that always have to
+ * agree is one that can be set wrong.
  */
-const GLYPH = { width: 22, height: 11.85 }
+const SIZES = {
+  full: { glyph: { width: 22, height: 11.85 }, gap: 5, font: 12, number: 30 },
+  compact: { glyph: { width: 18, height: 9.7 }, gap: 4, font: 11, number: 26 },
+} as const
 
 /**
  * The fill, inset evenly inside the shell's inner edge.
@@ -61,6 +69,9 @@ const BODY = { x: 2.75, width: 17.5 }
  * that they are the same shape. The nav strip passes nothing and gets the bare
  * badge: its strip is 26px tall, and a 22px chip inside it would read as a button
  * squeezed into a title bar.
+ *
+ * Its absence also selects the compact size — see `SIZES`. One prop, because
+ * "which surface am I on" is one question and the answer decides both.
  */
 export interface Chip {
   height: number
@@ -76,6 +87,7 @@ export default function BatteryBadge({
 }) {
   if (!battery || battery.percent === null) return null
 
+  const size = chip ? SIZES.full : SIZES.compact
   const percent = Math.max(0, Math.min(100, battery.percent))
   const low = percent <= LOW && !battery.acPower
 
@@ -92,7 +104,7 @@ export default function BatteryBadge({
       style={{
         display: 'flex',
         alignItems: 'center',
-        gap: 5,
+        gap: size.gap,
         flex: 'none',
         ...(chip && {
           height: chip.height,
@@ -117,8 +129,8 @@ export default function BatteryBadge({
     >
       <svg
         viewBox="0 0 26 14"
-        width={GLYPH.width}
-        height={GLYPH.height}
+        width={size.glyph.width}
+        height={size.glyph.height}
         style={{ flex: 'none', display: 'block' }}
       >
         <rect
@@ -180,17 +192,17 @@ export default function BatteryBadge({
 
       <span
         style={{
-          // 12, not 10.5: the number is the whole answer, and it was set below
-          // every other piece of type in the notch — smaller than the module
-          // label two pixels away in the same strip.
-          fontSize: 12,
+          // The number is the whole answer, so it is the half that is allowed to
+          // stay legible even in the compact size — 11 against the module
+          // label's own 10, rather than the 10.5 it started at.
+          fontSize: size.font,
           fontWeight: 600,
           letterSpacing: '.01em',
           color: battery.acPower || low ? tint : color.text.secondary,
           // Tabular and floored to the width of "100%", so a pill that is 100%
           // one minute and 99% the next does not shuffle everything beside it.
           fontVariantNumeric: 'tabular-nums',
-          minWidth: 30,
+          minWidth: size.number,
           textAlign: 'right',
         }}
       >
