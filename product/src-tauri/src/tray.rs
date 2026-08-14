@@ -112,15 +112,27 @@ pub(crate) fn hide_menu(app: &AppHandle) {
 
 /// Bring the notch up and hand it an intent, closing the popup first so focus
 /// does not bounce between the two windows.
+///
+/// Every notch window, not just `notch-widget`. With mirroring on there is a notch
+/// on each screen and they are meant to be the same notch — a tray row that opened
+/// the launcher on one monitor and left the other showing a resting pill would make
+/// them read as two different apps. On the ordinary single-screen setup this is the
+/// same one window it always was.
+///
+/// Only the first is focused. Focus is singular by definition, and it is what makes
+/// the launcher's search field usable; the rest still open, because the state
+/// machine's `pin` does not need focus to hold a card up.
 fn reveal_notch(app: &AppHandle, event: &str, payload: Option<String>) {
     hide_menu(app);
 
-    if let Some(notch) = app.get_webview_window(NOTCH_LABEL) {
+    for (index, notch) in crate::display::notch_windows(app).into_iter().enumerate() {
         let _ = notch.show();
-        let _ = notch.set_focus();
+        if index == 0 {
+            let _ = notch.set_focus();
+        }
         // The window is always visible; the React state machine decides whether a
         // card is drawn. Only this event actually opens the notch.
-        let _ = match payload {
+        let _ = match payload.clone() {
             Some(value) => notch.emit(event, value),
             None => notch.emit(event, ()),
         };

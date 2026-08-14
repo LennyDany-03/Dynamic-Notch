@@ -41,6 +41,25 @@ export interface Settings {
    * anything out. Settings reads it because it draws the picker.
    */
   notchPosition: NotchPosition
+  /**
+   * Which screen the notch lives on, as a monitor id, or null to follow whichever
+   * screen Windows calls the primary.
+   *
+   * Read here only to draw the picker. Rust moves the window — and, on a stored
+   * id that matches no connected screen, quietly puts the notch on the primary
+   * instead without rewriting this. That fallback is why an unplugged monitor
+   * costs the user nothing and a re-plugged one needs no second visit. See
+   * `display.rs`.
+   */
+  notchDisplay: string | null
+  /**
+   * Whether every connected screen gets its own notch.
+   *
+   * The only preference in the app that *builds windows*: each extra screen gets
+   * a full instance of the overlay, labelled `notch-widget-2` and up. Which is
+   * why `App` asks whether it is the lead window before running the updater.
+   */
+  notchAllDisplays: boolean
   /** Whether the trigger strip is marked while the notch is away. */
   hotzoneHint: boolean
   /**
@@ -82,6 +101,8 @@ const DEFAULTS: Settings = {
   muteWindowsBanners: false,
   backgroundOpacity: 92,
   notchPosition: 'center',
+  notchDisplay: null,
+  notchAllDisplays: false,
   hotzoneHint: true,
   theme: 'crest',
   accentColor: '#7C3AED',
@@ -272,6 +293,23 @@ export function useSettings() {
   )
 
   /**
+   * Send the notch to a screen, or `null` to follow the primary.
+   *
+   * The argument is named `display` rather than `id` because that is the Rust
+   * command's parameter name, and `write` passes `args` straight through.
+   */
+  const setNotchDisplay = useCallback(
+    (display: string | null) => write('set_notch_display', 'notchDisplay', display, { display }),
+    [write],
+  )
+
+  const setNotchAllDisplays = useCallback(
+    (enabled: boolean) =>
+      write('set_notch_all_displays', 'notchAllDisplays', enabled, { enabled }),
+    [write],
+  )
+
+  /**
    * Pick a palette.
    *
    * Not routed through `write`, which is built for one key at a time: Rust sets
@@ -330,6 +368,8 @@ export function useSettings() {
     setMuteWindowsBanners,
     setBackgroundOpacity,
     setNotchPosition,
+    setNotchDisplay,
+    setNotchAllDisplays,
     setHotzoneHint,
     setTheme,
     setAccentColor,

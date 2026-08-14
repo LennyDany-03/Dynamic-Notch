@@ -1,14 +1,15 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Capability for the notch widget window",
-  "windows": ["notch-widget"],
+  "description": "Capability for the notch widget windows. The glob covers the mirrors `display.rs` builds on the other screens (`notch-widget-2`, `-3`, …), which run the same bundle and need the same permissions as the original — a mirror missing one would be a notch that worked on one monitor and not the next.",
+  "windows": ["notch-widget", "notch-widget-*"],
   "permissions": [
     "core:default",
     "opener:default",
     "core:window:allow-cursor-position",
     "core:window:allow-set-ignore-cursor-events",
     "core:window:allow-primary-monitor",
+    "core:window:allow-scale-factor",
     "core:window:allow-set-position",
     "core:window:allow-set-size",
     "core:window:allow-hide",

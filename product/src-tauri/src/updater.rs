@@ -14,7 +14,7 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_updater::{Update, UpdaterExt};
 
-use crate::tray::{MENU_LABEL, NOTCH_LABEL};
+use crate::tray::MENU_LABEL;
 
 /// Download progress, emitted while the installer downloads.
 ///
@@ -131,12 +131,15 @@ pub async fn updater_install(app: AppHandle) -> Result<(), String> {
                 );
             },
             move || {
-                // Handing off to the installer. Both windows are always-on-top,
+                // Handing off to the installer. These windows are always-on-top,
                 // so leaving them up would park a frozen notch over the setup UI.
-                for label in [MENU_LABEL, NOTCH_LABEL] {
-                    if let Some(win) = app.get_webview_window(label) {
-                        let _ = win.hide();
-                    }
+                // Every notch, not just the original — with mirroring on there is
+                // one per screen and they are all in the topmost band.
+                if let Some(win) = app.get_webview_window(MENU_LABEL) {
+                    let _ = win.hide();
+                }
+                for win in crate::display::notch_windows(&app) {
+                    let _ = win.hide();
                 }
             },
         )

@@ -1,5 +1,6 @@
 mod autostart;
 mod clipboard;
+mod display;
 mod icons;
 mod launcher;
 mod media;
@@ -107,7 +108,10 @@ pub fn run() {
             settings::set_panels,
             settings::set_weather_place,
             settings::set_notch_position,
+            settings::set_notch_display,
+            settings::set_notch_all_displays,
             settings::set_hotzone_hint,
+            display::list_displays,
             settings::notch_raise,
             settings::notch_settle,
             settings::settings_open,
@@ -162,6 +166,13 @@ pub fn run() {
             // where it sits along the top edge is a preference now, so the
             // horizontal centring that used to live here is `apply_position`'s.
             settings::init(app.handle());
+
+            // After `init`, which has already put the notch on the screens the
+            // preferences name. This only watches for that answer *changing* —
+            // a monitor plugged in, unplugged, moved or re-scaled — and re-applies.
+            // It is what returns the notch to the primary when the screen it was
+            // sent to goes away. See `display.rs`.
+            display::start_watcher(app.handle());
 
             let icon = app
                 .default_window_icon()

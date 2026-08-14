@@ -5,12 +5,15 @@ import { getVersion } from '@tauri-apps/api/app'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import Toggle from '../Toggle'
 import AccentPicker from './AccentPicker'
+import DisplayPicker from './DisplayPicker'
 import NotesLocation from './NotesLocation'
 import PanelOrder from './PanelOrder'
+import RowShell from './RowShell'
 import Slider from './Slider'
 import ThemePicker from './ThemePicker'
 import WeatherLocation from './WeatherLocation'
 import { NOTCH_POSITIONS, OPACITY, useNotificationAccess, useSettings } from '../../hooks/useSettings'
+import { useDisplays } from '../../hooks/useDisplays'
 import { useAccentColor } from '../../hooks/useAccentColor'
 import { useSurfaceOpacity } from '../../hooks/useSurfaceOpacity'
 import { useTheme } from '../../hooks/useTheme'
@@ -82,13 +85,27 @@ function Icon({ children, size = 18 }: { children: ReactNode; size?: number }) {
  *    rather than what it does, and they are the two people come back to. Buried
  *    under a heading at the top of a long scroller they were findable only by
  *    remembering they were there.
+ *  - **Display** is the one pane that is not about Crest at all — it is about the
+ *    machine. How many screens there are is a fact rather than a preference, and
+ *    the two choices next to it (which screen, or all of them) only make sense
+ *    while looking at that fact. It sits next to Appearance because both answer
+ *    "where and how do I see this", and above Weather because it is about the
+ *    notch itself rather than about one card.
  *  - **Weather** is the one place Crest has to be *told* something before a
  *    feature works at all. Sitting three groups down among switches, it read as
  *    an option for a feature you already had, rather than as the setup step it is.
  *
  * Everything left is a switch about behaviour, and that is still "Settings".
  */
-type Pane = 'about' | 'panels' | 'theme' | 'appearance' | 'weather' | 'notes' | 'settings'
+type Pane =
+  | 'about'
+  | 'panels'
+  | 'theme'
+  | 'appearance'
+  | 'display'
+  | 'weather'
+  | 'notes'
+  | 'settings'
 
 /** Nav entries, in the order they appear in the sidebar. */
 const PANES: { id: Pane; label: string; icon: ReactNode }[] = [
@@ -136,6 +153,20 @@ const PANES: { id: Pane; label: string; icon: ReactNode }[] = [
         <circle cx="7.6" cy="11.4" r="1.1" fill="currentColor" stroke="none" />
         <circle cx="11" cy="7.8" r="1.1" fill="currentColor" stroke="none" />
         <circle cx="15.4" cy="8.8" r="1.1" fill="currentColor" stroke="none" />
+      </Icon>
+    ),
+  },
+  {
+    id: 'display',
+    label: 'Display',
+    icon: (
+      // Two screens, the front one carrying a notch on its top edge — the pane is
+      // about which of them that mark lands on.
+      <Icon size={16}>
+        <rect x="2.5" y="4" width="13" height="10" rx="2" />
+        <path d="M6.5 4.2h5v1.4a.8.8 0 0 1-.8.8H7.3a.8.8 0 0 1-.8-.8z" fill="currentColor" stroke="none" />
+        <path d="M18.5 7.5h1.5a1.5 1.5 0 0 1 1.5 1.5v7a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 9.5 16v-.5" />
+        <path d="M6 17.5h4" />
       </Icon>
     ),
   },
@@ -878,6 +909,254 @@ function NotesPane() {
   )
 }
 
+/** One line in the "where does it live" list. Radio semantics, row-sized target. */
+function DisplayChoice({
+  label,
+  detail,
+  selected,
+  disabled,
+  onSelect,
+}: {
+  label: string
+  detail?: string
+  selected: boolean
+  disabled: boolean
+  onSelect: () => void
+}) {
+  const [hovered, setHovered] = useState(false)
+
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={selected}
+      aria-disabled={disabled}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onClick={() => {
+        if (!disabled) onSelect()
+      }}
+      style={{
+        width: '100%',
+        height: 32,
+        padding: '0 10px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 9,
+        borderRadius: radius.small,
+        textAlign: 'left',
+        background: hovered && !disabled ? color.tile : 'transparent',
+        opacity: disabled ? 0.45 : 1,
+        cursor: disabled ? 'default' : 'pointer',
+        transition: 'background 90ms linear, opacity 90ms linear',
+      }}
+    >
+      <span
+        style={{
+          width: 13,
+          height: 13,
+          flex: 'none',
+          display: 'grid',
+          placeItems: 'center',
+          borderRadius: radius.pill,
+          border: `1.5px solid ${selected ? color.accent : color.text.icon}`,
+          transition: 'border-color 90ms linear',
+        }}
+      >
+        {selected && (
+          <span
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: radius.pill,
+              background: color.accent,
+            }}
+          />
+        )}
+      </span>
+
+      <span style={{ fontSize: 12, color: color.text.primary }}>{label}</span>
+
+      {detail && (
+        <>
+          <span style={{ flex: 1 }} />
+          <span
+            style={{
+              flex: 'none',
+              fontFamily: font.mono,
+              fontSize: 10.5,
+              color: color.text.muted,
+            }}
+          >
+            {detail}
+          </span>
+        </>
+      )}
+    </button>
+  )
+}
+
+/**
+ * Which screen the notch lives on, and whether it lives on all of them.
+ *
+ * Its own pane because none of it is a preference in the way the rest of this
+ * window is. The first thing on it is a *fact* — here are your screens, this is
+ * where the notch is — and the two controls only make sense while looking at that
+ * picture. Folded into Settings it would have been a dropdown of monitor names
+ * next to a switch, which is the version that cannot answer "which one is the one
+ * on my left".
+ *
+ * The disconnect rule is Rust's and is deliberately not re-implemented here (see
+ * `display.rs`): a chosen screen that is unplugged falls back to the primary
+ * without the choice being rewritten, so this pane keeps showing the choice as
+ * made and says, underneath, that it is not currently connected. Clearing the
+ * preference on the user's behalf would mean a docked laptop forgetting its
+ * monitor every evening.
+ */
+function DisplayPane({ api }: { api: ReturnType<typeof useSettings> }) {
+  const { settings, error, setNotchDisplay, setNotchAllDisplays } = api
+  const displays = useDisplays()
+
+  const mirrored = settings.notchAllDisplays
+  const chosen = settings.notchDisplay
+  // A stored id that no screen answers to. Not an error state — it is what a
+  // laptop looks like every time it leaves the dock — but it is the one thing the
+  // map cannot show, because the screen it would draw is not there.
+  const missing = chosen !== null && !displays.some((display) => display.id === chosen)
+
+  const count = displays.length
+  const summary =
+    count === 0
+      ? 'Crest can’t see any screens at the moment.'
+      : count === 1
+        ? 'One screen is connected, so the notch lives on it.'
+        : `${count} screens are connected. Pick the one the notch comes down on, or put it on all of them.`
+
+  return (
+    <>
+      <h3 style={{ ...sectionLabel, margin: '0 0 8px' }}>Your screens</h3>
+
+      <Paragraph>{summary}</Paragraph>
+
+      <div style={{ height: 6 }} />
+
+      <RowShell
+        title="Where the notch lives"
+        body="Click the screen you want it on. The mark on the top edge is the notch itself — it comes down at whichever end Position puts it. Numbers match the ones in Windows’ own display settings."
+        icon={
+          <Icon>
+            <rect x="2.5" y="4.5" width="19" height="13" rx="2.5" />
+            <path d="M9 4.7h6v1.8a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1z" fill="currentColor" stroke="none" />
+            <path d="M8.5 20.5h7" />
+          </Icon>
+        }
+      >
+        <DisplayPicker
+          displays={displays}
+          disabled={mirrored}
+          onSelect={setNotchDisplay}
+        />
+
+        {count > 0 && (
+          <div role="radiogroup" aria-label="Which screen the notch lives on" style={{ marginTop: 8 }}>
+            {/* First, and not one of the screens: "follow the primary" is a
+                different kind of answer — it survives the main display being
+                changed, which a named screen deliberately does not. */}
+            <DisplayChoice
+              label="Follow the main display"
+              detail={mirrored ? undefined : 'default'}
+              selected={chosen === null}
+              disabled={mirrored}
+              onSelect={() => setNotchDisplay(null)}
+            />
+
+            {displays.map((display) => (
+              <DisplayChoice
+                key={display.id}
+                label={display.primary ? `${display.name} (main)` : display.name}
+                detail={`${display.width}×${display.height}`}
+                selected={chosen === display.id}
+                disabled={mirrored}
+                onSelect={() => setNotchDisplay(display.id)}
+              />
+            ))}
+
+            {/* The chosen screen, still chosen, still not here. Drawn as a row so
+                it keeps its place in the list rather than the selection appearing
+                to have been silently thrown away. */}
+            {missing && (
+              <DisplayChoice
+                label="Chosen screen — not connected"
+                detail="disconnected"
+                selected
+                disabled
+                onSelect={() => {}}
+              />
+            )}
+          </div>
+        )}
+      </RowShell>
+
+      {missing && !mirrored && (
+        <p
+          style={{
+            margin: '0 12px 0',
+            paddingLeft: 42,
+            fontSize: 11.5,
+            lineHeight: 1.5,
+            color: color.text.muted,
+          }}
+        >
+          The screen you picked isn’t plugged in, so the notch is on your main
+          display for now. It goes back on its own when that screen returns —
+          nothing to set again.
+        </p>
+      )}
+
+      <GroupLabel>Every screen</GroupLabel>
+
+      <SettingRow
+        title="Show the notch on every display"
+        body="Puts a notch on the top edge of each screen instead of just one, so it is always on the monitor you are looking at. Each one is a full copy — same cards, same banners — and they come and go with the screens themselves."
+        on={mirrored}
+        onToggle={() => setNotchAllDisplays(!mirrored)}
+        // Nothing to mirror onto. The row stays visible so the feature is
+        // discoverable before the second monitor is plugged in, and the note
+        // underneath says why it is doing nothing rather than leaving a switch
+        // that appears not to work.
+        disabled={count < 2}
+        icon={
+          <Icon>
+            <rect x="2" y="5" width="11" height="8" rx="1.8" />
+            <rect x="11" y="11" width="11" height="8" rx="1.8" />
+            <path d="M5.5 5.2h4v1.1a.7.7 0 0 1-.7.7H6.2a.7.7 0 0 1-.7-.7z" fill="currentColor" stroke="none" />
+            <path d="M14.5 11.2h4v1.1a.7.7 0 0 1-.7.7h-2.6a.7.7 0 0 1-.7-.7z" fill="currentColor" stroke="none" />
+          </Icon>
+        }
+      />
+
+      {count < 2 && (
+        <p
+          style={{
+            margin: '2px 12px 0',
+            paddingLeft: 42,
+            fontSize: 11.5,
+            lineHeight: 1.5,
+            color: color.text.muted,
+          }}
+        >
+          There is only one screen to put it on. Plug in another and this switches
+          on without a restart.
+        </p>
+      )}
+
+      {error && (
+        <p style={{ margin: '8px 12px 0', fontSize: 11.5, color: color.fileRed }}>{error}</p>
+      )}
+    </>
+  )
+}
+
 function WeatherPane({ api }: { api: ReturnType<typeof useSettings> }) {
   const { settings, error, setWeatherPlace } = api
 
@@ -1268,6 +1547,8 @@ export default function SettingsWindow() {
                     <ThemePane api={api} />
                   ) : pane === 'appearance' ? (
                     <AppearancePane api={api} opacity={opacity} onPreviewOpacity={setPreview} />
+                  ) : pane === 'display' ? (
+                    <DisplayPane api={api} />
                   ) : pane === 'weather' ? (
                     <WeatherPane api={api} />
                   ) : pane === 'notes' ? (

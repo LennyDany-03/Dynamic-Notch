@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { listen } from '@tauri-apps/api/event'
-import { cursorPosition, getCurrentWindow, primaryMonitor } from '@tauri-apps/api/window'
+import { cursorPosition, getCurrentWindow } from '@tauri-apps/api/window'
 import { hotzone } from '../tokens'
 import { rectContains, type Rect } from '../types/notch'
 
@@ -29,7 +29,17 @@ const GEOMETRY_REFRESH_MS = 2000
 const isTauri = () => !!(window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__
 
 interface Geometry {
-  /** Device pixel ratio of the monitor. */
+  /**
+   * Device pixel ratio of the screen this window is on.
+   *
+   * The window's own, not the primary monitor's, which is what it used to read.
+   * That was the same number on every single-screen machine and wrong the moment
+   * the notch could be sent to a second one: a 150%-scaled laptop panel next to a
+   * 100% external monitor would convert every cursor position by the wrong factor
+   * and put the hit rect somewhere the card is not. `scaleFactor()` follows the
+   * window across screens for free, which is also what a monitor being unplugged
+   * needs.
+   */
   scale: number
   /** Window origin in physical pixels. */
   originX: number
@@ -111,13 +121,13 @@ export function useHotzone(getContentRect: (x: number, y: number) => Rect | null
 
     const readGeometry = async (): Promise<Geometry | null> => {
       try {
-        const [monitor, position] = await Promise.all([
-          primaryMonitor(),
-          getCurrentWindow().outerPosition(),
+        const window = getCurrentWindow()
+        const [scale, position] = await Promise.all([
+          window.scaleFactor(),
+          window.outerPosition(),
         ])
-        if (!monitor) return null
         return {
-          scale: monitor.scaleFactor || 1,
+          scale: scale || 1,
           originX: position.x,
           originY: position.y,
         }

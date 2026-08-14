@@ -91,6 +91,7 @@ All feature components read `NotchState` and `activeModule` from context/hook �
 | `get_weather` / `search_places` | Conditions, a seven-day forecast, and the geocoder behind the location picker | Open-Meteo over `reqwest` — no OS API, and the only outbound request in the app besides the updater |
 | `read_reminders` / `write_reminders` | The calendar's reminder store | Flat JSON in the app-data dir, same shape as `notes.rs` |
 | `notes_location` | Where Quick Notes are written, for Settings to show and reveal | `app_data_dir` + `revealItemInDir` on the frontend |
+| `list_displays` | Every connected screen and which of them the notch is on, for the Display pane's map | tao's monitor enumeration through `Manager::available_monitors` — no direct Win32 |
 
 Each command should be added only when its corresponding feature is being built (see build order in the master prompt) — don't scaffold all four upfront.
 
@@ -723,6 +724,87 @@ Each command should be added only when its corresponding feature is being built 
   rect, no `STATE_RANK` entry and no exception to the pin lease. The one thing
   that had to change is `announceKey`, which is constant for `update`: fifty ticks
   with a moving key would remount the loader fifty times and restart its ring.
+
+- **The overlay is a set of windows, not a window.** Everything here treated the
+  notch as one 560×420 canvas pinned to the top of the primary monitor, which was
+  true until a second screen was plugged in. `display.rs` owns the answer now, and
+  the shape of it is two preferences and a watcher.
+
+  `notch_display` names a screen (`\\.\DISPLAY2`) or is `None` for "follow
+  whichever screen Windows calls the main one". `None` is a real answer and not
+  "unset": a laptop that changes docks wants to follow the primary, and a user who
+  pinned one panel does not, and there is no third behaviour that serves both.
+
+  **A stored id that matches no connected screen falls back to the primary and is
+  never rewritten.** That is the whole of the disconnect behaviour. Clearing the
+  preference on the user's behalf is the obvious version and is wrong: a docked
+  laptop would forget its monitor every evening and need re-picking every morning.
+  Falling back at apply time means the notch comes home when the screen goes and
+  goes back when it returns, and nobody says it twice. `display::start_watcher`
+  polls the monitor set every 3s and re-runs `settings::apply` when it moves —
+  a poll rather than `WM_DISPLAYCHANGE`, which would mean subclassing a window
+  procedure tao already owns, for an event whose acceptable latency is however
+  long Windows itself takes to finish rearranging the desktop.
+
+  `notch_all_displays` mirrors the notch onto every screen, and it is the only
+  preference in the app that **builds windows**. Mirroring has to be real windows
+  rather than one window stretched, because there is no single rectangle that is
+  the top edge of two monitors: each extra screen gets `notch-widget-2`, `-3`, …,
+  loading the same bundle and mounting the same `App`. `notch-widget` itself is
+  never destroyed — it comes from `tauri.conf.json`, other modules look it up by
+  name, and the app quits with it — so it is always target zero and the target list
+  is ordered primary-first.
+
+  Four consequences, all the same rule: *anything that meant "the overlay" now has
+  to walk the set.* `apply_topmost`, `tray::reveal_notch` and the updater's
+  pre-install hide go through `display::notch_windows`. The capability file matches
+  `notch-widget-*`, because a mirror missing a permission is a notch that works on
+  one monitor and not the next. `notch_raise`/`notch_settle` deliberately do *not*
+  walk it — they take the calling window, because promoting every screen's notch
+  because one grew would put a notch in front of a fullscreen video on the other
+  one. And anything acting on the machine's behalf must run once rather than once
+  per screen: `App` gates `useAutoUpdate` on being the lead window, or three
+  monitors would be three downloads of the same installer with whichever finished
+  first restarting the app out from under the other two.
+
+  **No command may build a window.** `WebviewWindowBuilder::build()` deadlocks on
+  Windows when it is called from a synchronous command handler — a documented
+  WebView2 problem (wry#583), and Tauri's guidance is to build windows from async
+  commands or separate threads. `display::apply` builds one whenever a screen has
+  just gained a notch, so every command that can reach it goes through
+  `settings::apply_detached`, which is a thread.
+
+  This is worth recording because the symptom pointed nowhere near the cause.
+  Flipping the mirroring switch froze the entire app mid-command, before the
+  `save` two lines below it — so the preference came back off at the next launch
+  and read as a switch that simply did not save, while the Settings window it had
+  stopped answering showed its map and its radio buttons disagreeing about where
+  the notch was. Nothing in that picture says "window creation".
+
+  `display::place_all` is the half that positions existing windows and builds
+  nothing, so it is safe anywhere; `settings::init` calls it synchronously, because
+  the notch has to reach its final origin before the first frame rather than
+  sliding there afterwards. And the display setters store and save *before* they
+  apply, since a detached apply is not something a command can sequence against.
+
+  Two smaller things had to move with it. `useHotzone` reads its scale factor off
+  the *window* rather than `primaryMonitor()` — the same number on every
+  single-screen machine, and wrong the moment the notch could be sent to a 100%
+  external monitor from a 150% laptop panel. And `display::place` derives the
+  physical width it positions against (`560 × scale_factor`) instead of reading
+  `outer_size()`: Windows rescales a window as it crosses onto a different-DPI
+  display, so a size read before the move is in the old screen's pixels and one
+  read after needs the move to have landed — which means positioning twice and
+  watching the notch jump from the left edge to wherever it belongs.
+
+  The Settings pane draws the screens as a **map** rather than a list, in their
+  real relative positions and sizes, with the notch marked on the top edge of the
+  one carrying it. "Display 1" and "Display 2" are two indistinguishable rows of
+  text; the question the user is actually asking is *the one on my left*. The
+  numbers are Windows' own numbers, so a desktop already arranged in Windows'
+  display settings is the picture they see here. What is marked is `active`,
+  resolved in Rust — where the notch *is*, not what was last clicked — which is
+  what makes the unplugged-monitor fallback visible rather than mysterious.
 
 ## Open decisions (fill in as they're made)
 

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { listen } from '@tauri-apps/api/event'
+import { getCurrentWindow } from '@tauri-apps/api/window'
 import ContextMenu, { type MenuAnchor } from './components/ContextMenu'
 import NotchShell from './components/NotchShell'
 import { useNotchState } from './hooks/useNotchState'
@@ -29,6 +30,31 @@ import type { WinNotification } from './types/notifications'
 import type { PerfAlert } from './types/perf'
 import type { Reminder } from './types/reminders'
 import type { SystemEvent } from './types/system'
+
+/**
+ * Whether this is the notch window that speaks for the app.
+ *
+ * With "show the notch on every display" on, this component is mounted once per
+ * screen: `display.rs` builds `notch-widget-2`, `-3`, … and each is a full
+ * instance. Everything the notch *draws* should be duplicated — that is the whole
+ * point of mirroring — but anything that acts on the machine's behalf must not be.
+ * Today that is exactly one thing, the auto-updater, where two copies would race
+ * to download and install the same release.
+ *
+ * The original window is the lead because it is the one that always exists: it is
+ * built from `tauri.conf.json`, it is always the first target in `display.rs`, and
+ * a mirror is destroyed the moment its screen goes away.
+ *
+ * Computed once, at module scope, and defensively: the browser fallback has no
+ * Tauri metadata to read a label out of, and it is a single window in any case.
+ */
+const isLeadNotch = (() => {
+  try {
+    return getCurrentWindow().label === 'notch-widget'
+  } catch {
+    return true
+  }
+})()
 
 export default function App() {
   // "Always on top" is both a z-order and a visibility preference: it keeps the
@@ -248,7 +274,17 @@ export default function App() {
   // mount `useSettings` too, and three copies would race to spend the same parked
   // update. The tray's manual "Check for updates" row is unaffected; it is the
   // deliberate path, and this is the automatic one.
-  const update = useAutoUpdate(true)
+  //
+  // And only the *lead* notch window, now that mirroring can mount this component
+  // once per screen. Same race, one layer down: three monitors would be three
+  // downloads of the same installer, and whichever finished first would restart
+  // the app out from under the other two.
+  //
+  // The cost is that the progress banner appears on the lead screen only, which is
+  // the right way round to be wrong: the update needs no watching, and a loader
+  // that is missing from one screen is a smaller surprise than three of them
+  // fighting over one download.
+  const update = useAutoUpdate(isLeadNotch)
 
   // Held up by re-announcing rather than by a special state.
   //

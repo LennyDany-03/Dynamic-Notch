@@ -14,8 +14,9 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager, State};
 
+use crate::display;
 use crate::notifications;
-use crate::tray::{hide_menu, NOTCH_LABEL};
+use crate::tray::hide_menu;
 
 pub const SETTINGS_LABEL: &str = "settings";
 
@@ -65,7 +66,7 @@ pub enum NotchPosition {
 
 impl NotchPosition {
     /// Window origin along the free horizontal span (screen width − window width).
-    fn offset(self, span: i32) -> i32 {
+    pub(crate) fn offset(self, span: i32) -> i32 {
         match self {
             NotchPosition::Left => 0,
             NotchPosition::Center => span / 2,
@@ -76,6 +77,31 @@ impl NotchPosition {
 
 fn notch_position_default() -> NotchPosition {
     NotchPosition::Center
+}
+
+/// Which screen the notch lives on, as a monitor id (`\\.\DISPLAY2`), or `None`
+/// for "wherever Windows says the primary is".
+///
+/// `None` is not the same as storing the primary's own id, and the difference
+/// matters on a machine whose primary changes — a laptop docked to a monitor that
+/// is then made the main display. `None` follows that; an id does not.
+///
+/// A stored id that matches no connected screen is **not** an error and is never
+/// rewritten. `display::targets` falls back to the primary, which is the whole of
+/// the "unplug the monitor and the notch comes home" behaviour, and the preference
+/// survives so it goes back when the cable does. See `display.rs`.
+fn notch_display_default() -> Option<String> {
+    None
+}
+
+/// Whether the notch is drawn on every connected screen rather than just one.
+///
+/// Off by default: a second notch is a second always-on-top overlay and a second
+/// set of watchers, which is not something to start doing because the user plugged
+/// in a projector. It is also the only preference here that *builds windows* — see
+/// `display::apply`.
+fn notch_all_displays_default() -> bool {
+    false
 }
 
 /// Whether a hairline is drawn at the top edge marking the trigger strip.
@@ -283,9 +309,17 @@ pub struct Settings {
     #[serde(default = "background_opacity_default")]
     pub background_opacity: u8,
 
-    /// Where along the top edge of the primary monitor the overlay sits.
+    /// Where along the top edge of its screen the overlay sits.
     #[serde(default = "notch_position_default")]
     pub notch_position: NotchPosition,
+
+    /// Which screen the overlay sits on, or `None` to follow the primary.
+    #[serde(default = "notch_display_default")]
+    pub notch_display: Option<String>,
+
+    /// Whether every connected screen gets its own notch.
+    #[serde(default = "notch_all_displays_default")]
+    pub notch_all_displays: bool,
 
     /// Whether the trigger strip is marked with a hairline while the notch is
     /// away. Purely a frontend concern, like `background_opacity` — the notch
@@ -348,6 +382,8 @@ impl Default for Settings {
             mute_windows_banners: false,
             background_opacity: background_opacity_default(),
             notch_position: notch_position_default(),
+            notch_display: notch_display_default(),
+            notch_all_displays: notch_all_displays_default(),
             hotzone_hint: hotzone_hint_default(),
             theme: theme_default(),
             accent_color: accent_color_default(),
@@ -454,15 +490,15 @@ fn save(app: &AppHandle, settings: &Settings) -> Result<(), String> {
     Ok(())
 }
 
-/// Push the stored preferences onto the live windows.
+/// Put one notch window in, or out of, the topmost band.
 ///
-/// Called at startup, on every change, and each time the overlay appears, so there
-/// is exactly one place that knows how a preference maps onto window state.
-fn apply_topmost(app: &AppHandle, enabled: bool) -> Result<(), String> {
-    let Some(notch) = app.get_webview_window(NOTCH_LABEL) else {
-        return Err("notch window is unavailable".into());
-    };
-
+/// Split out of `apply_topmost` once mirroring made "the notch" a set of windows
+/// rather than one. The preference is about the overlay as a whole, so `apply`
+/// walks every screen's copy; `notch_raise` and `notch_settle` are about the window
+/// the cursor is actually at, so they take the calling window and this is what they
+/// reach. Promoting all of them because one grew would put a notch in front of a
+/// fullscreen video playing on the other screen.
+fn set_topmost(app: &AppHandle, notch: &tauri::WebviewWindow, enabled: bool) -> Result<(), String> {
     // The bounce is load-bearing. tao caches its own `ALWAYS_ON_TOP` flag and
     // `apply_diff` returns early when the requested value equals the cached one —
     // so asking for `true` when it already believes `true` issues no `SetWindowPos`
@@ -540,46 +576,24 @@ fn apply_topmost(app: &AppHandle, enabled: bool) -> Result<(), String> {
     Ok(())
 }
 
-/// Move the overlay window along the top edge of the primary monitor.
+/// Put every notch window in the band the preference selects.
 ///
-/// This is the whole of the position preference. The window is never resized, so
-/// the only thing to decide is its origin: `y` is the top of the monitor and `x`
-/// walks the free span between the two screen edges. The card stays centred in
-/// its canvas, which is why nothing in the frontend has to know this happened —
-/// with one exception, the cursor poll's cached window origin, which is why every
-/// change is broadcast (see `useHotzone`).
-///
-/// This replaced the hardcoded centring `lib.rs` used to do at startup; it runs
-/// from `apply`, so the stored position is honoured on the first frame rather
-/// than as a correction afterwards.
-fn apply_position(app: &AppHandle, position: NotchPosition) -> Result<(), String> {
-    let Some(notch) = app.get_webview_window(NOTCH_LABEL) else {
+/// One window before mirroring existed, and it stays one window on the overwhelming
+/// majority of machines. What changed is that the count is no longer known here:
+/// `display::notch_windows` answers it.
+fn apply_topmost(app: &AppHandle, enabled: bool) -> Result<(), String> {
+    let windows = display::notch_windows(app);
+    if windows.is_empty() {
         return Err("notch window is unavailable".into());
-    };
+    }
 
-    let monitor = notch
-        .primary_monitor()
-        .map_err(|error| format!("could not read the monitor: {error}"))?;
-    let Some(monitor) = monitor else {
-        return Ok(());
-    };
-
-    let size = notch
-        .outer_size()
-        .map_err(|error| format!("could not read the notch size: {error}"))?;
-
-    // Monitor origin rather than 0, so a primary monitor that is not at the
-    // origin of the virtual desktop (a second screen placed to its left) still
-    // gets the notch on *it* rather than somewhere off its edge.
-    let origin = monitor.position();
-    let span = (monitor.size().width as i32 - size.width as i32).max(0);
-
-    notch
-        .set_position(tauri::Position::Physical(tauri::PhysicalPosition {
-            x: origin.x + position.offset(span),
-            y: origin.y,
-        }))
-        .map_err(|error| format!("could not move the notch: {error}"))
+    // Every window is asked, and the first failure is reported. Stopping there
+    // rather than carrying on is deliberate: a failure here is the window thread
+    // being unreachable, which the next window would hit too.
+    for window in &windows {
+        set_topmost(app, window, enabled)?;
+    }
+    Ok(())
 }
 
 /// Push the banner preference onto Windows' own notification settings.
@@ -600,10 +614,84 @@ fn apply_banners(settings: &Settings) -> Result<(), String> {
     notifications::set_muted(mute)
 }
 
+/// Serialises applies, so two of them cannot reconcile the window set at once.
+///
+/// Only matters now that `apply_detached` exists: flipping the mirroring switch
+/// twice quickly would otherwise have two threads deciding which windows should
+/// exist from two different answers, and the loser would build a window the winner
+/// had just destroyed. A plain `Mutex<()>`, because there is nothing to guard but
+/// the ordering.
+static APPLYING: Mutex<()> = Mutex::new(());
+
+/// Push the stored preferences onto the live windows.
+///
+/// Called at startup, on every change, each time Settings is opened, and whenever
+/// the set of monitors changes, so there is exactly one place that knows how a
+/// preference maps onto window state.
+///
+/// `display::apply` runs **first** and is the only step that can change how many
+/// windows there are — it builds a mirror for a screen that has just been plugged
+/// in and destroys the one for a screen that has gone. Everything after it walks
+/// the windows, so a mirror built on this pass is in the topmost band before the
+/// call returns rather than a preference behind until the next one.
+///
+/// **Never call this from a synchronous command handler.** See `apply_detached`,
+/// which is what commands use and why.
 pub fn apply(app: &AppHandle, settings: &Settings) {
-    let _ = apply_position(app, settings.notch_position);
+    let _lock = APPLYING.lock().unwrap_or_else(|e| e.into_inner());
+
+    display::apply(app, settings);
     let _ = apply_topmost(app, settings.always_on_top);
     let _ = apply_banners(settings);
+}
+
+/// `apply`, on a thread of its own.
+///
+/// This is not a performance choice, it is the only way the mirroring preference
+/// can work at all. `WebviewWindowBuilder::build()` **deadlocks on Windows when it
+/// is called from a synchronous command handler** — a documented WebView2 problem
+/// (wry#583), and Tauri's own guidance is to build windows from async commands or
+/// separate threads. `display::apply` builds a window whenever a screen has just
+/// gained a notch, so every command that can reach it has to get off the main
+/// thread first.
+///
+/// The symptom when it did not was total, and worth recording because nothing
+/// about it points here: turning "show the notch on every display" on froze the
+/// whole app mid-command, so the preference was never written and came back off at
+/// the next launch, looking for all the world like a switch that simply did not
+/// save.
+///
+/// One caller is deliberately **not** routed through this: the monitor watcher,
+/// which is already a thread. `init` is, and pairs it with a synchronous
+/// `display::place_all` — the placement has to land before the first frame, and it
+/// is the half that never builds anything.
+pub fn apply_detached(app: &AppHandle, settings: &Settings) {
+    let app = app.clone();
+    let settings = settings.clone();
+    std::thread::spawn(move || apply(&app, &settings));
+}
+
+/// Re-apply what is already stored, for a caller that changed nothing.
+///
+/// The monitor watcher is the only one: unplugging a screen changes what the same
+/// preferences *mean* without changing them. Reads through `Current` rather than
+/// the file, because it runs every few seconds for the life of the process. Calls
+/// `apply` directly and not `apply_detached`, being a thread already.
+pub fn reapply(app: &AppHandle) {
+    let settings = current(app);
+    apply(app, &settings);
+}
+
+/// The stored preferences, for the modules that need them outside a command.
+///
+/// Goes through `Current` — which loads the file if nothing has yet — rather than
+/// `load`, so this cannot be the reader that hands out a default the app has
+/// already moved on from. See `Current::get`.
+pub fn current(app: &AppHandle) -> Settings {
+    match app.try_state::<Current>() {
+        Some(state) => state.get(app),
+        None => load(app),
+    }
 }
 
 /// Read the file, seed the in-memory copy, and apply it. Startup only.
@@ -628,7 +716,15 @@ pub fn init(app: &AppHandle) {
     if let Some(current) = app.try_state::<Current>() {
         current.set(stored.clone());
     }
-    apply(app, &stored);
+
+    // Two halves, and the split is the whole point. The window that already exists
+    // is positioned **synchronously**, because it has to be where the preference
+    // says before the first frame — otherwise the notch paints at whatever origin
+    // the OS picked and visibly slides over. Everything else, including building a
+    // mirror on a second screen, goes to a thread: `setup` is a main-thread context
+    // and `apply` builds windows there. See `apply_detached`.
+    display::place_all(app, &stored);
+    apply_detached(app, &stored);
 }
 
 /// Record that the user has made a choice about starting with Windows.
@@ -684,9 +780,17 @@ pub fn read_settings(app: AppHandle, current: State<'_, Current>) -> Settings {
 /// version promoted here unconditionally *without* that counterpart, which left a
 /// switched-off notch permanently topmost after the first hover — the two calls
 /// only make sense as a pair.
+///
+/// Takes the **calling** window rather than looking one up by label, which is what
+/// keeps mirroring honest: each screen's notch owns its own z-order, so reaching
+/// for the one on the laptop panel does not shove the one on the second monitor in
+/// front of whatever is playing there.
 #[tauri::command]
-pub fn notch_raise(app: AppHandle) {
-    let _ = apply_topmost(&app, true);
+pub fn notch_raise(app: AppHandle, window: tauri::WebviewWindow) {
+    if !display::is_notch(window.label()) {
+        return;
+    }
+    let _ = set_topmost(&app, &window, true);
 }
 
 /// Return the overlay to the band the preference selects, called when the notch
@@ -702,8 +806,11 @@ pub fn notch_raise(app: AppHandle) {
 /// With the preference on this is the same call `notch_raise` makes, and the
 /// notch never collapses far enough to fire it anyway.
 #[tauri::command]
-pub fn notch_settle(app: AppHandle, current: State<'_, Current>) {
-    let _ = apply_topmost(&app, current.get(&app).always_on_top);
+pub fn notch_settle(app: AppHandle, window: tauri::WebviewWindow, current: State<'_, Current>) {
+    if !display::is_notch(window.label()) {
+        return;
+    }
+    let _ = set_topmost(&app, &window, current.get(&app).always_on_top);
 }
 
 /// Apply and persist the always-on-top preference, returning the state actually
@@ -960,6 +1067,17 @@ pub fn set_weather_place(
 /// The window is moved before the file is written, for the same reason as
 /// always-on-top: the visible change is what the user asked for, and a disk error
 /// should cost them the preference at next launch rather than the move.
+///
+/// Through `display::apply` rather than a mover of its own, because "the top edge"
+/// is now however many screens are carrying a notch and they all move together —
+/// the position is which *end* of an edge, not which screen. And through
+/// `apply_detached`, because that call can build a window and this is a synchronous
+/// command handler; see `apply_detached`.
+///
+/// Which is also why the move no longer happens before the write. It cannot: the
+/// apply is on another thread now, so there is nothing to sequence against. The
+/// preference is stored first and the window follows a moment later, which is the
+/// same shape every purely-broadcast preference here already has.
 #[tauri::command]
 pub fn set_notch_position(
     app: AppHandle,
@@ -968,9 +1086,9 @@ pub fn set_notch_position(
 ) -> Result<NotchPosition, String> {
     let mut settings = current.get(&app);
     settings.notch_position = position;
-    apply_position(&app, position)?;
     current.set(settings.clone());
     save(&app, &settings)?;
+    apply_detached(&app, &settings);
 
     // The notch itself does not read this — Rust moved the window — but its
     // cursor poll caches the window origin, and the broadcast is what tells it to
@@ -978,6 +1096,71 @@ pub fn set_notch_position(
     let _ = app.emit("settings-changed", settings.clone());
 
     Ok(position)
+}
+
+/// Move the notch to a different screen, or back to following the primary.
+///
+/// `None` is a real value and not "unset": it means *whichever screen Windows
+/// calls the main one*, which is what a laptop that changes docks wants. An id is
+/// the user pinning it to one panel.
+///
+/// Goes through the whole of `apply` rather than `display::apply` alone, because
+/// the notch may be arriving on a screen it has never been on before — and with
+/// mirroring on, this can build a window, which then needs the topmost band the
+/// preference selects before anyone looks at it. Detached for the reason every
+/// apply reached from a command is: see `apply_detached`.
+///
+/// Nothing here checks that the id names a connected screen. That is deliberate and
+/// it is the same rule the file has: `display::targets` falls back to the primary
+/// for an id it cannot find, so a monitor picked and then unplugged costs the user
+/// nothing, and a monitor that comes back is still theirs.
+#[tauri::command]
+pub fn set_notch_display(
+    app: AppHandle,
+    current: State<'_, Current>,
+    display: Option<String>,
+) -> Result<Option<String>, String> {
+    let mut settings = current.get(&app);
+    settings.notch_display = display.clone();
+    current.set(settings.clone());
+    save(&app, &settings)?;
+    apply_detached(&app, &settings);
+
+    // The notch does not read this either — Rust moved the window — but the cursor
+    // poll caches the window origin, and a move to another monitor changes the
+    // scale factor with it. Same broadcast, same invalidation. See `useHotzone`.
+    let _ = app.emit("settings-changed", settings.clone());
+
+    Ok(display)
+}
+
+/// Whether every connected screen gets its own notch.
+///
+/// The one preference in this file that builds and destroys windows. Turning it on
+/// opens a notch on each of the other screens; turning it off destroys them, and
+/// leaves `notch-widget` — the window from the config — wherever `notch_display`
+/// says. Both are `display::apply`'s job; this stores the answer and asks.
+///
+/// **`apply_detached`, and this is the command that proves why.** Building a
+/// webview from inside a synchronous command handler deadlocks on Windows, so the
+/// first version of this froze the app the instant the switch was thrown — before
+/// the write below, which is why the preference was back off at the next launch and
+/// the switch looked like it simply did not save.
+#[tauri::command]
+pub fn set_notch_all_displays(
+    app: AppHandle,
+    current: State<'_, Current>,
+    enabled: bool,
+) -> Result<bool, String> {
+    let mut settings = current.get(&app);
+    settings.notch_all_displays = enabled;
+    current.set(settings.clone());
+    save(&app, &settings)?;
+    apply_detached(&app, &settings);
+
+    let _ = app.emit("settings-changed", settings.clone());
+
+    Ok(enabled)
 }
 
 /// Whether the trigger strip is marked while the notch is away.
@@ -1024,8 +1207,14 @@ pub fn settings_open(app: AppHandle, current: State<'_, Current>) -> tauri::Resu
     // Re-apply the preferences afterwards so this ordinary focused window cannot
     // cover a notch that is meant to stay above it. Routed through `apply` rather
     // than a hardcoded promotion so the switch being off is honoured here too.
+    //
+    // Detached like every other apply reached from a command. It cannot normally
+    // build a window — everything the preferences ask for already exists by the
+    // time anyone opens Settings — but "cannot normally" is exactly the assumption
+    // that turns into a frozen app the one time it is wrong, and detaching also
+    // puts the z-order write *after* the `set_focus` above rather than racing it.
     let settings = current.get(&app);
-    apply(&app, &settings);
+    apply_detached(&app, &settings);
 
     // The window is hidden and reshown, never rebuilt, so React does not remount.
     // This is what tells it to re-read preferences that may have changed

@@ -7,7 +7,13 @@ import SettingsWindow from "./components/settings/SettingsWindow";
 import "./index.css";
 
 // Every window loads this same bundle; the label decides which surface mounts.
-// The default arm also covers the browser fallback, where there is no label.
+//
+// The default arm is deliberately a catch-all rather than a `notch-widget` case:
+// it covers the browser fallback, which has no label, *and* the mirror windows
+// `display.rs` builds on the other screens (`notch-widget-2`, `-3`, …), which are
+// full instances of the notch and differ from the original only in that `App`
+// leaves the auto-updater to the lead window. Naming the label here would mean
+// remembering to widen it every time a second screen was involved.
 function Surface() {
   switch (getCurrentWindow().label) {
     case "tray-menu":
