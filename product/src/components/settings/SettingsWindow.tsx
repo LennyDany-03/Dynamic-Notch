@@ -65,7 +65,23 @@ function Icon({ children, size = 18 }: { children: ReactNode; size?: number }) {
   )
 }
 
-type Pane = 'about' | 'settings'
+/**
+ * The sidebar's panes.
+ *
+ * Split out of a single "Settings" pane once it had grown past a screenful. Two
+ * things earned their own entry rather than another group label inside it:
+ *
+ *  - **Appearance** is the pair of preferences that change how Crest *looks*
+ *    rather than what it does, and they are the two people come back to. Buried
+ *    under a heading at the top of a long scroller they were findable only by
+ *    remembering they were there.
+ *  - **Weather** is the one place Crest has to be *told* something before a
+ *    feature works at all. Sitting three groups down among switches, it read as
+ *    an option for a feature you already had, rather than as the setup step it is.
+ *
+ * Everything left is a switch about behaviour, and that is still "Settings".
+ */
+type Pane = 'about' | 'appearance' | 'weather' | 'settings'
 
 /** Nav entries, in the order they appear in the sidebar. */
 const PANES: { id: Pane; label: string; icon: ReactNode }[] = [
@@ -77,6 +93,29 @@ const PANES: { id: Pane; label: string; icon: ReactNode }[] = [
         <circle cx="12" cy="12" r="9" />
         <path d="M12 11v5" />
         <path d="M12 8h.01" />
+      </Icon>
+    ),
+  },
+  {
+    id: 'appearance',
+    label: 'Appearance',
+    icon: (
+      <Icon size={16}>
+        <path d="M12 3a9 9 0 0 0 0 18c1.4 0 2.2-.9 2.2-2 0-1-.7-1.6-.7-2.4 0-.7.6-1.3 1.4-1.3H17a4.5 4.5 0 0 0 4.5-4.6C21.5 6.3 17.3 3 12 3z" />
+        <circle cx="7.6" cy="11.4" r="1.1" fill="currentColor" stroke="none" />
+        <circle cx="11" cy="7.8" r="1.1" fill="currentColor" stroke="none" />
+        <circle cx="15.4" cy="8.8" r="1.1" fill="currentColor" stroke="none" />
+      </Icon>
+    ),
+  },
+  {
+    id: 'weather',
+    label: 'Weather',
+    icon: (
+      <Icon size={16}>
+        <circle cx="8.5" cy="8.5" r="3" />
+        <path d="M8.5 2.6v1.4M3.1 8.5h1.4M4.6 4.6l1 1M12.4 4.6l-1 1" />
+        <path d="M8.4 19.6a3.6 3.6 0 0 1-.4-7.2 5 5 0 0 1 9.7.4 3.4 3.4 0 0 1-.3 6.8z" />
       </Icon>
     ),
   },
@@ -630,7 +669,14 @@ function AboutPane({ version }: { version: string }) {
   )
 }
 
-function SettingsPane({
+/**
+ * How Crest looks: the two preferences that change nothing about what it does.
+ *
+ * Its own pane rather than a group at the top of the settings scroller, because
+ * these are the two people come back to and adjust — and both repaint every
+ * window live, so the pane you are looking at *is* the preview.
+ */
+function AppearancePane({
   api,
   opacity,
   onPreviewOpacity,
@@ -640,24 +686,11 @@ function SettingsPane({
   opacity: number
   onPreviewOpacity: (percent: number | null) => void
 }) {
-  const {
-    settings,
-    error,
-    setAlwaysOnTop,
-    setNotifications,
-    setSystemAlerts,
-    setMuteWindowsBanners,
-    setBackgroundOpacity,
-    setNotchPosition,
-    setHotzoneHint,
-    setAccentColor,
-    setWeatherPlace,
-  } = api
-  const notificationAccess = useNotificationAccess()
+  const { settings, error, setBackgroundOpacity, setAccentColor } = api
 
   return (
     <>
-      <h3 style={{ ...sectionLabel, margin: '0 0 8px' }}>Appearance</h3>
+      <h3 style={{ ...sectionLabel, margin: '0 0 8px' }}>Surface</h3>
 
       <RangeRow
         title="Background opacity"
@@ -688,9 +721,57 @@ function SettingsPane({
         />
       </RangeRow>
 
+      <GroupLabel>Colour</GroupLabel>
+
       <AccentPicker value={settings.accentColor} onChange={setAccentColor} />
 
-      <GroupLabel>General</GroupLabel>
+      {error && (
+        <p style={{ margin: '8px 12px 0', fontSize: 11.5, color: color.fileRed }}>{error}</p>
+      )}
+    </>
+  )
+}
+
+/**
+ * Where the weather module looks.
+ *
+ * A pane of its own for one control, which looks like too much until you notice
+ * it is not a preference: it is the one thing Crest has to be *told* before a
+ * feature works at all. Sitting three groups down a list of switches, it read as
+ * an option for something you already had.
+ */
+function WeatherPane({ api }: { api: ReturnType<typeof useSettings> }) {
+  const { settings, error, setWeatherPlace } = api
+
+  return (
+    <>
+      <h3 style={{ ...sectionLabel, margin: '0 0 8px' }}>Weather</h3>
+
+      <WeatherLocation place={settings.weatherPlace} onChange={setWeatherPlace} />
+
+      {error && (
+        <p style={{ margin: '8px 12px 0', fontSize: 11.5, color: color.fileRed }}>{error}</p>
+      )}
+    </>
+  )
+}
+
+function SettingsPane({ api }: { api: ReturnType<typeof useSettings> }) {
+  const {
+    settings,
+    error,
+    setAlwaysOnTop,
+    setNotifications,
+    setSystemAlerts,
+    setMuteWindowsBanners,
+    setNotchPosition,
+    setHotzoneHint,
+  } = api
+  const notificationAccess = useNotificationAccess()
+
+  return (
+    <>
+      <h3 style={{ ...sectionLabel, margin: '0 0 8px' }}>General</h3>
 
       <ChoiceRow
         title="Position"
@@ -800,12 +881,11 @@ function SettingsPane({
         }
       />
 
-      {/* Its own group: neither of these is a switch, and neither is about the
-          notch reporting something at you. They are the two places where Crest
-          needs to be told something — where you are, and where your notes went. */}
-      <GroupLabel>Weather and notes</GroupLabel>
-
-      <WeatherLocation place={settings.weatherPlace} onChange={setWeatherPlace} />
+      {/* Stays here rather than following the weather out to its own pane: it is
+          not a preference at all — nothing is set, it only reports where the file
+          went. Behaviour is what this pane is, and "notes save themselves, here"
+          is a fact about behaviour. */}
+      <GroupLabel>Notes</GroupLabel>
 
       <NotesLocation />
 
@@ -1025,8 +1105,12 @@ export default function SettingsWindow() {
                 >
                   {pane === 'about' ? (
                     <AboutPane version={version} />
+                  ) : pane === 'appearance' ? (
+                    <AppearancePane api={api} opacity={opacity} onPreviewOpacity={setPreview} />
+                  ) : pane === 'weather' ? (
+                    <WeatherPane api={api} />
                   ) : (
-                    <SettingsPane api={api} opacity={opacity} onPreviewOpacity={setPreview} />
+                    <SettingsPane api={api} />
                   )}
                 </motion.div>
               </AnimatePresence>

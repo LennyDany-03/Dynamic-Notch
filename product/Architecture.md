@@ -530,6 +530,36 @@ Each command should be added only when its corresponding feature is being built 
   The month grid always draws six week rows, even in a month that needs five. A
   grid that changed height would change the card's height, and the notch would
   visibly resize as the user paged through the year.
+
+  **`monthGrid` carries the start as a day offset, not as a Date.** The version
+  that shipped first built the start date and then read `start.getDate()` off it,
+  which is wrong in a way that hides: for August 2026 the grid starts on 26 July,
+  `getDate()` returns 26, and `new Date(2026, 7, 26 + i)` is 26 *August* — so the
+  whole grid ran a month late with every weekday column misaligned, and it only
+  looked plausible because the first row's numbers happened to be right. Handing
+  the raw offset to the `Date` constructor (`new Date(2026, 7, -5)` is 26 July)
+  lets it do the normalising, and there is no intermediate value to misread.
+- **The time picker is ours because `<input type="time">` cannot be.** Its picker
+  is a *native popup* — a real OS window, positioned by Chromium and free to
+  extend past the page. On an ordinary page that is what you want. Here the page
+  is a 560×420 transparent overlay pinned to the top of the screen, so the popup
+  opened downward across the desktop, painted over whatever was behind it, and sat
+  entirely outside the rect `layout.contentRect` hit-tests — which meant the notch
+  counted the cursor as away, started its grace timer, and collapsed the card out
+  from under a popup that was still on screen.
+
+  So `TimePicker` draws a panel inside the card, in the card's own coordinate
+  space, opening upward and rightward from a trigger at the bottom of the day
+  pane — the one direction with room left. Minutes are in five-minute steps
+  because a reminder is not a stopwatch and sixty rows in a 130px column is a
+  scroll nobody wants; a value that is not on the grid highlights nothing rather
+  than snapping to a neighbour that would misreport it. The value stays 24-hour
+  `HH:MM`, the same string the native input produced, so nothing downstream
+  changed.
+
+  The general rule this is an instance of: **any native popup is out of bounds in
+  the overlay window.** Selects, date inputs, colour inputs and context menus all
+  have the same problem, and all of them need an in-card equivalent.
 - **The notes pane grew a list, and the card grew with it.** The export drew one
   borderless textarea, which had two faults that only showed in use: it was four
   lines tall, and every note past the first was *unreachable* — `+` created them
@@ -538,10 +568,28 @@ Each command should be added only when its corresponding feature is being built 
   is the friction this module exists to remove), and a full-card expansion for
   when the editor is not enough.
 
-  The expansion is a swap *inside* the fixed 440×346 card, not a bigger card. Same
+  The expansion is a swap *inside* the fixed card, not a bigger card. Same
   constraint as `NotificationDetail`: anything drawn outside the card's own rect
   sits on a click-through region and would take no clicks. It also means the state
   machine never has to know the expansion exists.
+
+  The card went to 346 — the launcher's height, the tallest there is — and that
+  overshot. A shelf holding two files drew a dashed box with 150px of nothing in
+  it, which is the dead zone `contentRect` warns about, self-inflicted and inside
+  the visible card: it holds the notch open over emptiness. It is 260 now, which
+  fits two rows of tiles with the box actually filled and nine lines of note
+  inline, and the answer to "I need more room" is the expansion rather than a card
+  permanently sized for the longest note anyone might write.
+- **The settings window is four panes, not two.** A single "Settings" pane had
+  grown past a screenful, and two things in it were worse than merely long.
+  *Appearance* — the accent and the opacity — is the pair people come back to and
+  adjust, and buried under the first heading of a long scroller they were findable
+  only by remembering they were there. *Weather* is not a preference at all: it is
+  the one thing Crest has to be **told** before a feature works, and sitting three
+  groups down among switches it read as an option for something you already had.
+  Both are their own nav entry now. What is left is switches about behaviour,
+  which is what "Settings" means, plus the notes path — which stays because it is
+  a fact about behaviour rather than something to set.
 - **The equalizer is drawn only while audio is playing.** It used to be permanent
   — dimmed with no session, frozen low when paused — on the reasoning that a
   stable pill is a calm one. In use it was the opposite: the pill rests on screen

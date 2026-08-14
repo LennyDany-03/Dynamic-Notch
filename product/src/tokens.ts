@@ -174,17 +174,22 @@ export const size = {
    * The file shelf and notes card. **Deliberately not the export's 206.**
    *
    * The export drew a single-line note pane beside a one-row shelf, and 206 was
-   * right for that. It now carries a note *list* beside an editor, and a shelf
-   * that wraps to a second row — and the editor was the complaint: four visible
-   * lines is a card you cannot think in, which is what "larger expansion for
-   * notes" asked for. At 346 the editor holds about fourteen lines, and the full
-   * card's worth is one click away in the expanded sheet.
+   * right for that. It now carries a note list beside an editor, and a shelf that
+   * wraps rather than scrolling sideways.
    *
-   * 346 exactly, matching the launcher, because that is the tallest card there
-   * is: going past it would grow the region that holds the notch open for every
-   * module, which `layout.contentRect` exists to avoid.
+   * 260 after a correction. This went to 346 first — the launcher's height, the
+   * tallest card there is — on the reasoning that a four-line editor is a card
+   * you cannot think in. That was true and it overshot: a shelf holding two files
+   * drew a dashed box with about a hundred and fifty pixels of nothing in it, and
+   * an empty stripe inside a card is the dead zone `layout.contentRect` warns
+   * about, only self-inflicted. It holds the notch open over nothing.
+   *
+   * At 260 the shelf fits two rows of tiles with the box actually filled, and the
+   * editor holds about nine lines inline — and the answer to "I need more room
+   * than that" is the expansion, which takes the whole card, rather than a card
+   * that is permanently sized for the longest note anyone might write.
    */
-  files: { width: 440, height: 346 },
+  files: { width: 440, height: 260 },
   /**
    * NOT from the design export either — see `NotchModule`. The height is a
    * *ceiling*, not the card: this is the one module sized to its contents, and

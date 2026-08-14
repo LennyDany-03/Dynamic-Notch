@@ -171,7 +171,7 @@ function Tile({
         style={{
           fontSize: 9.5,
           color: color.text.secondary,
-          marginTop: 5,
+          marginTop: 4,
           textAlign: 'center',
           whiteSpace: 'nowrap',
           overflow: 'hidden',
@@ -221,13 +221,18 @@ export default function FileShelf({ shelf }: { shelf: FileShelfState }) {
           border: `1px dashed ${dragging ? color.accent : color.dashed}`,
           background: dragging ? color.accentWashSoft : 'transparent',
           transition: 'border-color 140ms ease, background 140ms ease',
-          padding: 12,
-          // Wraps rather than scrolling sideways: the card is tall enough for
-          // three rows now, and a horizontal scroller hides its own contents.
+          // 10 rather than 12, and the same for the gap: two rows of tiles have
+          // to fit the 170px this box gets at `size.files`'s 260, and at 12 the
+          // second row's caption clipped by a few pixels. Anything past two rows
+          // scrolls, which is the right trade — the shelf is a staging area, and
+          // a dozen files parked in it is a folder.
+          padding: 10,
+          // Wraps rather than scrolling sideways: a horizontal scroller hides its
+          // own contents, which is what the export's single row did.
           display: 'flex',
           flexWrap: 'wrap',
           alignContent: 'flex-start',
-          gap: 12,
+          gap: 10,
           overflowY: 'auto',
         }}
       >

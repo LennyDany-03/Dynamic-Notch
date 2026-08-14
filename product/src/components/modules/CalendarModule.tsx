@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { getCurrentWindow } from '@tauri-apps/api/window'
+import TimePicker from '../calendar/TimePicker'
 import type { ReminderFeed } from '../../hooks/useReminders'
 import { color, radius, sectionLabel } from '../../tokens'
 import {
@@ -15,7 +17,7 @@ import {
  * A month, and what is on it.
  *
  * Two panes: the grid on the left, and whatever day is selected on the right.
- * That split is what makes a 440px card able to be both a calendar and a to-do
+ * That split is what makes a 440px card able to be both a calendar and a task
  * list — a month grid alone answers "what is the date" and nothing else, and a
  * flat list of reminders answers "what is next" but loses the shape of the month
  * that makes you notice Thursday is full.
@@ -57,18 +59,32 @@ const requestWindowFocus = () => {
 /**
  * The 42 squares of a month view.
  *
- * Always six rows starting from the Sunday on or before the 1st, so the grid is
- * a fixed shape — see the note above about the card resizing. Days from the
+ * Always six rows starting from the Sunday on or before the 1st, so the grid is a
+ * fixed shape — see the note above about the card resizing. Days from the
  * neighbouring months are included rather than blanked, because the last three
  * days of the previous month are still days you might have put something on.
+ *
+ * The offset is carried as a *number of days* and handed to the `Date`
+ * constructor, which normalises out-of-range values for us — `new Date(2026, 7,
+ * -5)` is 26 July. The obvious-looking version builds the start date first and
+ * then reads `start.getDate()` off it, which is wrong in a way that hides: for
+ * August 2026 that returns 26, and `new Date(2026, 7, 26 + i)` is 26 *August*, so
+ * the whole grid ran a month late with every weekday column misaligned.
  */
 function monthGrid(year: number, month: number): Date[] {
-  const first = new Date(year, month, 1)
-  const start = new Date(year, month, 1 - first.getDay())
-  return Array.from({ length: WEEKS * 7 }, (_, i) => new Date(year, month, start.getDate() + i))
+  const offset = 1 - new Date(year, month, 1).getDay()
+  return Array.from({ length: WEEKS * 7 }, (_, i) => new Date(year, month, offset + i))
 }
 
-function Chevron({ direction, label, onClick }: { direction: -1 | 1; label: string; onClick: () => void }) {
+function Chevron({
+  direction,
+  label,
+  onClick,
+}: {
+  direction: -1 | 1
+  label: string
+  onClick: () => void
+}) {
   const [hover, setHover] = useState(false)
 
   return (
@@ -108,8 +124,20 @@ function Chevron({ direction, label, onClick }: { direction: -1 | 1; label: stri
   )
 }
 
-/** One reminder in the right pane. */
-function Row({
+/**
+ * One task.
+ *
+ * **Redesigned from the first cut**, which put the time and the countdown on a
+ * second line under the title in 9.5px grey. Two problems: the countdown was the
+ * least important thing on the row and it had the most horizontal space, and the
+ * delete button appeared *in place of nothing*, so the row reflowed on hover.
+ *
+ * Now the time is a right-aligned chip on the title's own line — it is what you
+ * scan a day's list by — and the countdown only appears when it is worth saying.
+ * Delete swaps with the chip on hover, which is a fixed-width exchange, so
+ * nothing moves.
+ */
+function Task({
   reminder,
   now,
   onToggle,
@@ -130,11 +158,11 @@ function Row({
       style={{
         display: 'flex',
         alignItems: 'center',
-        gap: 8,
-        height: 30,
+        gap: 9,
+        minHeight: 32,
         flex: 'none',
-        padding: '0 6px',
-        margin: '0 -6px',
+        padding: '0 7px',
+        margin: '0 -7px',
         borderRadius: radius.small,
         background: hovered ? color.tile : 'transparent',
         transition: 'background 90ms linear',
@@ -146,68 +174,112 @@ function Row({
         aria-label={reminder.done ? 'Mark as not done' : 'Mark as done'}
         title={reminder.done ? 'Mark as not done' : 'Mark as done'}
         style={{
-          width: 14,
-          height: 14,
+          width: 15,
+          height: 15,
           flex: 'none',
           padding: 0,
           display: 'grid',
           placeItems: 'center',
-          borderRadius: 4,
+          borderRadius: 4.5,
           border: `1.5px solid ${reminder.done ? color.accent : color.text.icon}`,
           background: reminder.done ? color.accent : 'transparent',
           transition: 'background 120ms ease, border-color 120ms ease',
         }}
       >
-        {reminder.done && (
-          <svg viewBox="0 0 24 24" width={10} height={10} fill="none" stroke="#fff" strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round">
-            <path d="m5 13 4.5 4.5L19 7" />
-          </svg>
-        )}
+        <motion.svg
+          viewBox="0 0 24 24"
+          width={10}
+          height={10}
+          fill="none"
+          stroke="#fff"
+          strokeWidth={3.5}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          initial={false}
+          animate={{ opacity: reminder.done ? 1 : 0, scale: reminder.done ? 1 : 0.5 }}
+          transition={{ duration: 0.14 }}
+        >
+          <path d="m5 13 4.5 4.5L19 7" />
+        </motion.svg>
       </button>
 
       <span style={{ flex: 1, minWidth: 0 }}>
         <span
           style={{
-            display: 'block',
             fontSize: 11.5,
+            lineHeight: 1.3,
             color: reminder.done ? color.text.muted : color.text.strong,
             textDecoration: reminder.done ? 'line-through' : undefined,
-            whiteSpace: 'nowrap',
+            // Two lines before clipping. A task is a sentence someone typed, and
+            // "Pick up the prescription bef…" is a worse row than two short lines.
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
             overflow: 'hidden',
-            textOverflow: 'ellipsis',
           }}
         >
           {reminder.title}
         </span>
-        <span
-          style={{
-            display: 'block',
-            fontSize: 9.5,
-            // Overdue is the one state worth colouring: it is the difference
-            // between a plan and a thing that has been missed.
-            color: overdue ? color.fileRed : color.text.muted,
-          }}
-        >
-          {formatTime(reminder.dueAt)}
-          {!reminder.done && ` · ${relativeDue(reminder.dueAt, now)}`}
-        </span>
+
+        {/* Only when it adds something. A done task does not need a countdown,
+            and neither does one three weeks out. */}
+        {!reminder.done && (overdue || reminder.dueAt - now < 24 * 60 * 60 * 1000) && (
+          <span
+            style={{
+              display: 'block',
+              marginTop: 1,
+              fontSize: 9.5,
+              color: overdue ? color.fileRed : color.text.muted,
+            }}
+          >
+            {relativeDue(reminder.dueAt, now)}
+          </span>
+        )}
       </span>
 
-      {/* Only on hover: a delete button visible on every row turns a list you
-          read into a list you have to be careful in. */}
-      {hovered && (
-        <button
-          type="button"
-          onClick={onRemove}
-          aria-label="Delete reminder"
-          title="Delete"
-          style={{ width: 16, height: 16, flex: 'none', padding: 0, display: 'grid', placeItems: 'center' }}
-        >
-          <svg viewBox="0 0 24 24" width={12} height={12} fill="none" stroke={color.text.muted} strokeWidth={1.8} strokeLinecap="round">
-            <path d="M6 6l12 12M18 6L6 18" />
-          </svg>
-        </button>
-      )}
+      {/* Fixed width, so the swap on hover moves nothing. */}
+      <span style={{ width: 52, flex: 'none', display: 'flex', justifyContent: 'flex-end' }}>
+        {hovered ? (
+          <button
+            type="button"
+            onClick={onRemove}
+            aria-label={`Delete ${reminder.title}`}
+            title="Delete"
+            style={{
+              width: 20,
+              height: 20,
+              display: 'grid',
+              placeItems: 'center',
+              padding: 0,
+              borderRadius: radius.small,
+              background: 'rgba(248,113,113,.14)',
+            }}
+          >
+            <svg viewBox="0 0 24 24" width={11} height={11} fill="none" stroke={color.fileRed} strokeWidth={2.2} strokeLinecap="round">
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
+        ) : (
+          <span
+            style={{
+              fontSize: 9.5,
+              fontWeight: 600,
+              fontVariantNumeric: 'tabular-nums',
+              padding: '2px 6px',
+              borderRadius: radius.pill,
+              background: color.tile,
+              color: reminder.done
+                ? color.text.muted
+                : overdue
+                  ? color.fileRed
+                  : color.text.secondary,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {formatTime(reminder.dueAt)}
+          </span>
+        )}
+      </span>
     </div>
   )
 }
@@ -235,6 +307,7 @@ export default function CalendarModule({ feed }: { feed: ReminderFeed }) {
   // weeks, and a "today" pinned to whenever the process started would leave the
   // ring on the wrong square from the first midnight onward.
   const today = useMemo(() => new Date(now), [now])
+  const todayKey = dayKey(today)
 
   const [selected, setSelected] = useState(() => dayKey(new Date()))
   const [cursor, setCursor] = useState(() => {
@@ -260,8 +333,8 @@ export default function CalendarModule({ feed }: { feed: ReminderFeed }) {
     return map
   }, [reminders])
 
-  const todayKey = dayKey(today)
-  const dayReminders = byDay.get(selected) ?? []
+  const dayTasks = byDay.get(selected) ?? []
+  const outstanding = dayTasks.filter((task) => !task.done).length
 
   const selectedDate = useMemo(() => {
     const [year, month, day] = selected.split('-').map(Number)
@@ -278,8 +351,8 @@ export default function CalendarModule({ feed }: { feed: ReminderFeed }) {
     if (at === null) return
     add(draft, at)
     setDraft('')
-    // Focus is kept: adding two reminders in a row is the common case, and
-    // reaching back for the field between them is friction for nothing.
+    // Focus is kept: adding two tasks in a row is the common case, and reaching
+    // back for the field between them is friction for nothing.
     inputRef.current?.focus()
   }
 
@@ -289,19 +362,31 @@ export default function CalendarModule({ feed }: { feed: ReminderFeed }) {
       return { year: next.getFullYear(), month: next.getMonth() }
     })
 
+  /** Jump the grid and the selection back to today. Only offered when away. */
+  const goToday = () => {
+    setSelected(todayKey)
+    setCursor({ year: today.getFullYear(), month: today.getMonth() })
+  }
+
+  const showingThisMonth =
+    cursor.year === today.getFullYear() && cursor.month === today.getMonth()
+
   return (
-    <div style={{ width: '100%', height: '100%', padding: 16, display: 'flex', gap: 14 }}>
+    <div
+      style={{
+        width: '100%',
+        height: '100%',
+        padding: 16,
+        display: 'flex',
+        gap: 14,
+        // The time picker opens as an absolutely-positioned panel inside this
+        // box, which is what keeps it inside the card's hit rect.
+        position: 'relative',
+      }}
+    >
       {/* ── The month ─────────────────────────────────────────────────────── */}
       <div style={{ width: GRID_W, flex: 'none', display: 'flex', flexDirection: 'column' }}>
-        <div
-          style={{
-            height: HEADER_H,
-            flex: 'none',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 4,
-          }}
-        >
+        <div style={{ height: HEADER_H, flex: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
           <span
             style={{
               flex: 1,
@@ -316,6 +401,30 @@ export default function CalendarModule({ feed }: { feed: ReminderFeed }) {
           >
             {monthLabel}
           </span>
+
+          {/* Only once it would do something. A "Today" button on the month you
+              are already looking at is a control that reports its own state. */}
+          {!showingThisMonth && (
+            <button
+              type="button"
+              onClick={goToday}
+              title="Back to today"
+              style={{
+                flex: 'none',
+                height: 18,
+                padding: '0 7px',
+                marginRight: 2,
+                borderRadius: radius.pill,
+                background: color.accentWash,
+                fontSize: 9.5,
+                fontWeight: 600,
+                color: color.text.strong,
+              }}
+            >
+              Today
+            </button>
+          )}
+
           <Chevron direction={-1} label="Previous month" onClick={() => step(-1)} />
           <Chevron direction={1} label="Next month" onClick={() => step(1)} />
         </div>
@@ -370,6 +479,7 @@ export default function CalendarModule({ feed }: { feed: ReminderFeed }) {
                 onClick={() => setSelected(key)}
                 title={date.toLocaleDateString(undefined, { dateStyle: 'full' })}
                 style={{
+                  position: 'relative',
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
@@ -391,14 +501,10 @@ export default function CalendarModule({ feed }: { feed: ReminderFeed }) {
                     fontWeight: isToday ? 700 : 400,
                     fontVariantNumeric: 'tabular-nums',
                     lineHeight: 1,
-                    color: isSelected
-                      ? '#fff'
-                      : outside
-                        ? color.text.muted
-                        : color.text.strong,
+                    color: isSelected ? '#fff' : outside ? color.text.muted : color.text.strong,
                     // Neighbouring months are present but recessive — reachable,
                     // never competing with the month you asked for.
-                    opacity: outside && !isSelected ? 0.45 : 1,
+                    opacity: outside && !isSelected ? 0.4 : 1,
                   }}
                 >
                   {date.getDate()}
@@ -430,21 +536,52 @@ export default function CalendarModule({ feed }: { feed: ReminderFeed }) {
 
       {/* ── The day ───────────────────────────────────────────────────────── */}
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-        <div style={{ height: HEADER_H, flex: 'none' }}>
-          <div style={{ ...sectionLabel, lineHeight: '12px' }}>
-            {selected === todayKey
-              ? 'Today'
-              : selectedDate.toLocaleDateString(undefined, { weekday: 'long' })}
+        <div style={{ height: HEADER_H, flex: 'none', display: 'flex', alignItems: 'flex-start' }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ ...sectionLabel, lineHeight: '11px' }}>
+              {selected === todayKey
+                ? 'Today'
+                : selectedDate.toLocaleDateString(undefined, { weekday: 'long' })}
+            </div>
+            <div
+              style={{
+                fontSize: 12,
+                fontWeight: 600,
+                color: color.text.primary,
+                marginTop: 3,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {selectedDate.toLocaleDateString(undefined, { day: 'numeric', month: 'long' })}
+            </div>
           </div>
-          <div style={{ fontSize: 12, fontWeight: 600, color: color.text.primary, marginTop: 2 }}>
-            {selectedDate.toLocaleDateString(undefined, { day: 'numeric', month: 'long' })}
-          </div>
+
+          {/* How much is left, not how much there is. A day with four ticked
+              tasks and one open should read as "1". */}
+          {outstanding > 0 && (
+            <span
+              style={{
+                flex: 'none',
+                marginTop: 1,
+                padding: '1px 7px',
+                borderRadius: radius.pill,
+                background: color.accentWash,
+                fontSize: 9.5,
+                fontWeight: 700,
+                color: color.text.strong,
+              }}
+            >
+              {outstanding}
+            </span>
+          )}
         </div>
 
         <div style={{ height: 8, flex: 'none' }} />
 
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
-          {dayReminders.length === 0 ? (
+          {dayTasks.length === 0 ? (
             <div
               style={{
                 height: '100%',
@@ -463,22 +600,32 @@ export default function CalendarModule({ feed }: { feed: ReminderFeed }) {
               {loaded ? 'Nothing on this day' : ''}
             </div>
           ) : (
-            dayReminders.map((reminder) => (
-              <Row
-                key={reminder.id}
-                reminder={reminder}
-                now={now}
-                onToggle={() => toggleDone(reminder.id)}
-                onRemove={() => remove(reminder.id)}
-              />
-            ))
+            <AnimatePresence initial={false}>
+              {dayTasks.map((reminder) => (
+                <motion.div
+                  key={reminder.id}
+                  layout
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.16 }}
+                >
+                  <Task
+                    reminder={reminder}
+                    now={now}
+                    onToggle={() => toggleDone(reminder.id)}
+                    onRemove={() => remove(reminder.id)}
+                  />
+                </motion.div>
+              ))}
+            </AnimatePresence>
           )}
         </div>
 
         <div style={{ height: 8, flex: 'none' }} />
 
         {/* ── Add ─────────────────────────────────────────────────────────── */}
-        <div style={{ display: 'flex', gap: 6, height: 26, flex: 'none' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 'none' }}>
           <input
             ref={inputRef}
             value={draft}
@@ -490,9 +637,8 @@ export default function CalendarModule({ feed }: { feed: ReminderFeed }) {
             placeholder="Get groceries…"
             spellCheck={false}
             style={{
-              flex: 1,
-              minWidth: 0,
-              height: '100%',
+              width: '100%',
+              height: 26,
               border: 'none',
               outline: 'none',
               padding: '0 8px',
@@ -510,55 +656,41 @@ export default function CalendarModule({ feed }: { feed: ReminderFeed }) {
             }}
           />
 
-          <input
-            type="time"
-            value={time}
-            onChange={(event) => setTime(event.target.value)}
-            onPointerDown={requestWindowFocus}
-            aria-label="Time"
-            style={{
-              width: 68,
-              flex: 'none',
-              height: '100%',
-              border: 'none',
-              outline: 'none',
-              padding: '0 4px',
-              borderRadius: radius.small,
-              background: color.inset,
-              boxShadow: color.insetShadow,
-              fontFamily: 'inherit',
-              fontSize: 11,
-              color: color.text.body,
-              colorScheme: 'dark',
-              userSelect: 'text',
-              WebkitUserSelect: 'text',
-            }}
-          />
+          {/* The time and the button on their own row rather than crammed beside
+              the field: three controls across 180px left the text field about
+              eighty pixels, which is four characters of "Get groceries". */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <TimePicker value={time} onChange={setTime} />
 
-          <button
-            type="button"
-            onClick={submit}
-            aria-label="Add reminder"
-            title="Add reminder"
-            disabled={draft.trim().length === 0}
-            style={{
-              width: 26,
-              height: '100%',
-              flex: 'none',
-              display: 'grid',
-              placeItems: 'center',
-              padding: 0,
-              borderRadius: radius.small,
-              background: draft.trim() ? color.accent : color.tile,
-              opacity: draft.trim() ? 1 : 0.5,
-              cursor: draft.trim() ? 'pointer' : 'default',
-              transition: 'background 120ms ease, opacity 120ms ease',
-            }}
-          >
-            <svg viewBox="0 0 24 24" width={13} height={13} fill="none" stroke="#fff" strokeWidth={2} strokeLinecap="round">
-              <path d="M12 6v12M6 12h12" />
-            </svg>
-          </button>
+            <span style={{ flex: 1 }} />
+
+            <button
+              type="button"
+              onClick={submit}
+              disabled={draft.trim().length === 0}
+              title="Add task"
+              style={{
+                flex: 'none',
+                height: 26,
+                padding: '0 12px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 5,
+                borderRadius: radius.small,
+                fontSize: 11.5,
+                fontWeight: 600,
+                color: draft.trim() ? '#fff' : color.text.muted,
+                background: draft.trim() ? color.accent : color.tile,
+                cursor: draft.trim() ? 'pointer' : 'default',
+                transition: 'background 120ms ease, color 120ms ease',
+              }}
+            >
+              <svg viewBox="0 0 24 24" width={12} height={12} fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round">
+                <path d="M12 6v12M6 12h12" />
+              </svg>
+              Add
+            </button>
+          </div>
         </div>
       </div>
     </div>
