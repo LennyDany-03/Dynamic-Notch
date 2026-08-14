@@ -12,17 +12,22 @@ const steps = [
   {
     n: "03",
     title: "Move between panels",
-    body: "Chevrons either side of the panel name step through Media, Launcher, Shelf & Notes, and Notifications. Drag a file at the notch and it jumps straight to the shelf.",
+    body: "Chevrons either side of the panel name step through Media, Launcher, Shelf & Notes, Notifications, System, Weather and Calendar — or just scroll over the card. A list that scrolls on its own still scrolls on its own, so reading to the bottom of your notifications never tips you into the next panel. Drag a file at the notch and it jumps straight to the shelf.",
   },
   {
     n: "04",
     title: "Let it come to you",
-    body: "Some things do not wait to be hovered. A track starting or a notification arriving drops a small banner down for a few seconds and retracts it. Hover a notification to hold it while you read; keep hovering the music one and the full player opens.",
+    body: "Some things do not wait to be hovered. A track starting, a notification arriving, a reminder falling due, a charger going in, or your machine struggling — each drops a small banner down for a few seconds and retracts it. Hover to hold one while you read; keep hovering the ones with a panel behind them and it opens.",
   },
   {
     n: "05",
     title: "Move away",
     body: "Leave the card and it steps back down — expanded, to pill, to nothing — with a short grace period at each step so a slipped cursor doesn't close it. Or switch \"Always on top\" on and the pill simply stays.",
+  },
+  {
+    n: "06",
+    title: "Never think about updating it",
+    body: "Crest checks for a new version shortly after it starts and again through the day. If there is one, it downloads and installs it on its own — no installer window, no prompts, no wizard. The only sign is a small loader in the notch itself.",
   },
 ];
 

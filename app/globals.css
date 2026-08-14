@@ -242,6 +242,53 @@ body {
 }
 
 /*
+  Scroll reveal for card grids. The hero's `.rise` fires on load because it is
+  above the fold; everything below it needs to wait until it is actually looked
+  at, or the animation has already finished by the time the reader arrives.
+
+  Held at `opacity: 0` until `Reveal` adds `.is-visible`, and deliberately not
+  the other way round: a card that faded *out* on first paint would flash.
+*/
+@keyframes reveal-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.reveal {
+  opacity: 0;
+}
+
+.reveal.is-visible {
+  animation: reveal-up 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/*
+  The settings group swapping under the tabs. Mirrors the real Settings window,
+  which slides a pane in from `x: 6` — small, because the card is already
+  changing and a second axis of travel reads as jitter.
+*/
+@keyframes group-in {
+  from {
+    opacity: 0;
+    transform: translateX(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.group-in {
+  animation: group-in 0.32s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+/*
   Panel cross-fade inside the notch. The app fades panels over 120ms with no
   movement — the card is already springing to a new size, and a second axis of
   motion on top of that reads as jitter.
@@ -348,8 +395,20 @@ body {
   .rise,
   .eq,
   .caret,
+  .group-in,
   .modal-backdrop,
   .modal-panel {
     animation: none;
+  }
+
+  /*
+    Reveal needs more than `animation: none`: the resting state is
+    `opacity: 0`, so cancelling the animation alone would leave every card
+    below the fold invisible rather than unanimated.
+  */
+  .reveal,
+  .reveal.is-visible {
+    animation: none;
+    opacity: 1;
   }
 }
