@@ -4,17 +4,17 @@ const pillars = [
   {
     icon: Windows,
     title: "Native, not a web app in a box",
-    body: "The music, the launcher index, the clipboard listener and the drag-out shelf are all real Windows APIs called from Rust. There is no polling of a browser shim in between.",
+    body: "The music, the launcher index, the clipboard listener, the drag-out shelf and the load meters are all real Windows APIs called from Rust. The CPU and GPU figures come from the same performance counters Task Manager reads, so they agree with it rather than approximating it.",
   },
   {
     icon: Bolt,
     title: "Idle costs nothing",
-    body: "Nothing renders while the notch is away, and the two things that must keep listening — what is playing, and what has just arrived — drop to a check every two seconds. Everything else happens only in the seconds you are looking at it.",
+    body: "Nothing renders while the notch is away, and the watchers that have to keep listening — what is playing, what has just arrived, what your machine is doing — settle to a check every two seconds. The meters only speed up while you are looking at them, and the forecast is cached for ten minutes.",
   },
   {
     icon: Shield,
     title: "Your data stays put",
-    body: "No account, no sync, no telemetry, no analytics. Clipboard entries, notes and shelved files live in your local app-data folder and go nowhere else.",
+    body: "No account, no sync, no telemetry, no analytics. Clipboard entries, notes, reminders and shelved files live in your local app-data folder and go nowhere else. Only two things ever leave the machine: the update check, and the forecast for the town you typed in yourself.",
   },
   {
     icon: Ghost,

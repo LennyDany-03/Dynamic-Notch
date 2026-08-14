@@ -19,7 +19,19 @@ const faqs = [
   },
   {
     q: "How do notifications in the notch work?",
-    a: "Crest reads the Windows notification centre, so anything that lands there drops down from the notch for a few seconds with the app's own icon, then retracts. Hover to hold it while you read. Windows needs \"Let apps access your notifications\" turned on — Crest tells you in Settings if it isn't. There is also a fourth panel holding everything currently in the centre.",
+    a: "Crest reads the Windows notification centre, so anything that lands there drops down from the notch for a few seconds with the app's own icon, then retracts. Hover to hold it while you read. Windows needs \"Let apps access your notifications\" turned on — Crest tells you in Settings if it isn't. There is also a panel holding everything currently in the centre, where you can open one in full, dismiss it, or clear the lot.",
+  },
+  {
+    q: "I have two monitors. Which one does it live on?",
+    a: "Whichever you want. The Display page in Settings draws the screens you have, arranged the way they actually sit on your desk and numbered to match Windows' own display settings — click one and the notch moves there. Or switch on \"show the notch on every display\" and each monitor gets its own, with the same panels and the same banners. If you unplug the screen you sent it to, the notch moves to your main display until that screen is back; you never have to pick it again.",
+  },
+  {
+    q: "Can I change how it looks?",
+    a: "There are five themes — Crest's near-black and violet, cool Glacier, warm Ember, a light Daylight for a bright desktop, and Mono with no colour in it at all. On top of that you can set the accent to any colour you like, and a slider decides how much of your wallpaper shows through. Everything repaints at once: the notch, the tray menu and the settings window.",
+  },
+  {
+    q: "How does it update?",
+    a: "By itself. Crest checks shortly after it starts and again through the day, and if there is something newer it downloads and installs it quietly — no installer window, no prompts, no wizard. The only thing you see is a small loader in the notch. Releases are signed, and the full notes for each one are on GitHub and in the app.",
   },
   {
     q: "Can I stop Windows showing its own pop-ups too?",
@@ -27,7 +39,7 @@ const faqs = [
   },
   {
     q: "Can I move it, or keep it on screen?",
-    a: "Both. Settings puts the notch at the left, centre or right of your top edge, and the strip you hover to summon it moves with it. \"Always on top\" keeps the pill resting on screen above your windows instead of hiding — and with it off, a card you open still comes up in front of whatever you are working in, then drops back once it closes. There is also a slider for how transparent the surface is.",
+    a: "Both. Settings puts the notch at the left, centre or right of your top edge — on whichever monitor you choose — and the strip you hover to summon it moves with it. \"Always on top\" keeps the pill resting on screen above your windows instead of hiding, and with it off, a card you open still comes up in front of whatever you are working in, then drops back once it closes. There is also a slider for how transparent the surface is.",
   },
   {
     q: "Where do I report a bug or ask for something?",
@@ -39,7 +51,7 @@ const faqs = [
   },
   {
     q: "Is it heavy?",
-    a: "It is a Tauri app, so it uses the WebView that ships with Windows instead of bundling a browser. While the notch is away nothing renders, and the two watchers that have to keep listening — what is playing, and what has just arrived — drop to a check every two seconds. Idle cost is close to nothing.",
+    a: "It is a Tauri app, so it uses the WebView that ships with Windows instead of bundling a browser. While the notch is away nothing renders, and the watchers that have to keep listening — what is playing, what has just arrived, what your machine is doing — settle to a check every two seconds. The load meters only speed up while the system panel is actually on screen. Idle cost is close to nothing.",
   },
   {
     q: "How do I get rid of it?",

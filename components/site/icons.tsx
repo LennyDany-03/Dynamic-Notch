@@ -250,6 +250,97 @@ export const Pin: Icon = (p) => (
   </svg>
 );
 
+/* --- Panels and preferences added after 0.4 -------------------------- */
+
+/** System monitor: a load trace, the shape the meters draw. */
+export const Gauge: Icon = (p) => (
+  <svg {...base(p)}>
+    <path d="M3 13h3.5l2-5 3 10 2.5-7 1.5 2H21" />
+  </svg>
+);
+
+/** Weather: the sun-behind-cloud the forecast card uses. */
+export const Cloud: Icon = (p) => (
+  <svg {...base(p)}>
+    <circle cx="8.5" cy="8.5" r="3" />
+    <path d="M8.5 2.6v1.4M3.1 8.5h1.4M4.6 4.6l1 1M12.4 4.6l-1 1" />
+    <path d="M8.4 19.6a3.6 3.6 0 0 1-.4-7.2 5 5 0 0 1 9.7.4 3.4 3.4 0 0 1-.3 6.8Z" />
+  </svg>
+);
+
+/** Calendar and reminders: a month with a day marked. */
+export const Calendar: Icon = (p) => (
+  <svg {...base(p)}>
+    <rect x="3.5" y="5" width="17" height="16" rx="2.5" />
+    <path d="M3.5 10h17M8 3.5v3M16 3.5v3" />
+    <circle cx="12" cy="15" r="1.4" fill="currentColor" strokeWidth={0} />
+  </svg>
+);
+
+/** Theme: two panels swapped, the front one half-filled. */
+export const Palette: Icon = (p) => (
+  <svg {...base(p)}>
+    <rect x="3" y="3" width="13" height="13" rx="2.5" />
+    <path d="M8 8h10a2.5 2.5 0 0 1 2.5 2.5V21h-10A2.5 2.5 0 0 1 8 18.5Z" />
+    <path d="M8 16h8.5v5H10a2 2 0 0 1-2-2Z" fill="currentColor" strokeWidth={0} />
+  </svg>
+);
+
+/** Accent colour: the painter's droplet with three swatches on it. */
+export const Droplet: Icon = (p) => (
+  <svg {...base(p)}>
+    <path d="M12 3a9 9 0 0 0 0 18c1.4 0 2.2-.9 2.2-2 0-1-.7-1.6-.7-2.4 0-.7.6-1.3 1.4-1.3H17a4.5 4.5 0 0 0 4.5-4.6C21.5 6.3 17.3 3 12 3Z" />
+    <circle cx="7.6" cy="11.4" r="1.1" fill="currentColor" strokeWidth={0} />
+    <circle cx="11" cy="7.8" r="1.1" fill="currentColor" strokeWidth={0} />
+    <circle cx="15.4" cy="8.8" r="1.1" fill="currentColor" strokeWidth={0} />
+  </svg>
+);
+
+/** Which screen: one monitor on a stand, with the notch on its top edge. */
+export const Screen: Icon = (p) => (
+  <svg {...base(p)}>
+    <rect x="2.5" y="4.5" width="19" height="13" rx="2.5" />
+    <path d="M9 4.7h6v1.8a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1Z" fill="currentColor" strokeWidth={0} />
+    <path d="M8.5 20.5h7" />
+  </svg>
+);
+
+/** Displays: two screens, the front one carrying a notch. */
+export const Displays: Icon = (p) => (
+  <svg {...base(p)}>
+    <rect x="2" y="5" width="11" height="8" rx="1.8" />
+    <rect x="11" y="11" width="11" height="8" rx="1.8" />
+    <path d="M5.5 5.2h4v1.1a.7.7 0 0 1-.7.7H6.2a.7.7 0 0 1-.7-.7Z" fill="currentColor" strokeWidth={0} />
+    <path d="M14.5 11.2h4v1.1a.7.7 0 0 1-.7.7h-2.6a.7.7 0 0 1-.7-.7Z" fill="currentColor" strokeWidth={0} />
+  </svg>
+);
+
+/** The panel picker: an ordered list with one row switched off. */
+export const List: Icon = (p) => (
+  <svg {...base(p)}>
+    <rect x="3" y="4" width="18" height="6" rx="2" />
+    <rect x="3" y="14" width="11" height="6" rx="2" />
+    <path d="M17.5 17H21" />
+  </svg>
+);
+
+/** Scroll to change panel: a wheel with a step either side of it. */
+export const Scroll: Icon = (p) => (
+  <svg {...base(p)}>
+    <rect x="8" y="3" width="8" height="13" rx="4" />
+    <path d="M12 6.5v2.5" />
+    <path d="m9.5 20.5 2.5-2.5 2.5 2.5" />
+  </svg>
+);
+
+/** Updates that install themselves. */
+export const Refresh: Icon = (p) => (
+  <svg {...base(p)}>
+    <path d="M20.5 12a8.5 8.5 0 1 1-2.6-6.1" />
+    <path d="M20.5 4.5V10H15" />
+  </svg>
+);
+
 export const Users: Icon = (p) => (
   <svg {...base(p)}>
     <circle cx="9" cy="8" r="3.5" />
