@@ -64,7 +64,7 @@ export default function NotesViewer({ onClose }: { onClose: () => void }) {
         padding: 24,
         // A scrim, so the settings window behind reads as parked rather than as
         // a second thing competing for attention.
-        background: 'rgba(0,0,0,.45)',
+        background: color.scrim,
       }}
     >
       <motion.div
@@ -81,7 +81,7 @@ export default function NotesViewer({ onClose }: { onClose: () => void }) {
           display: 'flex',
           flexDirection: 'column',
           borderRadius: radius.shell,
-          boxShadow: '0 20px 60px rgba(0,0,0,.5)',
+          boxShadow: color.popShadow,
         }}
       >
         {/* Above .mica::before (noise) and .mica::after (hairline). */}

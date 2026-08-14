@@ -191,7 +191,7 @@ function Task({
           width={10}
           height={10}
           fill="none"
-          stroke="#fff"
+          stroke={color.onAccent}
           strokeWidth={3.5}
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -501,7 +501,11 @@ export default function CalendarModule({ feed }: { feed: ReminderFeed }) {
                     fontWeight: isToday ? 700 : 400,
                     fontVariantNumeric: 'tabular-nums',
                     lineHeight: 1,
-                    color: isSelected ? '#fff' : outside ? color.text.muted : color.text.strong,
+                    color: isSelected
+                      ? color.onAccent
+                      : outside
+                        ? color.text.muted
+                        : color.text.strong,
                     // Neighbouring months are present but recessive — reachable,
                     // never competing with the month you asked for.
                     opacity: outside && !isSelected ? 0.4 : 1,
@@ -520,7 +524,7 @@ export default function CalendarModule({ feed }: { feed: ReminderFeed }) {
                     background: !marks
                       ? 'transparent'
                       : isSelected
-                        ? '#fff'
+                        ? color.onAccent
                         : pending
                           ? color.accent
                           : color.text.muted,
@@ -679,7 +683,7 @@ export default function CalendarModule({ feed }: { feed: ReminderFeed }) {
                 borderRadius: radius.small,
                 fontSize: 11.5,
                 fontWeight: 600,
-                color: draft.trim() ? '#fff' : color.text.muted,
+                color: draft.trim() ? color.onAccent : color.text.muted,
                 background: draft.trim() ? color.accent : color.tile,
                 cursor: draft.trim() ? 'pointer' : 'default',
                 transition: 'background 120ms ease, color 120ms ease',

@@ -1,37 +1,67 @@
 /**
  * Design tokens — Fluent 2 / Windows 11 surface.
  *
- * Every value here is ported verbatim from `Dynamic Notch v2.dc.html` (the locked
- * Stitch export). If a value looks wrong, fix it in the design file first — this
- * file is a transcription, not a place to make design decisions.
+ * Every value here is ported from `Dynamic Notch v2.dc.html` (the locked Stitch
+ * export). If a value looks wrong, fix it in the design file first — this file is
+ * a transcription, not a place to make design decisions.
  *
  * The one exception is `spring`: the design export is static HTML and carries no
  * motion values, so those are chosen here and marked as such.
+ *
+ * **Every colour is a `var()`, and that is the whole theme mechanism.** The
+ * export's literals live in `index.css`, in the `[data-theme='crest']` block that
+ * is still the default; four other palettes sit beside it and `useTheme` picks
+ * one with a single attribute on `:root`. This indirection is the same one the
+ * accent has had since it became a preference, extended to the rest of the
+ * palette for the same reason: the surface is read by every component in three
+ * windows, and threading a palette through all of them would put a preference in
+ * every component that happens to draw a hairline.
+ *
+ * So the values below are *names*, and the design decisions are in `index.css`.
+ * The comments are what each name is for, which is what a caller needs in order
+ * to pick the right one — a component choosing `divider` over `dividerStrong` is
+ * saying what it is drawing, not what colour it wants.
  */
 
 export const color = {
   /** Mica base surface. Sits over the wallpaper, never fully opaque. */
-  micaBase: 'rgba(32,32,32,.80)',
+  micaBase: 'rgba(var(--mica-rgb),var(--mica-alpha))',
   /** Top-only hairline highlight on the Mica shell (::after, not a full border). */
-  micaHighlight: 'rgba(255,255,255,.10)',
+  micaHighlight: 'var(--mica-highlight)',
 
   /** Inner tile fill. */
-  tile: 'rgba(255,255,255,.055)',
+  tile: 'var(--tile)',
   /** Top-only hairline on an inner tile. */
-  tileHighlight: 'rgba(255,255,255,.12)',
+  tileHighlight: 'var(--tile-highlight)',
+
+  /**
+   * The faintest wash there is — a pane set half a shade back from the one
+   * beside it, and nothing more. Below `hover` on purpose, so a hover state
+   * drawn on top of it is still a change.
+   */
+  wash: 'var(--wash)',
+
+  /**
+   * A row or tile under the cursor.
+   *
+   * Its own token rather than a literal at each call site, which is what it used
+   * to be: a hover wash is white on the four dark themes and *black* on Daylight,
+   * and a white one there is a hover state nobody can see.
+   */
+  hover: 'var(--hover)',
+  /** The heavier step — a hovered tile that already sits on `tile`. */
+  hoverStrong: 'var(--hover-strong)',
 
   /** Inset well — search field and anything that reads as "recessed". */
-  inset: 'rgba(0,0,0,.28)',
-  insetShadow: 'inset 0 1px 2px rgba(0,0,0,.4)',
+  inset: 'var(--inset)',
+  insetShadow: 'var(--inset-shadow)',
 
   /**
    * Accent. Active states only — never a surface fill.
    *
-   * A CSS variable rather than the export's `#7C3AED` literal, because the accent
-   * is a preference now (`accentColor`). Inline styles take `var()` perfectly
-   * well, so every existing `color.accent` reader picks the change up for free
-   * and no component has to learn what the preference is. The literal survives as
-   * the `:root` fallback in `index.css` and as the Rust default.
+   * Set by the theme and overridden by the `accentColor` preference, which
+   * `useAccentColor` writes inline on `:root` — so picking a theme sets a
+   * matching accent and picking an accent afterwards keeps it.
    */
   accent: 'var(--accent)',
   /**
@@ -44,8 +74,26 @@ export const color = {
   accentWash: 'var(--accent-wash)',
   /** The faintest step: a live drop target, a hovered accented row. */
   accentWashSoft: 'var(--accent-wash-soft)',
-  /** PDF glyph tint in the file shelf. */
-  fileRed: '#F87171',
+  /**
+   * Text and glyphs drawn *on* an accent fill — a selected day, the knob of a
+   * switch that is on, the app mark.
+   *
+   * White in the two themes whose accent is dark enough to carry it, and the
+   * background colour in the three whose accent is not: Glacier's ice blue,
+   * Ember's amber and Mono's near-white are all surfaces in their own right, and
+   * white-on-white was what a hardcoded `#fff` gave them.
+   */
+  onAccent: 'var(--on-accent)',
+  /** Full-card backdrop behind a sheet — the app picker, a notification detail. */
+  scrim: 'var(--scrim)',
+  /** A sheet or popup lifted off the card it covers. */
+  popShadow: 'var(--pop-shadow)',
+
+  /**
+   * Stop. Error copy, the critical step of a load meter, the PDF glyph in the
+   * file shelf — deliberately one red, so the colour means one thing.
+   */
+  fileRed: 'var(--danger)',
 
   /**
    * NOT from the design export — it has no system monitor. Severity for the load
@@ -59,49 +107,51 @@ export const color = {
    * 69% — it is not, and the eye would keep asking.
    *
    * `busy` is the accent, so an ordinary working machine is drawn in the app's own
-   * colour — the user's own colour, since the accent is a preference — rather than
-   * in a warning. `warn` and `hot` borrow Fluent's caution and critical hues and
-   * are deliberately *not* customisable: they mean "caution" and "stop", and a
-   * user who set their accent to red would otherwise have three reds that say
-   * different things. `hot` is `fileRed`, so there is one red in the app.
+   * colour rather than in a warning. `warn` and `hot` are caution and stop, and
+   * are deliberately not reachable from the accent preference: a user who set
+   * their accent to red would otherwise have three reds that say different things.
+   * They do move per *theme*, which is a different thing — amber-400 is invisible
+   * on Daylight's white and indistinguishable from Ember's own accent, and a
+   * warning that cannot be read is not a warning. `hot` is `fileRed`, so there is
+   * one red in the app.
    */
   load: {
     busy: 'var(--accent)',
-    warn: '#FBBF24',
-    hot: '#F87171',
+    warn: 'var(--load-warn)',
+    hot: 'var(--danger)',
   },
 
   text: {
-    primary: '#fff',
+    primary: 'var(--text-primary)',
     /** Row text, app-tile glyphs. */
-    strong: 'rgba(255,255,255,.9)',
+    strong: 'var(--text-strong)',
     /** Notes body. */
-    body: 'rgba(255,255,255,.8)',
+    body: 'var(--text-body)',
     /** Secondary / subtitle. */
-    secondary: 'rgba(255,255,255,.6)',
+    secondary: 'var(--text-secondary)',
     /** Row icons. */
-    icon: 'rgba(255,255,255,.55)',
+    icon: 'var(--text-icon)',
     /** Section labels, timestamps, placeholders. */
-    muted: 'rgba(255,255,255,.4)',
+    muted: 'var(--text-muted)',
   },
 
   /** Hairline between list rows. */
-  divider: 'rgba(255,255,255,.06)',
+  divider: 'var(--divider)',
   /** Vertical hairline between panes. */
-  dividerStrong: 'rgba(255,255,255,.08)',
+  dividerStrong: 'var(--divider-strong)',
   /** Dashed drop-target outline. */
-  dashed: 'rgba(255,255,255,.15)',
+  dashed: 'var(--dashed)',
   /** Dashed "add a pin" slot. */
-  dashedStrong: 'rgba(255,255,255,.18)',
+  dashedStrong: 'var(--dashed-strong)',
 
   /** Inactive nav dot. */
-  dotIdle: 'rgba(255,255,255,.2)',
+  dotIdle: 'var(--dot-idle)',
 
   /** Unfilled portion of the media scrub bar. */
-  scrubTrack: 'rgba(255,255,255,.15)',
+  scrubTrack: 'var(--scrub-track)',
 
-  /** Album-art placeholder. */
-  artGradient: 'linear-gradient(135deg,#4b3f6b,#241d38)',
+  /** Album-art placeholder. Carries a white glyph in every theme. */
+  artGradient: 'var(--art-gradient)',
 } as const
 
 export const radius = {

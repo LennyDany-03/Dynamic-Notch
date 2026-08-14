@@ -91,7 +91,10 @@ export default function ScrubBar({ progressMs, durationMs, onSeek }: Props) {
             width: 9,
             height: 9,
             borderRadius: 99,
-            background: '#fff',
+            // The knob rides the head of the accent fill, so it takes the colour
+            // everything else drawn on the accent takes — white was invisible on
+            // the themes whose accent is itself near-white.
+            background: color.onAccent,
             boxShadow: '0 1px 3px rgba(0,0,0,.5)',
             opacity: hasDuration ? 1 : 0,
           }}

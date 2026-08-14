@@ -214,7 +214,11 @@ export function PowerGlyph({ battery, plugged }: { battery: BatteryStatus; plugg
         <motion.path
           d="M12.9 8.1L9.2 12.6h2.4l-.6 3.4 3.8-4.6h-2.5z"
           stroke="none"
-          fill={plugged ? '#fff' : 'currentColor'}
+          // Knocked out of the charge fill, which is `currentColor` — the accent
+          // while the tile is live. Hence the accent's own contrast colour
+          // rather than white, which was that pair only while the accent was
+          // guaranteed dark.
+          fill={plugged ? color.onAccent : 'currentColor'}
           initial={still ? false : plugged ? { scale: 0, opacity: 0, rotate: -35 } : { scale: 1, opacity: 1 }}
           animate={plugged ? { scale: 1, opacity: 1, rotate: 0 } : { scale: 0.4, opacity: 0 }}
           transition={{ type: 'spring', stiffness: 500, damping: 20, delay: plugged ? 0.12 : 0 }}

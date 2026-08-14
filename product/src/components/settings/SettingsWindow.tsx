@@ -8,10 +8,12 @@ import AccentPicker from './AccentPicker'
 import NotesLocation from './NotesLocation'
 import PanelOrder from './PanelOrder'
 import Slider from './Slider'
+import ThemePicker from './ThemePicker'
 import WeatherLocation from './WeatherLocation'
 import { NOTCH_POSITIONS, OPACITY, useNotificationAccess, useSettings } from '../../hooks/useSettings'
 import { useAccentColor } from '../../hooks/useAccentColor'
 import { useSurfaceOpacity } from '../../hooks/useSurfaceOpacity'
+import { useTheme } from '../../hooks/useTheme'
 import { color, font, radius, sectionLabel, spring } from '../../tokens'
 
 /**
@@ -72,6 +74,10 @@ function Icon({ children, size = 18 }: { children: ReactNode; size?: number }) {
  * Split out of a single "Settings" pane once it had grown past a screenful. Two
  * things earned their own entry rather than another group label inside it:
  *
+ *  - **Theme** is the whole palette, and picking one is the single largest
+ *    change a user can make to this app. It is above Appearance because it is
+ *    the decision Appearance adjusts *from*: a theme sets the accent, and the
+ *    accent picker is where you deviate afterwards.
  *  - **Appearance** is the pair of preferences that change how Crest *looks*
  *    rather than what it does, and they are the two people come back to. Buried
  *    under a heading at the top of a long scroller they were findable only by
@@ -82,7 +88,7 @@ function Icon({ children, size = 18 }: { children: ReactNode; size?: number }) {
  *
  * Everything left is a switch about behaviour, and that is still "Settings".
  */
-type Pane = 'about' | 'panels' | 'appearance' | 'weather' | 'notes' | 'settings'
+type Pane = 'about' | 'panels' | 'theme' | 'appearance' | 'weather' | 'notes' | 'settings'
 
 /** Nav entries, in the order they appear in the sidebar. */
 const PANES: { id: Pane; label: string; icon: ReactNode }[] = [
@@ -105,6 +111,19 @@ const PANES: { id: Pane; label: string; icon: ReactNode }[] = [
         <rect x="3" y="4" width="18" height="6" rx="2" />
         <rect x="3" y="14" width="11" height="6" rx="2" />
         <path d="M17.5 17h3.5" />
+      </Icon>
+    ),
+  },
+  {
+    id: 'theme',
+    label: 'Theme',
+    icon: (
+      // Two overlapping panels, the front one half-filled — a palette swapped
+      // rather than a colour picked, which is what the Appearance droplet says.
+      <Icon size={16}>
+        <rect x="3" y="3" width="13" height="13" rx="2.5" />
+        <path d="M8 8h10a2.5 2.5 0 0 1 2.5 2.5V21h-10A2.5 2.5 0 0 1 8 18.5z" />
+        <path d="M8 16h8.5v5H10a2 2 0 0 1-2-2z" fill="currentColor" stroke="none" />
       </Icon>
     ),
   },
@@ -326,7 +345,7 @@ function NavItem({
         gap: 10,
         borderRadius: radius.tile,
         textAlign: 'left',
-        background: active ? color.tile : hovered ? 'rgba(255,255,255,.035)' : 'transparent',
+        background: active ? color.tile : hovered ? color.hover : 'transparent',
         transition: 'background 90ms linear',
       }}
     >
@@ -725,6 +744,39 @@ function PanelsPane({ api }: { api: ReturnType<typeof useSettings> }) {
 }
 
 /**
+ * The palette every surface in the app is drawn from.
+ *
+ * Its own pane above Appearance, and not a third control inside it, because the
+ * two are not the same size of decision: a theme replaces every colour in three
+ * windows, and the accent picker below it adjusts one of them. Sitting under the
+ * opacity slider it would have read as a fourth surface tweak.
+ */
+function ThemePane({ api }: { api: ReturnType<typeof useSettings> }) {
+  const { settings, error, setTheme } = api
+
+  return (
+    <>
+      <h3 style={{ ...sectionLabel, margin: '0 0 8px' }}>Theme</h3>
+
+      <Paragraph>
+        The palette the notch, the tray menu and this window are all drawn from.
+        Each one sets its own accent to match — pick a different one under{' '}
+        <strong style={{ color: color.text.strong, fontWeight: 600 }}>Appearance</strong> and
+        that choice sticks until you change theme again.
+      </Paragraph>
+
+      <div style={{ height: 6 }} />
+
+      <ThemePicker value={settings.theme} onChange={setTheme} />
+
+      {error && (
+        <p style={{ margin: '8px 12px 0', fontSize: 11.5, color: color.fileRed }}>{error}</p>
+      )}
+    </>
+  )
+}
+
+/**
  * How Crest looks: the two preferences that change nothing about what it does.
  *
  * Its own pane rather than a group at the top of the settings scroller, because
@@ -1003,9 +1055,11 @@ export default function SettingsWindow() {
   const [preview, setPreview] = useState<number | null>(null)
   const opacity = preview ?? api.settings.backgroundOpacity
   useSurfaceOpacity(opacity)
-  // No preview equivalent: the accent is picked, not dragged, so the write and
-  // the repaint are the same moment. This window repainting itself the instant a
-  // swatch is clicked is why the picker needs no preview swatch of its own.
+  // No preview equivalent for either: both are picked, not dragged, so the write
+  // and the repaint are the same moment. This window repainting itself the
+  // instant a swatch is clicked is why neither picker needs a preview of its
+  // own state — the theme picker's previews are of the *other* four.
+  useTheme(api.settings.theme)
   useAccentColor(api.settings.accentColor)
 
   useEffect(() => {
@@ -1062,7 +1116,10 @@ export default function SettingsWindow() {
               flexDirection: 'column',
               padding: 8,
               borderRight: `1px solid ${color.dividerStrong}`,
-              background: 'rgba(255,255,255,.02)',
+              // The faintest step there is: the nav pane reads as half a shade
+              // back from the content pane, no more. A literal white at .02 was
+              // that on four themes and nothing at all on the light one.
+              background: color.wash,
             }}
           >
             <div
@@ -1086,7 +1143,7 @@ export default function SettingsWindow() {
                   display: 'grid',
                   placeItems: 'center',
                   background: color.accent,
-                  color: '#fff',
+                  color: color.onAccent,
                   fontSize: 13,
                   fontWeight: 700,
                   lineHeight: 1,
@@ -1200,6 +1257,8 @@ export default function SettingsWindow() {
                     <AboutPane version={version} />
                   ) : pane === 'panels' ? (
                     <PanelsPane api={api} />
+                  ) : pane === 'theme' ? (
+                    <ThemePane api={api} />
                   ) : pane === 'appearance' ? (
                     <AppearancePane api={api} opacity={opacity} onPreviewOpacity={setPreview} />
                   ) : pane === 'weather' ? (

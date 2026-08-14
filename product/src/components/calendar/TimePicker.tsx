@@ -133,7 +133,7 @@ function Column<T extends string | number>({
               fontSize: 12,
               fontWeight: active ? 600 : 400,
               fontVariantNumeric: 'tabular-nums',
-              color: active ? '#fff' : color.text.secondary,
+              color: active ? color.onAccent : color.text.secondary,
               background: active ? color.accent : 'transparent',
               transition: 'background 120ms ease, color 120ms ease',
             }}
@@ -237,7 +237,7 @@ export default function TimePicker({
                 gap: 2,
                 padding: 4,
                 borderRadius: radius.tile,
-                boxShadow: '0 8px 24px rgba(0,0,0,.45)',
+                boxShadow: color.popShadow,
               }}
             >
               <Column

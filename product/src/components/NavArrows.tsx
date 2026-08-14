@@ -61,7 +61,7 @@ function Chevron({
         flex: 'none',
         borderRadius: 6,
         // Accent only on the active state, per the design rules.
-        background: hover ? 'rgba(255,255,255,.06)' : 'transparent',
+        background: hover ? color.hover : 'transparent',
         transition: 'background 140ms ease',
       }}
     >

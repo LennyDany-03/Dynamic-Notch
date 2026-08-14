@@ -42,7 +42,10 @@ export default function Toggle({ on, size = 'sm' }: { on: boolean; size?: keyof 
           width: knob,
           height: knob,
           borderRadius: radius.pill,
-          background: on ? '#fff' : color.text.muted,
+          // On, the knob sits on the accent fill and takes the colour drawn on
+          // it; off, it sits in the recessed well and takes the muted type
+          // colour. A hardcoded white was one of those two by coincidence.
+          background: on ? color.onAccent : color.text.muted,
         }}
       />
     </span>

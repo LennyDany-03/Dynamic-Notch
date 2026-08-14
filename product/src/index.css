@@ -18,7 +18,7 @@ body,
   user-select: none;
   -webkit-user-select: none;
   font-family: 'Segoe UI Variable', 'Segoe UI', 'Inter', system-ui, sans-serif;
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--text-strong);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -52,27 +52,254 @@ button {
    ───────────────────────────────────────────────────────────────────────────── */
 :root {
   --mica-alpha: 0.92;
+}
 
-  /* ───────────────────────────────────────────────────────────────────────────
-     Accent — a preference (`accentColor`), and the only colour in the app the
-     user chooses.
+/* ─────────────────────────────────────────────────────────────────────────────
+   Themes.
 
-     One variable, everything else derived, for the same reason `--mica-alpha` is
-     one variable: the accent is read by roughly twenty components across three
-     windows, and threading a hex through all of them would put a preference in
-     every component that happens to draw something active. `useAccentColor`
-     writes `--accent` onto each window's :root and the rest follow.
+   A theme is a **complete palette**, not a tint on top of one. `tokens.ts` hands
+   every component a `var(--…)` rather than a literal, exactly as it already did
+   for the accent, so a theme is one attribute on `:root` and no component knows
+   a preference exists. `useTheme` writes `data-theme`.
 
-     The derivations are `color-mix` rather than a second and third stored value
-     so a custom accent can never disagree with itself — pick any hue and the
-     equalizer bar stays the lighter relative of the scrub bar, and the washes
-     stay the same faint version of whatever was picked.
+   Two rules, both load-bearing:
 
-     These fallbacks must match `accent_color_default()` in `settings.rs` and
-     `DEFAULTS` in `useSettings.ts`: they are what paints for the frame or two
-     before the preference is read, and what the browser fallback uses.
-     ─────────────────────────────────────────────────────────────────────────── */
+   1. **Every block declares every variable.** A theme could inherit whatever the
+      Crest block left standing — the selectors have equal specificity and source
+      order decides — and that is precisely the failure to avoid: a light theme
+      quietly keeping one white-on-white hairline is a bug nobody can see in the
+      theme that shipped it. Declaring the full set makes an omission a missing
+      colour rather than a wrong one.
+
+   2. **The selectors are attribute selectors, not `:root`-only.** That is what
+      makes the theme picker's preview cards real: a `<div data-theme="ember">`
+      gets Ember's palette for its whole subtree, so the swatch a user is
+      choosing from is drawn by the same declarations the app will use. It is
+      also why the derived accents below are re-declared on `[data-theme]` — a
+      custom property resolves `var()` where it is *declared*, so derivations
+      pinned to `:root` alone would hand every preview the live app's accent.
+
+   Colours that mean something on their own rather than marking an active state
+   are still here, because meaning is not the same as legibility: `--load-warn`
+   and `--danger` are caution and stop in every theme, but amber-400 on Ember's
+   own amber accent is two warnings that look alike, and both on Daylight's white
+   are a warning nobody can read. They shift per theme and never per preference.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Crest — the design export's own palette, and the default. The accent here must
+   match `accent_color_default()` in `settings.rs` and `DEFAULTS` in
+   `useSettings.ts`: it is what paints for the frame or two before the preference
+   is read, and what the browser fallback uses. */
+:root,
+[data-theme='crest'] {
+  --mica-rgb: 32, 32, 32;
+  --mica-highlight: rgba(255, 255, 255, 0.1);
+  --wash: rgba(255, 255, 255, 0.02);
+  --tile: rgba(255, 255, 255, 0.055);
+  --tile-highlight: rgba(255, 255, 255, 0.12);
+  --hover: rgba(255, 255, 255, 0.06);
+  --hover-strong: rgba(255, 255, 255, 0.1);
+  --inset: rgba(0, 0, 0, 0.28);
+  --inset-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.4);
+  --text-primary: #fff;
+  --text-strong: rgba(255, 255, 255, 0.9);
+  --text-body: rgba(255, 255, 255, 0.8);
+  --text-secondary: rgba(255, 255, 255, 0.6);
+  --text-icon: rgba(255, 255, 255, 0.55);
+  --text-muted: rgba(255, 255, 255, 0.4);
+  --divider: rgba(255, 255, 255, 0.06);
+  --divider-strong: rgba(255, 255, 255, 0.08);
+  --dashed: rgba(255, 255, 255, 0.15);
+  --dashed-strong: rgba(255, 255, 255, 0.18);
+  --dot-idle: rgba(255, 255, 255, 0.2);
+  --scrub-track: rgba(255, 255, 255, 0.15);
+  --art-gradient: linear-gradient(135deg, #4b3f6b, #241d38);
   --accent: #7c3aed;
+  --on-accent: #fff;
+  --scrim: rgba(0, 0, 0, 0.5);
+  --shell-shadow: 0 2px 8px rgba(0, 0, 0, 0.28), 0 12px 28px rgba(0, 0, 0, 0.22);
+  --pop-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --noise-opacity: 0.05;
+  --load-warn: #fbbf24;
+  --danger: #f87171;
+}
+
+/* Glacier — cool slate, ice accent. Every overlay is tinted toward the same pale
+   blue rather than pure white, which is what keeps a hairline or a hovered row
+   from reading as a grey patch on a blue surface. */
+[data-theme='glacier'] {
+  --mica-rgb: 26, 29, 36;
+  --mica-highlight: rgba(198, 220, 242, 0.11);
+  --wash: rgba(158, 196, 230, 0.03);
+  --tile: rgba(158, 196, 230, 0.075);
+  --tile-highlight: rgba(198, 220, 242, 0.13);
+  --hover: rgba(158, 196, 230, 0.08);
+  --hover-strong: rgba(158, 196, 230, 0.13);
+  --inset: rgba(6, 10, 18, 0.34);
+  --inset-shadow: inset 0 1px 2px rgba(4, 8, 14, 0.45);
+  --text-primary: #f4f8fc;
+  --text-strong: #e8edf2;
+  --text-body: rgba(232, 237, 242, 0.82);
+  --text-secondary: rgba(232, 237, 242, 0.64);
+  --text-icon: rgba(232, 237, 242, 0.56);
+  --text-muted: #7c8797;
+  --divider: rgba(158, 196, 230, 0.09);
+  --divider-strong: rgba(158, 196, 230, 0.13);
+  --dashed: rgba(158, 196, 230, 0.18);
+  --dashed-strong: rgba(158, 196, 230, 0.22);
+  --dot-idle: rgba(158, 196, 230, 0.24);
+  --scrub-track: rgba(158, 196, 230, 0.18);
+  --art-gradient: linear-gradient(135deg, #33506b, #1c2733);
+  --accent: #6fb1d9;
+  /* The accent is light enough to be a surface in its own right, so anything
+     drawn *on* it takes the background's colour rather than white. */
+  --on-accent: #0d1620;
+  --scrim: rgba(6, 10, 18, 0.5);
+  --shell-shadow: 0 2px 8px rgba(4, 8, 14, 0.34), 0 12px 28px rgba(4, 8, 14, 0.26);
+  --pop-shadow: 0 8px 24px rgba(4, 8, 14, 0.5);
+  --noise-opacity: 0.05;
+  --load-warn: #fbbf24;
+  --danger: #f87171;
+}
+
+/* Ember — warm black, amber accent. */
+[data-theme='ember'] {
+  --mica-rgb: 24, 20, 16;
+  --mica-highlight: rgba(255, 226, 190, 0.11);
+  --wash: rgba(255, 206, 150, 0.03);
+  --tile: rgba(255, 206, 150, 0.07);
+  --tile-highlight: rgba(255, 226, 190, 0.13);
+  --hover: rgba(255, 206, 150, 0.08);
+  --hover-strong: rgba(255, 206, 150, 0.13);
+  --inset: rgba(10, 6, 2, 0.36);
+  --inset-shadow: inset 0 1px 2px rgba(8, 5, 2, 0.5);
+  --text-primary: #fdf6ec;
+  --text-strong: #f2e9de;
+  --text-body: rgba(242, 233, 222, 0.82);
+  --text-secondary: rgba(242, 233, 222, 0.63);
+  --text-icon: rgba(242, 233, 222, 0.55);
+  --text-muted: #9c8a76;
+  --divider: rgba(255, 206, 150, 0.08);
+  --divider-strong: rgba(255, 206, 150, 0.12);
+  --dashed: rgba(255, 206, 150, 0.18);
+  --dashed-strong: rgba(255, 206, 150, 0.22);
+  --dot-idle: rgba(255, 206, 150, 0.24);
+  --scrub-track: rgba(255, 206, 150, 0.18);
+  --art-gradient: linear-gradient(135deg, #6b452a, #2a1c11);
+  --accent: #e8934a;
+  --on-accent: #1a1005;
+  --scrim: rgba(10, 6, 2, 0.52);
+  --shell-shadow: 0 2px 8px rgba(8, 5, 2, 0.36), 0 12px 28px rgba(8, 5, 2, 0.28);
+  --pop-shadow: 0 8px 24px rgba(8, 5, 2, 0.5);
+  --noise-opacity: 0.06;
+  /* Yellow rather than the amber-400 the other themes use. This theme's accent
+     *is* amber, and `load.busy` is the accent — a meter that went amber, amber,
+     red would spend its first two steps saying the same thing. */
+  --load-warn: #facc15;
+  --danger: #f87171;
+}
+
+/* Daylight — the light theme, and the one that proves the palette is complete:
+   every overlay above inverts here, from white-over-dark to dark-over-white. */
+[data-theme='daylight'] {
+  --mica-rgb: 244, 243, 241;
+  /* Still white, and still only on top: on a light surface the hairline reads as
+     a lit edge rather than as a highlight, which is the same job. */
+  --mica-highlight: rgba(255, 255, 255, 0.9);
+  --wash: rgba(28, 28, 30, 0.025);
+  --tile: rgba(255, 255, 255, 0.72);
+  --tile-highlight: rgba(255, 255, 255, 0.95);
+  /* Hover and the recessed well go *dark* — a white wash on a white tile is a
+     hover state nobody can see. */
+  --hover: rgba(28, 28, 30, 0.05);
+  --hover-strong: rgba(28, 28, 30, 0.09);
+  --inset: rgba(28, 28, 30, 0.055);
+  --inset-shadow: inset 0 1px 2px rgba(28, 28, 30, 0.1);
+  --text-primary: #1c1c1e;
+  --text-strong: rgba(28, 28, 30, 0.92);
+  --text-body: rgba(28, 28, 30, 0.82);
+  --text-secondary: rgba(28, 28, 30, 0.62);
+  --text-icon: rgba(28, 28, 30, 0.55);
+  --text-muted: #6b6b70;
+  --divider: rgba(28, 28, 30, 0.09);
+  --divider-strong: #e4e2df;
+  --dashed: rgba(28, 28, 30, 0.18);
+  --dashed-strong: rgba(28, 28, 30, 0.24);
+  --dot-idle: rgba(28, 28, 30, 0.22);
+  --scrub-track: rgba(28, 28, 30, 0.16);
+  /* Kept mid-tone rather than following the surface: the album-art placeholder
+     carries a white glyph in every theme, and a near-white gradient would lose
+     it. */
+  --art-gradient: linear-gradient(135deg, #7c96d8, #41599b);
+  --accent: #2f6fed;
+  --on-accent: #fff;
+  --scrim: rgba(28, 28, 30, 0.32);
+  --shell-shadow: 0 2px 8px rgba(28, 28, 30, 0.1), 0 12px 28px rgba(28, 28, 30, 0.12);
+  --pop-shadow: 0 8px 24px rgba(28, 28, 30, 0.18);
+  /* The noise is overlay-blended, which lightens on a light ground — at .05 it
+     reads as grain rather than as texture. */
+  --noise-opacity: 0.03;
+  /* Darkened until they are still caution and stop against white. The 400-weights
+     the dark themes use are a pale wash here and say nothing. */
+  --load-warn: #b45309;
+  --danger: #dc2626;
+}
+
+/* Mono — no hue at all. Active states are carried by brightness, so the accent is
+   near-white and everything else is a step down from it. */
+[data-theme='mono'] {
+  --mica-rgb: 13, 13, 13;
+  --mica-highlight: rgba(255, 255, 255, 0.09);
+  --wash: rgba(255, 255, 255, 0.02);
+  --tile: rgba(255, 255, 255, 0.05);
+  --tile-highlight: rgba(255, 255, 255, 0.1);
+  --hover: rgba(255, 255, 255, 0.06);
+  --hover-strong: rgba(255, 255, 255, 0.11);
+  --inset: rgba(0, 0, 0, 0.4);
+  --inset-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.55);
+  --text-primary: #fff;
+  --text-strong: #f0f0f0;
+  --text-body: rgba(240, 240, 240, 0.8);
+  --text-secondary: rgba(240, 240, 240, 0.6);
+  --text-icon: rgba(240, 240, 240, 0.5);
+  --text-muted: #6e6e6e;
+  --divider: rgba(255, 255, 255, 0.06);
+  --divider-strong: rgba(255, 255, 255, 0.1);
+  --dashed: rgba(255, 255, 255, 0.16);
+  --dashed-strong: rgba(255, 255, 255, 0.2);
+  --dot-idle: rgba(255, 255, 255, 0.2);
+  --scrub-track: rgba(255, 255, 255, 0.14);
+  --art-gradient: linear-gradient(135deg, #2e2e2e, #151515);
+  --accent: #f0f0f0;
+  --on-accent: #0d0d0d;
+  --scrim: rgba(0, 0, 0, 0.6);
+  --shell-shadow: 0 2px 8px rgba(0, 0, 0, 0.4), 0 12px 28px rgba(0, 0, 0, 0.3);
+  --pop-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
+  --noise-opacity: 0.04;
+  /* The two exceptions to "no colour", and the reason they are exceptions is the
+     same one `tokens.ts` gives for the load meters: a machine in trouble is the
+     one thing in this app that colour says better than a number. A grayscale
+     warning is not a quieter warning, it is no warning. */
+  --load-warn: #fbbf24;
+  --danger: #f87171;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Accent derivations.
+
+   `--accent` is a preference on top of the theme: the theme block above sets it,
+   and `useAccentColor` overrides it inline on `:root` for anyone who has picked
+   their own. Everything else is mixed off whatever won, so a custom hue keeps the
+   relationships the design export had between the three rather than pinning
+   values a user could put out of step.
+
+   Declared for `[data-theme]` as well as `:root` because a custom property
+   substitutes `var()` at the element it is *declared* on: pinned to `:root` these
+   would resolve once, against the live accent, and every preview card in the
+   theme picker would show the app's current colour instead of its own.
+   ───────────────────────────────────────────────────────────────────────────── */
+:root,
+[data-theme] {
   /* Equalizer bars and anything that has to stay legible *on* the accent. */
   --accent-bright: color-mix(in srgb, var(--accent) 72%, #fff);
   /* Tile wash behind an active glyph. */
@@ -83,12 +310,10 @@ button {
 
 .mica {
   position: relative;
-  background: rgba(32, 32, 32, var(--mica-alpha));
+  background: rgba(var(--mica-rgb), var(--mica-alpha));
   backdrop-filter: blur(40px) saturate(1.2);
   -webkit-backdrop-filter: blur(40px) saturate(1.2);
-  box-shadow:
-    0 2px 8px rgba(0, 0, 0, 0.28),
-    0 12px 28px rgba(0, 0, 0, 0.22);
+  box-shadow: var(--shell-shadow);
   overflow: hidden;
 }
 
@@ -100,7 +325,7 @@ button {
   pointer-events: none;
   border-radius: inherit;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.4'/%3E%3C/svg%3E");
-  opacity: 0.05;
+  opacity: var(--noise-opacity);
   mix-blend-mode: overlay;
 }
 
@@ -112,14 +337,14 @@ button {
   right: 0;
   top: 0;
   height: 1px;
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--mica-highlight);
   pointer-events: none;
 }
 
-/* Inner tile — 8px radius, own top hairline at .12. */
+/* Inner tile — 8px radius, own top hairline a step brighter than the shell's. */
 .tile {
   position: relative;
-  background: rgba(255, 255, 255, 0.055);
+  background: var(--tile);
   border-radius: 8px;
 }
 
@@ -130,7 +355,7 @@ button {
   right: 0;
   top: 0;
   height: 1px;
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--tile-highlight);
   border-radius: inherit;
 }
 

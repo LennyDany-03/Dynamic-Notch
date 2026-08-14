@@ -108,18 +108,70 @@ fn background_opacity_default() -> u8 {
 const OPACITY_MIN: u8 = 60;
 const OPACITY_MAX: u8 = 100;
 
+/// Which palette every surface in the app is drawn from.
+///
+/// A closed set, unlike `panels` — a theme is a block of custom properties in
+/// `src/index.css`, so an id Rust does not recognise is not a card from a newer
+/// build, it is a palette that does not exist and an app with no colours. The
+/// variants mirror the `[data-theme='…']` blocks in that file exactly.
+///
+/// Serialised camelCase, matching `ThemeId` in `useSettings.ts`.
+#[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum Theme {
+    /// The design export's own palette — near-black Mica, violet accent.
+    Crest,
+    Glacier,
+    Ember,
+    Daylight,
+    Mono,
+}
+
+impl Theme {
+    /// The accent this palette was drawn around.
+    ///
+    /// Here rather than only in the CSS because picking a theme has to *set* the
+    /// accent preference, not merely offer one. The accent is written inline onto
+    /// `:root` by `useAccentColor` and inline styles beat any stylesheet, so a
+    /// theme whose accent lived only in CSS would be overridden by whatever the
+    /// last accent was — Glacier with a violet scrub bar, Mono with a violet
+    /// anything. `set_theme` writes both in one go, which also makes the pair a
+    /// single broadcast rather than two states the windows could catch mid-change.
+    ///
+    /// These must match the `--accent` in each theme's block in `src/index.css`.
+    /// That block is not dead weight for having a copy here: it is what paints the
+    /// picker's preview cards, which are scoped subtrees rather than the root.
+    fn accent(self) -> &'static str {
+        match self {
+            Theme::Crest => "#7C3AED",
+            Theme::Glacier => "#6FB1D9",
+            Theme::Ember => "#E8934A",
+            Theme::Daylight => "#2F6FED",
+            Theme::Mono => "#F0F0F0",
+        }
+    }
+}
+
+/// The palette the app is drawn from before anyone chooses otherwise.
+///
+/// Must agree with the `:root` block in `src/index.css` and with `DEFAULTS` in
+/// `useSettings.ts` — those are what paint before the preference is read.
+fn theme_default() -> Theme {
+    Theme::Crest
+}
+
 /// The accent, as `#RRGGBB`.
 ///
 /// Must agree with the `--accent` fallback in `src/index.css` and with `DEFAULTS`
 /// in `useSettings.ts`, for the same reason `background_opacity` must: those are
 /// what paint before the preference is read.
 ///
-/// This is the design export's own `#7C3AED`. It is the *default* rather than the
-/// value now, which is the whole of this feature — but it stays the default
-/// because the export is still the design, and a user who never opens Settings
-/// should get the app as drawn.
+/// This is the design export's own `#7C3AED`, and `Theme::Crest`'s accent. It is
+/// the *default* rather than the value now, which is the whole of this feature —
+/// but it stays the default because the export is still the design, and a user
+/// who never opens Settings should get the app as drawn.
 fn accent_color_default() -> String {
-    "#7C3AED".to_string()
+    theme_default().accent().to_string()
 }
 
 /// Normalise a user-supplied accent to `#RRGGBB`, or reject it.
@@ -241,8 +293,17 @@ pub struct Settings {
     #[serde(default = "hotzone_hint_default")]
     pub hotzone_hint: bool,
 
+    /// Which palette every surface is drawn from. Frontend-only, like
+    /// `background_opacity`: it is one attribute on each window's `:root` and
+    /// `apply` has nothing to do with it.
+    #[serde(default = "theme_default")]
+    pub theme: Theme,
+
     /// The accent, as `#RRGGBB`. Frontend-only, like `background_opacity`: it is
     /// one CSS variable per window and `apply` has nothing to do with it.
+    ///
+    /// Set by `set_theme` alongside the theme, and independently settable
+    /// afterwards — a theme is where an accent comes from, not a lock on it.
     #[serde(default = "accent_color_default")]
     pub accent_color: String,
 
@@ -288,6 +349,7 @@ impl Default for Settings {
             background_opacity: background_opacity_default(),
             notch_position: notch_position_default(),
             hotzone_hint: hotzone_hint_default(),
+            theme: theme_default(),
             accent_color: accent_color_default(),
             panels: Vec::new(),
             autostart_configured: false,
@@ -785,6 +847,34 @@ pub fn set_background_opacity(
     let _ = app.emit("settings-changed", settings.clone());
 
     Ok(percent)
+}
+
+/// Which palette every surface in the app is drawn from.
+///
+/// **Sets the accent too**, and that is the point of the command rather than an
+/// extra it happens to do. A theme is a palette drawn around one accent — Mono
+/// means nothing with a violet scrub bar in it — and the accent is written inline
+/// onto `:root`, where it beats the theme's own stylesheet value. Doing both here
+/// makes it one write and one broadcast, so no window can catch the pair
+/// half-applied and paint a frame of the new surface under the old accent.
+///
+/// The accent stays independently settable afterwards. Someone who picks Ember
+/// and then a different orange has said two things, and the second one is later.
+///
+/// Nothing to apply: every window paints its own `:root` from the broadcast,
+/// which is the whole mechanism — the notch and the tray popup never rebuild, and
+/// the picker lives in neither of them.
+#[tauri::command]
+pub fn set_theme(app: AppHandle, current: State<'_, Current>, theme: Theme) -> Result<Theme, String> {
+    let mut settings = current.get(&app);
+    settings.theme = theme;
+    settings.accent_color = theme.accent().to_string();
+    current.set(settings.clone());
+    save(&app, &settings)?;
+
+    let _ = app.emit("settings-changed", settings.clone());
+
+    Ok(theme)
 }
 
 /// The accent every active state in the app is drawn in.

@@ -104,7 +104,8 @@ export default function Slider({ value, min, max, step, onPreview, onCommit, lab
             width: 12,
             height: 12,
             borderRadius: radius.pill,
-            background: '#fff',
+            // Rides the head of the accent fill, like the scrub bar's knob.
+            background: color.onAccent,
             boxShadow: '0 1px 3px rgba(0,0,0,.5)',
             transition: 'transform 90ms ease-out',
           }}

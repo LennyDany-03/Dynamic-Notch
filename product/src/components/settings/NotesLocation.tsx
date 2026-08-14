@@ -61,7 +61,7 @@ export default function NotesLocation() {
         borderRadius: radius.small,
         fontSize: 11.5,
         color: hovered === id ? color.text.primary : color.text.secondary,
-        background: hovered === id ? 'rgba(255,255,255,.10)' : color.tile,
+        background: hovered === id ? color.hoverStrong : color.tile,
         transition: 'background 90ms linear, color 90ms linear',
       }}
     >
@@ -117,7 +117,7 @@ export default function NotesLocation() {
             borderRadius: radius.small,
             fontSize: 11.5,
             fontWeight: 600,
-            color: '#fff',
+            color: color.onAccent,
             background: color.accent,
             opacity: hovered === 'open' ? 0.88 : 1,
             transition: 'opacity 90ms linear',

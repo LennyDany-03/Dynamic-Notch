@@ -78,7 +78,7 @@ export default function AppPicker({
         exit={{ opacity: 0 }}
         transition={{ duration: 0.12 }}
         onClick={onClose}
-        style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,.5)' }}
+        style={{ position: 'absolute', inset: 0, background: color.scrim }}
       />
 
       <motion.div
@@ -93,7 +93,7 @@ export default function AppPicker({
           // Opaque rather than the translucent tile fill: this sits over the
           // pinned row and the clipboard list, and at .055 both read through it.
           background: 'rgba(46,46,46,.97)',
-          boxShadow: '0 8px 24px rgba(0,0,0,.45)',
+          boxShadow: color.popShadow,
           display: 'flex',
           flexDirection: 'column',
           padding: 12,

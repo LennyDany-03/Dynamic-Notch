@@ -201,7 +201,7 @@ export default function QuickNotes({
       )}
 
       {iconButton('New note', 'New note', addNote, true,
-        <svg viewBox="0 0 24 24" width={13} height={13} fill="none" stroke="#fff" strokeWidth={2} strokeLinecap="round">
+        <svg viewBox="0 0 24 24" width={13} height={13} fill="none" stroke={color.onAccent} strokeWidth={2} strokeLinecap="round">
           <path d="M12 6v12M6 12h12" />
         </svg>,
       )}
@@ -353,7 +353,7 @@ function NoteChips({
               // The accent fills the active chip rather than tinting it. At this
               // size a faint wash is indistinguishable from the tile behind it,
               // which is what made the old rail's selection unreadable.
-              color: active ? '#fff' : color.text.secondary,
+              color: active ? color.onAccent : color.text.secondary,
               background: active ? color.accent : color.tile,
               whiteSpace: 'nowrap',
               overflow: 'hidden',

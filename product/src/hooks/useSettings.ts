@@ -12,6 +12,12 @@ import type { Place, WeatherPlace } from '../types/weather'
 /** Where along the top edge the notch sits. Mirrors `NotchPosition` in Rust. */
 export type NotchPosition = 'left' | 'center' | 'right'
 
+/**
+ * Which palette the app is drawn from. Mirrors `Theme` in Rust, and each id is a
+ * `[data-theme='…']` block in `index.css`.
+ */
+export type ThemeId = 'crest' | 'glacier' | 'ember' | 'daylight' | 'mono'
+
 export interface Settings {
   alwaysOnTop: boolean
   notifications: boolean
@@ -38,8 +44,17 @@ export interface Settings {
   /** Whether the trigger strip is marked while the notch is away. */
   hotzoneHint: boolean
   /**
+   * Which palette every surface is drawn from. Painted onto each window's
+   * `:root` as a `data-theme` attribute by `useTheme`; nothing reads it directly
+   * except the picker.
+   */
+  theme: ThemeId
+  /**
    * The accent, as `#RRGGBB`. Painted onto each window's `:root` by
    * `useAccentColor`; nothing reads it directly except the picker.
+   *
+   * Set by `setTheme` as well as by the accent picker — a theme is a palette
+   * drawn around one accent, so choosing one chooses both.
    */
   accentColor: string
   /**
@@ -68,6 +83,7 @@ const DEFAULTS: Settings = {
   backgroundOpacity: 92,
   notchPosition: 'center',
   hotzoneHint: true,
+  theme: 'crest',
   accentColor: '#7C3AED',
   // Empty rather than a copy of `MODULES`: that list is the frontend's own and
   // duplicating it here would give the default two places to disagree.
@@ -93,6 +109,24 @@ export const ACCENT_SWATCHES: { hex: string; name: string }[] = [
   { hex: '#EA580C', name: 'Orange' },
   { hex: '#DC2626', name: 'Red' },
   { hex: '#DB2777', name: 'Pink' },
+]
+
+/**
+ * The themes, in the order the picker draws them.
+ *
+ * Deliberately carries **no colours**. Every palette is a `[data-theme='…']`
+ * block in `index.css`, and the picker scopes each preview card with that same
+ * attribute — so a card is drawn by the declarations the app itself will use
+ * rather than by a copy of them that could drift. What is here is the part CSS
+ * cannot hold: the name, and the one line saying what the theme is *for*, which
+ * is what someone is actually choosing between.
+ */
+export const THEMES: { id: ThemeId; name: string; tagline: string }[] = [
+  { id: 'crest', name: 'Crest', tagline: 'Near-black Mica, violet accent — the original.' },
+  { id: 'glacier', name: 'Glacier', tagline: 'Cool slate and ice. Precise, technical, quiet.' },
+  { id: 'ember', name: 'Ember', tagline: 'Warm black and amber. Low, lamplit, unhurried.' },
+  { id: 'daylight', name: 'Daylight', tagline: 'Light surfaces, signal blue. For a bright desktop.' },
+  { id: 'mono', name: 'Mono', tagline: 'No colour at all. Emphasis is carried by brightness.' },
 ]
 
 /** The position picker's options, in the order they are drawn. */
@@ -237,6 +271,40 @@ export function useSettings() {
     [write],
   )
 
+  /**
+   * Pick a palette.
+   *
+   * Not routed through `write`, which is built for one key at a time: Rust sets
+   * the accent alongside the theme (see `set_theme`), so the optimistic half has
+   * to move both or the window repaints its new surface under the old accent for
+   * the round trip. The accent it will land on is the one in that theme's own
+   * CSS block, which is exactly what `--accent` falls back to once the inline
+   * override is cleared — so clearing it *is* the optimistic guess, and it needs
+   * no copy of the hex on this side to make.
+   */
+  const setTheme = useCallback(
+    (theme: ThemeId) => {
+      const previousAccent = settings.accentColor
+
+      setSettings((prev) => ({ ...prev, theme }))
+      setError(null)
+      document.documentElement.style.removeProperty('--accent')
+
+      void invoke<ThemeId>('set_theme', { theme })
+        .then((reached) => setSettings((prev) => ({ ...prev, theme: reached })))
+        .catch((reason) => {
+          setError(typeof reason === 'string' && reason ? reason : "Couldn't save that setting.")
+          // Put the override back by hand. `read()` restores the *stored* accent,
+          // which on a refused write is the one already in state — so the effect
+          // that paints it sees no change and never re-runs, and the window would
+          // sit on the CSS fallback with a custom accent silently dropped.
+          document.documentElement.style.setProperty('--accent', previousAccent)
+          read()
+        })
+    },
+    [read, settings.accentColor],
+  )
+
   const setAccentColor = useCallback(
     (hex: string) => write('set_accent_color', 'accentColor', hex, { hex }),
     [write],
@@ -263,6 +331,7 @@ export function useSettings() {
     setBackgroundOpacity,
     setNotchPosition,
     setHotzoneHint,
+    setTheme,
     setAccentColor,
     setPanels,
     setWeatherPlace,

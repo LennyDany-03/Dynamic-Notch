@@ -112,13 +112,17 @@ export default function BatteryBadge({
           fill={tint}
         />
 
-        {/* The bolt sits over the fill, in the surface's own white, so it reads
-            at any level — over a full battery and over an empty one alike. */}
+        {/* The bolt sits over the fill, so it takes the fill's own contrast pair
+            — and the fill here is always the accent, because the bolt is only
+            drawn while charging. The outline is the accent itself, which is what
+            keeps the bolt readable where it overhangs a nearly empty battery
+            onto the card: white on a dark-grey hairline was the same pair by
+            coincidence, and was a white bolt on a near-white fill under Mono. */}
         {battery.acPower && (
           <path
             d="M13.6 2.6L9.4 8.1h2.6l-.6 3.5 4.3-5.4h-2.7z"
-            fill="#fff"
-            stroke="rgba(32,32,32,.55)"
+            fill={color.onAccent}
+            stroke={color.accent}
             strokeWidth={0.5}
             strokeLinejoin="round"
           />

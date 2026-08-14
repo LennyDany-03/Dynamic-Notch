@@ -93,7 +93,7 @@ export default function WeatherLocation({
               borderRadius: radius.small,
               fontSize: 11,
               color: color.text.secondary,
-              background: 'rgba(255,255,255,.06)',
+              background: color.hover,
             }}
           >
             Clear

@@ -47,7 +47,7 @@ export default function NotificationDetail({
         exit={{ opacity: 0 }}
         transition={{ duration: 0.12 }}
         onClick={onClose}
-        style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,.5)' }}
+        style={{ position: 'absolute', inset: 0, background: color.scrim }}
       />
 
       <motion.div
@@ -63,7 +63,7 @@ export default function NotificationDetail({
           // Opaque rather than the tile's usual translucent fill: this sits over
           // the list, and at .055 the rows read straight through the message.
           background: 'rgba(46,46,46,.97)',
-          boxShadow: '0 8px 24px rgba(0,0,0,.45)',
+          boxShadow: color.popShadow,
           display: 'flex',
           flexDirection: 'column',
           padding: 14,

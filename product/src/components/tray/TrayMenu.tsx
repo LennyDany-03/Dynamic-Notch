@@ -18,6 +18,7 @@ import { useAccentColor } from '../../hooks/useAccentColor'
 import type { UpdateProgress } from '../../hooks/useAutoUpdate'
 import { useSettings } from '../../hooks/useSettings'
 import { useSurfaceOpacity } from '../../hooks/useSurfaceOpacity'
+import { useTheme } from '../../hooks/useTheme'
 import { color, radius, sectionLabel, spring } from '../../tokens'
 import { resolvePanels, type NotchModule } from '../../types/notch'
 
@@ -337,10 +338,11 @@ export default function TrayMenu() {
   const [update, setUpdate] = useState<UpdateState>({ kind: 'idle' })
 
   // The popup is a Mica card like every other surface, so it follows the same
-  // opacity preference. Nothing else here reads settings — this is the whole
-  // reason the hook is mounted.
+  // theme, accent and opacity preferences. Nothing else here reads settings —
+  // this is the whole reason the hook is mounted.
   const { settings } = useSettings()
   useSurfaceOpacity(settings.backgroundOpacity)
+  useTheme(settings.theme)
   useAccentColor(settings.accentColor)
 
   // The popup lists what the notch offers, in the notch's order. Spliced in as
@@ -502,7 +504,7 @@ export default function TrayMenu() {
                 display: 'grid',
                 placeItems: 'center',
                 background: color.accent,
-                color: '#fff',
+                color: color.onAccent,
                 fontSize: 12,
                 fontWeight: 700,
                 lineHeight: 1,

@@ -12,6 +12,7 @@ import { usePerformance } from './hooks/usePerformance'
 import { useReminders } from './hooks/useReminders'
 import { useSettings } from './hooks/useSettings'
 import { useSurfaceOpacity } from './hooks/useSurfaceOpacity'
+import { useTheme } from './hooks/useTheme'
 import { useSystemStatus } from './hooks/useSystemStatus'
 import { useWeather } from './hooks/useWeather'
 import { useWindowsNotifications } from './hooks/useWindowsNotifications'
@@ -40,6 +41,7 @@ export default function App() {
   // same values, so an unread preference paints exactly what it was already
   // painting. That is the whole reason the three copies have to agree.
   useSurfaceOpacity(settings.backgroundOpacity)
+  useTheme(settings.theme)
   useAccentColor(settings.accentColor)
 
   // One poll, two consumers: the same banner for arriving Windows notifications,

@@ -102,6 +102,7 @@ pub fn run() {
             settings::set_system_alerts,
             settings::set_mute_windows_banners,
             settings::set_background_opacity,
+            settings::set_theme,
             settings::set_accent_color,
             settings::set_panels,
             settings::set_weather_place,

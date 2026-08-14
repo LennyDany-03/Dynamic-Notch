@@ -117,7 +117,7 @@ function Tile({
           gap: 3,
           padding: 0,
           borderRadius: radius.tile,
-          background: hovered ? 'rgba(255,255,255,.10)' : color.tile,
+          background: hovered ? color.hoverStrong : color.tile,
           transition: 'background 90ms linear',
         }}
       >

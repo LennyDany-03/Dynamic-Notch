@@ -115,10 +115,15 @@ export default function MediaControls({ session }: { session: MediaSession }) {
               stamping a Spotify logo on a browser session would be wrong. */}
           {isSpotify ? (
             <svg viewBox="0 0 24 24" width={16} height={16} style={{ flex: 'none', opacity: 0.6 }}>
-              <circle cx="12" cy="12" r="11" fill="rgba(255,255,255,.9)" />
+              {/* The mark is a knockout, not a colour: the disc takes the card's
+                  text colour and the waves are cut out of it in the card's own
+                  ground. A white disc and a #202020 wave were the same thing
+                  while there was one palette, and were an invisible disc with
+                  black scratches on it the moment there was a light one. */}
+              <circle cx="12" cy="12" r="11" fill={color.text.strong} />
               <path
                 d="M6.5 9.5c3.5-1 7.5-.7 10.5 1M7 12.5c3-.8 6-.5 8.5 1M7.5 15.3c2.4-.6 4.8-.4 6.8.9"
-                stroke="#202020"
+                stroke="rgba(var(--mica-rgb),1)"
                 strokeWidth={1.4}
                 strokeLinecap="round"
                 fill="none"
@@ -131,7 +136,7 @@ export default function MediaControls({ session }: { session: MediaSession }) {
               height={16}
               style={{ flex: 'none', opacity: 0.6 }}
               fill="none"
-              stroke="rgba(255,255,255,.9)"
+              stroke={color.text.strong}
               strokeWidth={1.5}
             >
               <path d="M9 18V6l10-2v12" />
@@ -176,11 +181,11 @@ export default function MediaControls({ session }: { session: MediaSession }) {
             }}
           >
             {media.isPlaying ? (
-              <svg viewBox="0 0 24 24" width={14} height={14} fill="#fff">
+              <svg viewBox="0 0 24 24" width={14} height={14} fill={color.onAccent}>
                 <path d="M6 5h4v14H6zM14 5h4v14h-4z" />
               </svg>
             ) : (
-              <svg viewBox="0 0 24 24" width={14} height={14} fill="#fff">
+              <svg viewBox="0 0 24 24" width={14} height={14} fill={color.onAccent}>
                 <path d="M8 5v14l11-7z" />
               </svg>
             )}

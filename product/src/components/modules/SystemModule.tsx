@@ -299,7 +299,10 @@ function PowerRow() {
             borderRadius: radius.tile,
             fontSize: 11.5,
             fontWeight: 600,
-            color: '#fff',
+            // White stays white on the danger fill — that one is a red in every
+            // theme and carries white type. The accent fill is the one that can
+            // be near-white itself.
+            color: question.danger ? '#fff' : color.onAccent,
             background: question.danger ? color.load.hot : color.accent,
           }}
         >
@@ -361,7 +364,7 @@ function PowerRow() {
               background: isHovered
                 ? button.danger
                   ? 'rgba(248,113,113,.12)'
-                  : 'rgba(255,255,255,.10)'
+                  : color.hoverStrong
                 : undefined,
               transition: 'background 90ms linear, color 90ms linear',
             }}
