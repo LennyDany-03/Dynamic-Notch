@@ -27,10 +27,13 @@ interface Props {
  * the end and mirroring its width on the left keeps them where they were and puts
  * the badge in the corner, which is where a status mark belongs.
  *
- * Must cover the badge at its widest: an 18px glyph, a 4px gap and the 26px the
- * percentage is floored to.
+ * Must cover the badge at its widest: a 22px glyph, a 5px gap and the 30px the
+ * percentage is floored to. All three grew with the badge — a mirror left at the
+ * old 48 would not have clipped anything (the badge is right-aligned in it and
+ * the strip has slack), it would have pulled the chevrons a few pixels off the
+ * card's centre, which is the one thing this constant exists to prevent.
  */
-const BADGE_WIDTH = 48
+const BADGE_WIDTH = 57
 
 function Chevron({
   direction,

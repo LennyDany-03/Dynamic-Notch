@@ -27,17 +27,30 @@ import { color, radius } from '../tokens'
  * what the equalizer says, and the symmetry it bought is now the grid's job.
  */
 
-/** Both marks share these, which is the whole of the "they belong together". */
-const CHIP = { height: 20, padding: '0 8px' } as const
+/**
+ * Both marks share these, which is the whole of the "they belong together".
+ *
+ * 22 rather than 20 because the badge inside it grew — see `GLYPH` there. The
+ * chip has to stay the taller of the two by a clear margin or it stops reading
+ * as a surface the mark sits *on*, and the pill is 34, which leaves 6 above and
+ * below at this height.
+ */
+const CHIP = { height: 22, padding: '0 8px' } as const
 
 /**
  * Width of the two outer columns.
  *
  * Equal, so the clock lands on the pill's centre line, and wide enough for the
- * battery chip at its longest ("100%", plus a bolt) with room to spare. The
- * middle column keeps the rest — about 100px for a time that needs half of it.
+ * battery chip at its longest ("100%", plus a bolt) with room to spare. That
+ * chip is now 73 across — 8 of padding, a 22 glyph, a 5 gap, the 30 the
+ * percentage is floored to, 8 more — so this went to 80 with the badge; at the
+ * old 74 the chip would have filled its column to within a pixel and the pill
+ * would have looked crowded at exactly the corner the redesign was widening.
+ *
+ * The 14 comes out of the middle column, which keeps 80 for a clock that needs
+ * about 55 at its longest ("10:08 AM").
  */
-const COLUMN = 74
+const COLUMN = 80
 
 export default function CollapsedPill({
   session,
