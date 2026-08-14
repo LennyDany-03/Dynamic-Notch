@@ -10,7 +10,6 @@
 //! WebView2 spin-up on the first right-click, which is far too slow for a menu.
 
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition};
-use tauri_plugin_autostart::ManagerExt;
 
 pub const MENU_LABEL: &str = "tray-menu";
 pub const NOTCH_LABEL: &str = "notch-widget";
@@ -151,24 +150,20 @@ pub fn tray_navigate(app: AppHandle, module: String) {
 
 #[tauri::command]
 pub fn tray_autostart_enabled(app: AppHandle) -> bool {
-    app.autolaunch().is_enabled().unwrap_or(false)
+    crate::autostart::is_enabled(&app)
 }
 
 #[tauri::command]
 pub fn tray_set_autostart(app: AppHandle, enabled: bool) -> bool {
-    let manager = app.autolaunch();
-    let result = if enabled {
-        manager.enable()
-    } else {
-        manager.disable()
-    };
+    // Recorded first, and whichever way the switch went: the point of the flag is
+    // that the user has now expressed an opinion, so `autostart::migrate` stops
+    // guessing on the next launch. Turning startup *off* is the case that needs
+    // it — otherwise the next boot would helpfully turn it back on.
+    crate::settings::mark_autostart_configured(&app);
 
-    // Report the state actually reached, not the one asked for, so a failed write
-    // snaps the toggle back instead of lying.
-    match result {
-        Ok(()) => enabled,
-        Err(_) => manager.is_enabled().unwrap_or(false),
-    }
+    // Reports the state actually reached rather than the one asked for, so a
+    // refused write snaps the toggle back instead of lying.
+    crate::autostart::set_enabled(&app, enabled)
 }
 
 #[tauri::command]

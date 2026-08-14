@@ -9,6 +9,7 @@ import NotificationAnnounce from './notifications/NotificationAnnounce'
 import PerfAnnounce from './system/PerfAnnounce'
 import ReminderAnnounce from './calendar/ReminderAnnounce'
 import SystemAnnounce from './system/SystemAnnounce'
+import UpdateAnnounce from './updater/UpdateAnnounce'
 import CalendarModule from './modules/CalendarModule'
 import FilesModule from './modules/FilesModule'
 import LauncherModule from './modules/LauncherModule'
@@ -131,6 +132,12 @@ function announceKey(announcement: Announcement | null): string {
       return `perf:${announcement.alert.id}`
     case 'reminder':
       return `reminder:${announcement.reminder.id}`
+    case 'update':
+      // Constant on purpose, unlike every other kind. The updater re-announces
+      // on each progress tick to hold the banner up; a key that moved with the
+      // percentage would remount the loader fifty times a download and restart
+      // its ring from zero every time.
+      return 'update'
     default:
       return 'announce'
   }
@@ -152,6 +159,14 @@ function AnnounceContent({
       return <PerfAnnounce alert={announcement.alert} />
     case 'reminder':
       return <ReminderAnnounce reminder={announcement.reminder} />
+    case 'update':
+      return (
+        <UpdateAnnounce
+          phase={announcement.phase}
+          version={announcement.version}
+          progress={announcement.progress}
+        />
+      )
     default:
       // Media is the fallback rather than a case of its own: the announcement is
       // never cleared (see `useNotchState`), so this is also what the banner

@@ -666,6 +666,64 @@ Each command should be added only when its corresponding feature is being built 
   takes its place and the clock does not shift, because the pill's outer columns
   are fixed width — which is what the three-column grid was for.
 
+- **Autostart is a scheduled task, because the Run key is a queue.** With
+  `tauri-plugin-autostart` Crest appeared roughly five minutes after login. It was
+  not slow — it was tenth. `HKCU\…\CurrentVersion\Run` is walked by Explorer after
+  a startup delay (10s default, no `StartupDelayInMSec` override on most
+  machines), with a stagger between entries; on the machine this was diagnosed on
+  the queue ahead of Crest was Google Drive, Docker Desktop, the Riot client, the
+  Epic launcher, Medal, Discord, Steam, LocalSend and Copilot, several of them
+  saturating the disk. Nothing an app can do to itself changes its place in that
+  list.
+
+  A logon-triggered task is not in the list. Task Scheduler starts it in parallel
+  with Explorer's walk rather than at the end of it.
+
+  Three fields in the XML matter and every default is wrong:
+  `DisallowStartIfOnBatteries` is **true** by default, which on a laptop means the
+  task silently never runs unless it is plugged in — the most common reason a
+  scheduled task appears not to work at all; the logon `Delay` is pinned to
+  `PT0S`; and `Priority` defaults to 7, `BELOW_NORMAL_PRIORITY_CLASS`, where 5 is
+  normal. `LeastPrivilege` + `InteractiveToken` means no elevation and no UAC, and
+  is why `schtasks /Create` succeeds unelevated — verified, and the test
+  `generates_xml_the_scheduler_accepts` registers the real generated XML on every
+  run, because the XML is a `format!` string that nothing else type-checks.
+
+  `schtasks.exe` rather than the Task Scheduler COM API: four calls against a
+  stable CLI, versus an apartment and a dozen interfaces. The Run key remains the
+  fallback, and turning startup off clears both so a machine that once fell back
+  does not keep launching from the leftover.
+
+  **A related bug went with it.** `setup` called `autolaunch().enable()`
+  unconditionally on every launch, which quietly reversed the tray toggle every
+  time the app started — turning startup off lasted until the next boot.
+  `autostart::migrate` replaces it and needs `settings.autostart_configured` to
+  tell a fresh install (default on) from a user who said no (leave it off); with
+  no flag there is no way to distinguish them and one of the two is always wrong.
+- **Updates install themselves, and the notch is the only UI.** `installMode` is
+  `"quiet"`, so NSIS runs `/S` and draws nothing at all — the alternative,
+  `"passive"`, still puts somebody else's progress window on screen, which is the
+  thing being avoided. Quiet is only viable because the bundle is a per-user
+  install and needs no elevation; a per-machine build would fail silently here
+  where passive would at least raise a UAC prompt.
+
+  `useAutoUpdate` waits 25 seconds after launch before the first check. Crest now
+  starts *early* (above), and a network request plus a download in the middle of
+  everything else waking up would reintroduce the problem the scheduled task just
+  solved. It re-checks every six hours, because the notch is a process that runs
+  for weeks and "on launch" alone would never fire on a machine that never
+  reboots. Failures are silent — no network and a rate-limited endpoint are not
+  things the user can act on, and the tray's manual row is where someone who wants
+  to know goes.
+
+  The loader is held up by **re-announcing on every progress tick**, not by a new
+  `NotchState`. `announce` retracts after `announceMs`, so each tick resets that
+  timer: the banner is up while bytes are arriving and gone by itself if they
+  stop, which is exactly the lifetime it should have — and it needs no new hit
+  rect, no `STATE_RANK` entry and no exception to the pin lease. The one thing
+  that had to change is `announceKey`, which is constant for `update`: fifty ticks
+  with a moving key would remount the loader fifty times and restart its ring.
+
 ## Open decisions (fill in as they're made)
 
 - [ ] Notes persistence: SQLite vs JSON — **TBD**

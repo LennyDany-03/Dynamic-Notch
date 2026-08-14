@@ -1,3 +1,4 @@
+mod autostart;
 mod clipboard;
 mod icons;
 mod launcher;
@@ -15,7 +16,6 @@ mod weather;
 
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri_plugin_autostart::MacosLauncher;
-use tauri_plugin_autostart::ManagerExt;
 
 /// The notch is an always-on-top transparent window. Two instances blend their
 /// cards together, which looks like UI from one module is leaking behind another
@@ -134,9 +134,13 @@ pub fn run() {
             }
         })
         .setup(|app| {
-            // Enable autostart on Windows login
-            let _ = app.autolaunch().enable();
-
+            // Autostart is *not* forced on here any more. It used to be
+            // `autolaunch().enable()` on every launch, which quietly reversed the
+            // tray toggle every time the app started — turning it off lasted
+            // until the next boot. `settings::init` now runs the migration, which
+            // both moves an existing Run-key entry onto the scheduled task (see
+            // `autostart.rs` for why the Run key made Crest five minutes late) and
+            // respects a user who has said no.
             clipboard::start_listener();
 
             // Consent for reading the notification centre, asked for once. On a

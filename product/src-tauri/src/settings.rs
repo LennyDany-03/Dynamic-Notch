@@ -256,6 +256,17 @@ pub struct Settings {
     #[serde(default)]
     pub panels: Vec<Panel>,
 
+    /// Whether startup has been set up at least once.
+    ///
+    /// Not a preference — the OS is the source of truth for whether Crest starts
+    /// with Windows, and this only records that the question has been *asked*.
+    /// Without it `autostart::migrate` cannot tell a fresh install (where startup
+    /// should default on) from a user who turned it off (where enabling it again
+    /// on every launch is the bug the old unconditional `autolaunch().enable()`
+    /// had).
+    #[serde(default)]
+    pub autostart_configured: bool,
+
     /// Where the weather module looks, or `None` until the user picks somewhere.
     ///
     /// No default, and deliberately no guess. Every way of guessing reaches
@@ -279,6 +290,7 @@ impl Default for Settings {
             hotzone_hint: hotzone_hint_default(),
             accent_color: accent_color_default(),
             panels: Vec::new(),
+            autostart_configured: false,
             weather_place: None,
         }
     }
@@ -542,11 +554,37 @@ pub fn apply(app: &AppHandle, settings: &Settings) {
 /// came back on for the whole session. `Current::get` covers a reader that beats
 /// even this line; the order is what stops the common case from needing it.
 pub fn init(app: &AppHandle) {
-    let stored = load(app);
+    let mut stored = load(app);
+
+    // Before the in-memory copy is seeded, because the migration may write the
+    // flag and everything downstream should see the settled value.
+    if crate::autostart::migrate(app, stored.autostart_configured) && !stored.autostart_configured {
+        stored.autostart_configured = true;
+        let _ = save(app, &stored);
+    }
+
     if let Some(current) = app.try_state::<Current>() {
         current.set(stored.clone());
     }
     apply(app, &stored);
+}
+
+/// Record that the user has made a choice about starting with Windows.
+///
+/// Called by the tray toggle. Without it, turning startup *off* would be undone
+/// by `migrate` on the next launch, which cannot otherwise tell "off on purpose"
+/// from "never set up".
+pub fn mark_autostart_configured(app: &AppHandle) {
+    let Some(current) = app.try_state::<Current>() else {
+        return;
+    };
+    let mut settings = current.get(app);
+    if settings.autostart_configured {
+        return;
+    }
+    settings.autostart_configured = true;
+    current.set(settings.clone());
+    let _ = save(app, &settings);
 }
 
 /// Give Windows its banners back on the way out.

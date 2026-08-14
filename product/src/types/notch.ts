@@ -1,3 +1,4 @@
+import type { UpdatePhase, UpdateProgress } from '../hooks/useAutoUpdate'
 import type { WinNotification } from './notifications'
 import type { PerfAlert } from './perf'
 import type { Reminder } from './reminders'
@@ -191,6 +192,14 @@ export type Announcement =
   | { kind: 'system'; event: SystemEvent }
   | { kind: 'performance'; alert: PerfAlert }
   | { kind: 'reminder'; reminder: Reminder }
+  /**
+   * Crest updating itself. Unlike the other five this is not a report of
+   * something that happened — it is a *process*, and it is re-announced on every
+   * progress tick so the banner stays up while the download runs and retracts by
+   * itself if it stalls. That is why its cross-fade key is constant: a key that
+   * changed per tick would remount the loader fifty times and reset the ring.
+   */
+  | { kind: 'update'; phase: UpdatePhase; version: string | null; progress: UpdateProgress | null }
 
 /** A rectangle in window-local CSS pixels. */
 export interface Rect {

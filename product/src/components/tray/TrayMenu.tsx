@@ -15,6 +15,7 @@ import { getVersion } from '@tauri-apps/api/app'
 import { getCurrentWindow, LogicalSize } from '@tauri-apps/api/window'
 import Toggle from '../Toggle'
 import { useAccentColor } from '../../hooks/useAccentColor'
+import type { UpdateProgress } from '../../hooks/useAutoUpdate'
 import { useSettings } from '../../hooks/useSettings'
 import { useSurfaceOpacity } from '../../hooks/useSurfaceOpacity'
 import { color, radius, sectionLabel, spring } from '../../tokens'
@@ -389,8 +390,12 @@ export default function TrayMenu() {
   }, [])
 
   useEffect(() => {
-    const pending = listen<number>('updater-progress', (event) => {
-      setUpdate({ kind: 'downloading', percent: event.payload })
+    // The payload gained byte counts when the notch grew its own loader, and it
+    // is broadcast now rather than sent here alone — the automatic update starts
+    // by itself and this popup is usually not open for it. Either way the row
+    // only wants the percentage.
+    const pending = listen<UpdateProgress>('updater-progress', (event) => {
+      setUpdate({ kind: 'downloading', percent: event.payload.percent })
     })
     return () => {
       void pending.then((unlisten) => unlisten())

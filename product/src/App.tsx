@@ -6,6 +6,7 @@ import { useNotchState } from './hooks/useNotchState'
 import { useMediaAnnounce } from './hooks/useMediaAnnounce'
 import { useMediaSession } from './hooks/useMediaSession'
 import { useAccentColor } from './hooks/useAccentColor'
+import { useAutoUpdate } from './hooks/useAutoUpdate'
 import { useFileShelf } from './hooks/useFileShelf'
 import { usePerformance } from './hooks/usePerformance'
 import { useReminders } from './hooks/useReminders'
@@ -226,6 +227,40 @@ export default function App() {
       [announce],
     ),
   )
+
+  // Crest updating itself, silently, with the notch as the only UI.
+  //
+  // Only the notch window runs this — the tray popup and the settings window
+  // mount `useSettings` too, and three copies would race to spend the same parked
+  // update. The tray's manual "Check for updates" row is unaffected; it is the
+  // deliberate path, and this is the automatic one.
+  const update = useAutoUpdate(true)
+
+  // Held up by re-announcing rather than by a special state.
+  //
+  // `announce` retracts after `announceMs`, so a single call would drop the
+  // loader three seconds into a download. Calling it again on every progress tick
+  // resets that timer, which gives the banner exactly the lifetime it should
+  // have: up while bytes are arriving, gone by itself if they stop. The state
+  // machine needs no new state, no new hit rect and no exception to the pin
+  // lease — and the constant cross-fade key (see `announceKey`) is what stops the
+  // repeats from remounting the loader.
+  //
+  // `announce` declines while the cursor is on the notch or a card is open, which
+  // is the right call: the update does not need watching, and taking someone's
+  // card away to show them a progress bar would be worse than saying nothing.
+  useEffect(() => {
+    if (update.phase === 'idle') return
+    announce(
+      {
+        kind: 'update',
+        phase: update.phase,
+        version: update.version,
+        progress: update.progress,
+      },
+      timing.announceMs,
+    )
+  }, [update.phase, update.version, update.progress, announce])
 
   // A drag reaching the notch is an unambiguous request for the shelf, so it
   // skips the dwell timer and opens straight to it.
