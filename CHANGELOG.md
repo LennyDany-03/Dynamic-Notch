@@ -1,3 +1,32 @@
+## 0.6.2 — 2026-08-14
+
+**A charge you can actually read.** The battery on the resting pill and in the
+top strip of every panel was the smallest thing Crest drew — a bar a few pixels
+long, and a number set below every other piece of type on screen. It is bigger
+now, and the part of the battery you have already used is drawn in behind it, so
+what is left is a shape you can take in rather than a mark you have to measure.
+
+### Improved
+
+- **The battery is drawn about a fifth larger**, with its percentage set to match
+  the rest of the notch instead of a size below it
+- **The empty part of the battery is drawn in.** At a third full you are now
+  reading a gauge, rather than a short grey mark with nothing behind it to read
+  it against
+- The resting pill has been rebalanced around the bigger badge, so the clock
+  still sits dead centre and neither chip is crowded
+
+### Fixed
+
+- **Crest starts with Windows again after being moved or reinstalled.** If the
+  startup entry was left pointing at a copy of Crest that is no longer there, it
+  would quietly do nothing at sign-in. Crest now points startup back at itself
+  the next time it runs
+- **Nothing but an installed copy of Crest can put itself in your startup.** On a
+  machine that had ever run Crest from its source, sign-in opened a console
+  window and a page reading "localhost refused to connect" instead of the notch —
+  and installing Crest properly did not clear it
+
 ## 0.6.1 — 2026-08-14
 
 **Crest comes in five looks now.** Until now there was one — near-black with a
