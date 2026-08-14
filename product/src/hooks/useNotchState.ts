@@ -243,7 +243,8 @@ export function useNotchState({
       const kind = announcementRef.current?.kind
       const dwells =
         state === 'peek' ||
-        (state === 'announce' && (kind === 'media' || kind === 'performance'))
+        (state === 'announce' &&
+          (kind === 'media' || kind === 'performance' || kind === 'reminder'))
       if (dwells) {
         // Guarded so a re-render mid-dwell does not restart the countdown.
         if (!dwellRef.current) {
@@ -379,6 +380,7 @@ export function useNotchState({
     // and leave the selection alone.
     if (next.kind === 'media') setActiveModule('media')
     if (next.kind === 'performance') setActiveModule('system')
+    if (next.kind === 'reminder') setActiveModule('calendar')
     setState('announce')
 
     announceRef.current = setTimeout(() => {

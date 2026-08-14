@@ -64,43 +64,53 @@ export default function CollapsedPill({
       {/* ── Music ──────────────────────────────────────────────────────────
           Wordless on purpose: at rest the notch says *that* something is
           playing, and the title is one hover away in the card that can hold
-          it. A track name here would be clipped by the third character. */}
-      <div
-        className="tile"
-        style={{
-          justifySelf: 'start',
-          display: 'flex',
-          alignItems: 'flex-end',
-          gap: 2.5,
-          height: CHIP.height,
-          padding: CHIP.padding,
-          borderRadius: radius.pill,
-          // As in the badge: clips the tile's top hairline to the pill's curve.
-          overflow: 'hidden',
-          // Dimmed as a whole when there is no session at all, so an idle chip
-          // reads as "nothing playing" rather than as a control that is off.
-          opacity: media ? 1 : 0.55,
-        }}
-      >
-        {[0, 0.2, 0.4].map((delay) => (
-          <span
-            key={delay}
-            className={isPlaying ? 'eq' : undefined}
-            style={{
-              width: 2.5,
-              height: 11,
-              marginBottom: 4.5,
-              borderRadius: 2,
-              background: color.accentBright,
-              animationDelay: `${delay}s`,
-              // Paused: bars rest low instead of freezing at a random phase.
-              transform: isPlaying ? undefined : 'scaleY(0.3)',
-              transformOrigin: 'bottom',
-              opacity: media ? 1 : 0.5,
-            }}
-          />
-        ))}
-      </div>
+          it. A track name here would be clipped by the third character.
+
+          **Drawn only while audio is actually playing.** It used to be always
+          there — dimmed with no session, and frozen low when paused — on the
+          reasoning that a stable pill is a calm one. In use it was the opposite:
+          the pill rests on screen all day for anyone with always-on-top set, so
+          a permanent chip of three grey bars became a thing you stopped seeing,
+          and then the *equalizer moving* stopped being news. An indicator that
+          is present when there is nothing to indicate is decoration.
+
+          Nothing takes its place. The column is fixed width, so the clock does
+          not move — which is the reason the pill is a grid (see above) and the
+          reason this can come and go at all. */}
+      {isPlaying ? (
+        <div
+          className="tile"
+          style={{
+            justifySelf: 'start',
+            display: 'flex',
+            alignItems: 'flex-end',
+            gap: 2.5,
+            height: CHIP.height,
+            padding: CHIP.padding,
+            borderRadius: radius.pill,
+            // As in the badge: clips the tile's top hairline to the pill's curve.
+            overflow: 'hidden',
+          }}
+        >
+          {[0, 0.2, 0.4].map((delay) => (
+            <span
+              key={delay}
+              className="eq"
+              style={{
+                width: 2.5,
+                height: 11,
+                marginBottom: 4.5,
+                borderRadius: 2,
+                background: color.accentBright,
+                animationDelay: `${delay}s`,
+                transformOrigin: 'bottom',
+              }}
+            />
+          ))}
+        </div>
+      ) : (
+        <span aria-hidden />
+      )}
 
       {/* ── The clock ──────────────────────────────────────────────────────
           The pill's content, and the only thing here set in type. */}

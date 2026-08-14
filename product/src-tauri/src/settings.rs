@@ -108,6 +108,69 @@ fn background_opacity_default() -> u8 {
 const OPACITY_MIN: u8 = 60;
 const OPACITY_MAX: u8 = 100;
 
+/// The accent, as `#RRGGBB`.
+///
+/// Must agree with the `--accent` fallback in `src/index.css` and with `DEFAULTS`
+/// in `useSettings.ts`, for the same reason `background_opacity` must: those are
+/// what paint before the preference is read.
+///
+/// This is the design export's own `#7C3AED`. It is the *default* rather than the
+/// value now, which is the whole of this feature — but it stays the default
+/// because the export is still the design, and a user who never opens Settings
+/// should get the app as drawn.
+fn accent_color_default() -> String {
+    "#7C3AED".to_string()
+}
+
+/// Normalise a user-supplied accent to `#RRGGBB`, or reject it.
+///
+/// Accepts with or without the hash and in either case, because this is reached
+/// from a text field as well as from the swatches — someone pasting `7c3aed` out
+/// of a design tool means the obvious thing. Three-digit shorthand is expanded
+/// for the same reason.
+///
+/// Everything else is refused rather than coerced. The value ends up in a CSS
+/// custom property, and a malformed one does not fail loudly: it simply fails to
+/// parse as a colour and leaves the *previous* accent standing, which would look
+/// exactly like the preference having silently not saved.
+fn normalise_accent(raw: &str) -> Option<String> {
+    let hex = raw.trim().trim_start_matches('#');
+
+    let expanded = match hex.len() {
+        // `#abc` → `#aabbcc`, the CSS shorthand.
+        3 => hex.chars().flat_map(|c| [c, c]).collect::<String>(),
+        6 => hex.to_string(),
+        _ => return None,
+    };
+
+    if !expanded.chars().all(|c| c.is_ascii_hexdigit()) {
+        return None;
+    }
+    Some(format!("#{}", expanded.to_ascii_uppercase()))
+}
+
+/// Where the weather module looks.
+///
+/// Stored as coordinates *and* the name they were resolved from, rather than as a
+/// query string re-geocoded on every poll: the forecast API takes a latitude and
+/// a longitude, and a place name is ambiguous in a way coordinates are not
+/// (there are some thirty Springfields). The name is kept because it is what the
+/// card puts on screen and what Settings shows back to the user — re-deriving it
+/// from the coordinates would be a second network call to answer a question that
+/// was already answered when they picked the place.
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct WeatherPlace {
+    /// What to call it — "Chennai", "Chennai, Tamil Nadu".
+    pub name: String,
+    pub latitude: f64,
+    pub longitude: f64,
+    /// IANA zone from the geocoder, so a forecast for somewhere else is drawn
+    /// against *its* clock rather than against this machine's.
+    #[serde(default)]
+    pub timezone: Option<String>,
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Settings {
@@ -156,6 +219,21 @@ pub struct Settings {
     /// draws it from the broadcast and there is no window state behind it.
     #[serde(default = "hotzone_hint_default")]
     pub hotzone_hint: bool,
+
+    /// The accent, as `#RRGGBB`. Frontend-only, like `background_opacity`: it is
+    /// one CSS variable per window and `apply` has nothing to do with it.
+    #[serde(default = "accent_color_default")]
+    pub accent_color: String,
+
+    /// Where the weather module looks, or `None` until the user picks somewhere.
+    ///
+    /// No default, and deliberately no guess. Every way of guessing reaches
+    /// outside the machine — an IP lookup hands a third party the user's address
+    /// on launch — and this app's rule for anything that reaches outside is that
+    /// the user asks for it first (see `mute_windows_banners`). The module says
+    /// as much and offers the search rather than sitting empty.
+    #[serde(default)]
+    pub weather_place: Option<WeatherPlace>,
 }
 
 impl Default for Settings {
@@ -168,6 +246,8 @@ impl Default for Settings {
             background_opacity: background_opacity_default(),
             notch_position: notch_position_default(),
             hotzone_hint: hotzone_hint_default(),
+            accent_color: accent_color_default(),
+            weather_place: None,
         }
     }
 }
@@ -249,6 +329,10 @@ pub fn load(app: &AppHandle) -> Settings {
     // Same reasoning as the BOM: a hand-edited `"backgroundOpacity": 0` is a
     // wholly invisible app, and the window that would fix it is invisible too.
     settings.background_opacity = settings.background_opacity.clamp(OPACITY_MIN, OPACITY_MAX);
+    // And a hand-edited accent that is not a colour would leave every active
+    // state painted in whatever the last valid value was, with no way to tell
+    // that from the preference having failed to save.
+    settings.accent_color = normalise_accent(&settings.accent_color).unwrap_or_else(accent_color_default);
     settings
 }
 
@@ -631,6 +715,61 @@ pub fn set_background_opacity(
     let _ = app.emit("settings-changed", settings.clone());
 
     Ok(percent)
+}
+
+/// The accent every active state in the app is drawn in.
+///
+/// Refuses rather than clamps, unlike the opacity slider, because the two
+/// controls behind it are a swatch and a text field: a swatch can only send
+/// something valid, and a half-typed hex from the field is a value the user has
+/// not finished choosing. Coercing `#7c3` into some nearby colour would paint the
+/// app a shade nobody asked for while they were still typing.
+///
+/// Returns the *normalised* value, which is what puts `7c3aed` pasted out of a
+/// design tool and `#7C3AED` on the same footing — the caller adopts what comes
+/// back, so the field tidies itself up.
+#[tauri::command]
+pub fn set_accent_color(
+    app: AppHandle,
+    current: State<'_, Current>,
+    hex: String,
+) -> Result<String, String> {
+    let hex = normalise_accent(&hex)
+        .ok_or_else(|| "That isn't a colour. Use a hex value like #7C3AED.".to_string())?;
+
+    let mut settings = current.get(&app);
+    settings.accent_color = hex.clone();
+    current.set(settings.clone());
+    save(&app, &settings)?;
+
+    // Nothing to apply — every window paints its own `:root` from this broadcast.
+    // Which is also the whole mechanism: the notch and the tray popup never
+    // rebuild, and the picker lives in neither of them.
+    let _ = app.emit("settings-changed", settings.clone());
+
+    Ok(hex)
+}
+
+/// Where the weather module looks, or `None` to forget it.
+///
+/// Takes the whole resolved place rather than a search string: the caller has
+/// just picked one row out of the geocoder's answers, and that row already
+/// carries the coordinates and the zone. Re-resolving a name here would throw
+/// away the disambiguation the user just performed.
+#[tauri::command]
+pub fn set_weather_place(
+    app: AppHandle,
+    current: State<'_, Current>,
+    place: Option<WeatherPlace>,
+) -> Result<Option<WeatherPlace>, String> {
+    let mut settings = current.get(&app);
+    settings.weather_place = place.clone();
+    current.set(settings.clone());
+    save(&app, &settings)?;
+
+    let _ = app.emit("settings-changed", settings.clone());
+
+    Ok(place)
 }
 
 /// Move the notch along the top edge, and remember where.

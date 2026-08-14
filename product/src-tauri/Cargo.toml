@@ -27,6 +27,18 @@ tokio = { version = "1", features = ["full"] }
 base64 = "0.22"
 arboard = "3"
 png = "0.17"
+# Weather, and nothing else — see `weather.rs` for why the fetch is here rather
+# than in the webview. `rustls` (0.13's name for what used to be `rustls-tls`)
+# rather than the default native-tls stack, because `tauri-plugin-updater`
+# already pulls rustls in: this adds a feature to a crate that is compiled either
+# way instead of a second TLS implementation.
+reqwest = { version = "0.13", default-features = false, features = [
+  "json",
+  "rustls",
+  "charset",
+  "http2",
+  "system-proxy",
+] }
 
 [target.'cfg(windows)'.dependencies]
 # Reading and restoring the shell's "show notification banners" switch, which

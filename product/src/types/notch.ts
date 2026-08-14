@@ -1,5 +1,6 @@
 import type { WinNotification } from './notifications'
 import type { PerfAlert } from './perf'
+import type { Reminder } from './reminders'
 import type { SystemEvent } from './system'
 
 /**
@@ -43,7 +44,14 @@ export const STATE_RANK: Record<NotchState, number> = {
  * live here rather than in the tray popup because the reason to reach for them is
  * almost always the reason you are looking at the meters.
  */
-export type NotchModule = 'media' | 'launcher' | 'files' | 'notifications' | 'system'
+export type NotchModule =
+  | 'media'
+  | 'launcher'
+  | 'files'
+  | 'notifications'
+  | 'system'
+  | 'weather'
+  | 'calendar'
 
 /**
  * Display order for the nav arrows, and the order the "n/5" counter reads in.
@@ -60,6 +68,8 @@ export const MODULES: readonly NotchModule[] = [
   'files',
   'notifications',
   'system',
+  'weather',
+  'calendar',
 ] as const
 
 /**
@@ -76,17 +86,18 @@ export const MODULES: readonly NotchModule[] = [
  * reason `notification` carries the notification: the banner reports one specific
  * thing having just happened, not the standing state of a thing.
  *
- * `performance` is the machine struggling. It is the second kind with a card
- * behind it: like `media`, hovering it dwells through to somewhere the user can
- * do something about what they were just told, which for an overloaded machine
- * is the meters and the power row. `notification` and `system` have nowhere to
- * go, and hovering those only holds them up to be read.
+ * `performance` is the machine struggling and `reminder` is a time the user
+ * asked to be told about. Both have a card behind them: like `media`, hovering
+ * them dwells through to somewhere the user can act on what they were just told —
+ * the meters and the power row, or the day the reminder is on. `notification` and
+ * `system` have nowhere to go, and hovering those only holds them up to be read.
  */
 export type Announcement =
   | { kind: 'media' }
   | { kind: 'notification'; notification: WinNotification }
   | { kind: 'system'; event: SystemEvent }
   | { kind: 'performance'; alert: PerfAlert }
+  | { kind: 'reminder'; reminder: Reminder }
 
 /** A rectangle in window-local CSS pixels. */
 export interface Rect {

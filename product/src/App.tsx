@@ -5,11 +5,14 @@ import NotchShell from './components/NotchShell'
 import { useNotchState } from './hooks/useNotchState'
 import { useMediaAnnounce } from './hooks/useMediaAnnounce'
 import { useMediaSession } from './hooks/useMediaSession'
+import { useAccentColor } from './hooks/useAccentColor'
 import { useFileShelf } from './hooks/useFileShelf'
 import { usePerformance } from './hooks/usePerformance'
+import { useReminders } from './hooks/useReminders'
 import { useSettings } from './hooks/useSettings'
 import { useSurfaceOpacity } from './hooks/useSurfaceOpacity'
 import { useSystemStatus } from './hooks/useSystemStatus'
+import { useWeather } from './hooks/useWeather'
 import { useWindowsNotifications } from './hooks/useWindowsNotifications'
 import { timing } from './tokens'
 import {
@@ -21,6 +24,7 @@ import {
 } from './types/notch'
 import type { WinNotification } from './types/notifications'
 import type { PerfAlert } from './types/perf'
+import type { Reminder } from './types/reminders'
 import type { SystemEvent } from './types/system'
 
 export default function App() {
@@ -31,9 +35,11 @@ export default function App() {
   // see the raise/settle pair in `useNotchState`.
   const { settings, loaded } = useSettings()
 
-  // Not gated on `loaded`: the default here and the CSS fallback are the same
-  // number, so an unread preference paints exactly what it was already painting.
+  // Neither is gated on `loaded`: the defaults here and the CSS fallbacks are the
+  // same values, so an unread preference paints exactly what it was already
+  // painting. That is the whole reason the three copies have to agree.
   useSurfaceOpacity(settings.backgroundOpacity)
+  useAccentColor(settings.accentColor)
 
   // One poll, two consumers: the same banner for arriving Windows notifications,
   // and the standing list the notifications module draws. Gated on `loaded` as
@@ -172,6 +178,34 @@ export default function App() {
     ),
   )
 
+  // The forecast. Fetched only once a place is set — Crest deliberately does not
+  // guess where the user is, see `weather.rs` — and refreshed on open as well as
+  // on its timer, which is cheap because Rust caches for ten minutes.
+  const weather = useWeather(
+    settings.weatherPlace,
+    state === 'expanded' && activeModule === 'weather',
+  )
+
+  // Reminders, and the banner for one coming due.
+  //
+  // Mounted here rather than inside the calendar card for the same reason the
+  // notification feed is mounted here: the announcing has to keep working while
+  // the card has never been opened, which is almost all of the time. The card
+  // takes the same feed as a prop.
+  //
+  // Gated on `notifications` rather than on `systemAlerts`: a reminder is a
+  // message addressed to the user, which is what that preference covers, whereas
+  // `systemAlerts` is the machine reporting on itself. The two would be a strange
+  // pair — someone who turned off battery banners has said nothing about whether
+  // they still want to be told about the dentist.
+  const reminders = useReminders(
+    loaded && settings.notifications,
+    useCallback(
+      (reminder: Reminder) => announce({ kind: 'reminder', reminder }, timing.announceMs),
+      [announce],
+    ),
+  )
+
   // A drag reaching the notch is an unambiguous request for the shelf, so it
   // skips the dwell timer and opens straight to it.
   const revealShelf = useCallback(() => showModule('files'), [showModule])
@@ -215,6 +249,8 @@ export default function App() {
         notificationsFit={notificationsFit}
         battery={battery}
         performance={performance}
+        weather={weather}
+        reminders={reminders}
         // Gated on `loaded` for the same reason as the pill: the default is on,
         // and painting a mark on someone's wallpaper on the strength of a guess
         // is a mark they watch disappear a frame later.

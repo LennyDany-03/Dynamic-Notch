@@ -88,6 +88,9 @@ All feature components read `NotchState` and `activeModule` from context/hook �
 | `get_system_status` | One snapshot of charger, network and connected Bluetooth devices, for the system banners | `GetSystemPowerStatus` + `NetworkInformation` + `DeviceInformation` / `BluetoothDevice` (via `windows` crate) |
 | `get_performance` | One snapshot of CPU, memory, GPU, disk and temperature, for the system monitor and its overload banner | PDH (`\Processor Information`, `\PhysicalDisk`, `\GPU Engine`, `\Thermal Zone Information`) + `GlobalMemoryStatusEx` |
 | `power_action` | Sleep, restart or shut down, from the system monitor's power row | `SetSuspendState` / `ExitWindowsEx` with `SeShutdownPrivilege` enabled on the process token |
+| `get_weather` / `search_places` | Conditions, a seven-day forecast, and the geocoder behind the location picker | Open-Meteo over `reqwest` — no OS API, and the only outbound request in the app besides the updater |
+| `read_reminders` / `write_reminders` | The calendar's reminder store | Flat JSON in the app-data dir, same shape as `notes.rs` |
+| `notes_location` | Where Quick Notes are written, for Settings to show and reveal | `app_data_dir` + `revealItemInDir` on the frontend |
 
 Each command should be added only when its corresponding feature is being built (see build order in the master prompt) — don't scaffold all four upfront.
 
@@ -461,6 +464,91 @@ Each command should be added only when its corresponding feature is being built 
   and a second switch would ask the user to answer it twice. As with the charge
   on the pill, the preference gates the *announcing* and not the poll: the meters
   are drawn whether or not anything is ever announced.
+- **The accent is a preference, delivered as one CSS variable.** `tokens.ts` hands
+  out `var(--accent)` instead of the export's `#7C3AED`, and `useAccentColor`
+  writes the variable onto each window's `:root` — the same mechanism
+  `useSurfaceOpacity` uses for `--mica-alpha`, and for the same reason: the accent
+  is read by around twenty components across three windows, and threading a hex
+  through all of them would put a preference into every component that happens to
+  draw something active. Inline styles take `var()`, so every existing
+  `color.accent` reader followed for free and the change touched three hardcoded
+  `rgba(124,58,237,…)` literals and nothing else.
+
+  `--accent-bright` and the two washes are `color-mix`ed off `--accent` in CSS
+  rather than stored as their own preferences. A user cannot then put them out of
+  step with each other: pick any hue and the equalizer bar stays the lighter
+  relative of the scrub bar. `color.load.warn` and `.hot` are deliberately outside
+  this — they mean caution and stop, and someone with a red accent would otherwise
+  have three reds meaning three different things.
+
+  Rust validates rather than clamps, unlike the opacity slider. The two controls
+  are a swatch (which can only send something valid) and a text field (where a
+  half-typed `#7C3` is a value nobody has finished choosing); coercing it would
+  paint the app a shade nobody asked for mid-keystroke. The normalised value is
+  returned so `7c3aed` pasted out of a design tool tidies itself up in the field.
+- **Weather reaches outside the machine, so the user points it there first.**
+  Open-Meteo, because no API key exists to ship in a public binary or ask a user
+  to register for. Fetched in Rust rather than with `fetch` in the webview — the
+  CSP is open and it would have worked, but then the one piece of external I/O in
+  the app would be the one piece not behind an `invoke`, with no timeout, no
+  bounded cache and no stated user agent.
+
+  **There is deliberately no automatic location.** Every way of guessing reaches
+  outside: an IP lookup hands a third party the user's approximate address the
+  moment the app launches, and the Windows location capability is a permission
+  prompt for a feature nobody has asked for yet. This is the same rule
+  `notifications.rs` follows for `mute_windows_banners`. So `weatherPlace` is a
+  preference, set by searching the geocoder in Settings, and `useWeather` does not
+  poll at all until it is set — the module says as much rather than sitting empty.
+
+  The stored place keeps coordinates *and* the resolved name: the forecast API
+  takes coordinates, a name is ambiguous (there are some thirty Springfields), and
+  re-geocoding on every poll would be a second request to answer a question the
+  user already answered by picking a row. Rust caches ten minutes, the hook asks
+  every five and on every card open, so the card is instant and Open-Meteo sees
+  roughly one request per install per ten minutes.
+- **The calendar is a store plus a clock, and the clock is entirely on the
+  frontend.** `reminders.rs` is `notes.rs` again — flat JSON, written whole, no
+  schema to migrate. Everything about *time* lives in `useReminders`, because the
+  only clock that matters is the machine's own and Rust has no business having an
+  opinion about it.
+
+  Reminders are stored as an instant (Unix millis), not a wall-clock string. A
+  string would mean deciding what a 6pm reminder does when the machine's zone
+  changes, and a sticky note does not have an answer to that either. `firedAt` is
+  **persisted**, which is the part that is easy to get wrong: an in-memory
+  "already announced" set replays every overdue reminder on every launch, and the
+  notch relaunches on every update. It also means a reminder that came due while
+  Crest was closed is announced once, on the next launch, rather than never or
+  forever — bounded at twelve hours, so a fortnight away does not throw up last
+  Tuesday's dentist.
+
+  The tick is 20 seconds. A reminder that fires fourteen seconds late is on time
+  by any standard a sticky note is held to, and a per-second timer in an
+  always-running overlay is a per-second wake for the life of the process.
+
+  The month grid always draws six week rows, even in a month that needs five. A
+  grid that changed height would change the card's height, and the notch would
+  visibly resize as the user paged through the year.
+- **The notes pane grew a list, and the card grew with it.** The export drew one
+  borderless textarea, which had two faults that only showed in use: it was four
+  lines tall, and every note past the first was *unreachable* — `+` created them
+  and the pane only ever drew `notes[0]`. Now there is a rail titled from each
+  note's own first line (asking someone to name a thought before writing it down
+  is the friction this module exists to remove), and a full-card expansion for
+  when the editor is not enough.
+
+  The expansion is a swap *inside* the fixed 440×346 card, not a bigger card. Same
+  constraint as `NotificationDetail`: anything drawn outside the card's own rect
+  sits on a click-through region and would take no clicks. It also means the state
+  machine never has to know the expansion exists.
+- **The equalizer is drawn only while audio is playing.** It used to be permanent
+  — dimmed with no session, frozen low when paused — on the reasoning that a
+  stable pill is a calm one. In use it was the opposite: the pill rests on screen
+  all day for anyone with always-on-top set, so three grey bars became something
+  you stopped seeing, and then the equalizer *moving* stopped being news. Nothing
+  takes its place and the clock does not shift, because the pill's outer columns
+  are fixed width — which is what the three-column grid was for.
 
 ## Open decisions (fill in as they're made)
 

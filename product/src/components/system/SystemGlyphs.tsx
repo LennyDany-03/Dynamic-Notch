@@ -124,6 +124,9 @@ export function GlyphTile({
           // The wash is what carries the state at a glance, before any of the
           // type is read. It is deliberately faint: this is a report, and a
           // saturated tile in the corner of the eye reads as an error.
+          // `color-mix` rather than `color.accentWash`, because `accent` is a
+          // prop here: the overload banner passes a severity colour, and only the
+          // default case is the preference's own accent.
           background: live ? `color-mix(in srgb, ${accent} 18%, transparent)` : color.tile,
           color: live ? accent : tone.off,
         }}

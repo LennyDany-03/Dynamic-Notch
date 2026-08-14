@@ -7,13 +7,18 @@ import MediaAnnounce from './media/MediaAnnounce'
 import MediaControls from './media/MediaControls'
 import NotificationAnnounce from './notifications/NotificationAnnounce'
 import PerfAnnounce from './system/PerfAnnounce'
+import ReminderAnnounce from './calendar/ReminderAnnounce'
 import SystemAnnounce from './system/SystemAnnounce'
+import CalendarModule from './modules/CalendarModule'
 import FilesModule from './modules/FilesModule'
 import LauncherModule from './modules/LauncherModule'
 import NotificationsModule from './modules/NotificationsModule'
 import SystemModule from './modules/SystemModule'
+import WeatherModule from './modules/WeatherModule'
 import type { MediaSession } from '../hooks/useMediaSession'
 import type { FileShelfState } from '../hooks/useFileShelf'
+import type { ReminderFeed } from '../hooks/useReminders'
+import type { WeatherFeed } from '../hooks/useWeather'
 import type { NotificationFeed } from '../hooks/useWindowsNotifications'
 import { CARD_TOP, NAV_STRIP_HEIGHT, cardSize, type NotificationsFit } from '../layout'
 import { radius, spring } from '../tokens'
@@ -47,6 +52,10 @@ interface Props {
   battery: BatteryStatus | null
   /** The standing load, for the system monitor's meters. Null until the first poll. */
   performance: Performance | null
+  /** The forecast, and the state of trying to get it. */
+  weather: WeatherFeed
+  /** The reminder list. Owned by `App` because the banner needs it card or no card. */
+  reminders: ReminderFeed
   /** The "show me where the notch is" preference. See `HotzoneHint`. */
   hotzoneHint: boolean
 }
@@ -60,6 +69,8 @@ function ModuleContent({
   openNotificationId,
   onOpenNotification,
   performance,
+  weather,
+  reminders,
 }: {
   module: NotchModule
   session: MediaSession
@@ -69,6 +80,8 @@ function ModuleContent({
   openNotificationId: string | null
   onOpenNotification: (id: string | null) => void
   performance: Performance | null
+  weather: WeatherFeed
+  reminders: ReminderFeed
 }) {
   switch (module) {
     case 'media':
@@ -88,6 +101,10 @@ function ModuleContent({
       )
     case 'system':
       return <SystemModule performance={performance} />
+    case 'weather':
+      return <WeatherModule feed={weather} />
+    case 'calendar':
+      return <CalendarModule feed={reminders} />
     default:
       return <ModulePlaceholder module={module} />
   }
@@ -110,6 +127,8 @@ function announceKey(announcement: Announcement | null): string {
       return `system:${announcement.event.id}`
     case 'performance':
       return `perf:${announcement.alert.id}`
+    case 'reminder':
+      return `reminder:${announcement.reminder.id}`
     default:
       return 'announce'
   }
@@ -129,6 +148,8 @@ function AnnounceContent({
       return <SystemAnnounce event={announcement.event} />
     case 'performance':
       return <PerfAnnounce alert={announcement.alert} />
+    case 'reminder':
+      return <ReminderAnnounce reminder={announcement.reminder} />
     default:
       // Media is the fallback rather than a case of its own: the announcement is
       // never cleared (see `useNotchState`), so this is also what the banner
@@ -160,6 +181,8 @@ export default function NotchShell({
   notificationsFit,
   battery,
   performance,
+  weather,
+  reminders,
   hotzoneHint,
 }: Props) {
   // The same call the state machine makes, with the same fit — the card that is
@@ -257,6 +280,8 @@ export default function NotchShell({
                           openNotificationId={openNotificationId}
                           onOpenNotification={onOpenNotification}
                           performance={performance}
+                          weather={weather}
+                          reminders={reminders}
                         />
                       ) : isAnnouncing ? (
                         <AnnounceContent announcement={announcement} session={session} />

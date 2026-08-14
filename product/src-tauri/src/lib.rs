@@ -5,11 +5,13 @@ mod media;
 mod notes;
 mod notifications;
 mod perf;
+mod reminders;
 mod settings;
 mod shelf;
 mod system;
 mod tray;
 mod updater;
+mod weather;
 
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri_plugin_autostart::MacosLauncher;
@@ -64,6 +66,11 @@ pub fn run() {
             media::media_seek,
             notes::read_notes,
             notes::write_notes,
+            notes::notes_location,
+            reminders::read_reminders,
+            reminders::write_reminders,
+            weather::get_weather,
+            weather::search_places,
             launcher::list_installed_apps,
             launcher::launch_app,
             launcher::read_pinned,
@@ -95,6 +102,8 @@ pub fn run() {
             settings::set_system_alerts,
             settings::set_mute_windows_banners,
             settings::set_background_opacity,
+            settings::set_accent_color,
+            settings::set_weather_place,
             settings::set_notch_position,
             settings::set_hotzone_hint,
             settings::notch_raise,

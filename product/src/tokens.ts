@@ -24,10 +24,26 @@ export const color = {
   inset: 'rgba(0,0,0,.28)',
   insetShadow: 'inset 0 1px 2px rgba(0,0,0,.4)',
 
-  /** Accent. Active states only — never a surface fill. */
-  accent: '#7C3AED',
-  /** Brighter accent, used only for the equalizer bars. */
-  accentBright: '#A855F7',
+  /**
+   * Accent. Active states only — never a surface fill.
+   *
+   * A CSS variable rather than the export's `#7C3AED` literal, because the accent
+   * is a preference now (`accentColor`). Inline styles take `var()` perfectly
+   * well, so every existing `color.accent` reader picks the change up for free
+   * and no component has to learn what the preference is. The literal survives as
+   * the `:root` fallback in `index.css` and as the Rust default.
+   */
+  accent: 'var(--accent)',
+  /**
+   * Brighter accent, used only for the equalizer bars. Derived from `--accent`
+   * in CSS, so a custom hue keeps the same relationship the export had between
+   * these two rather than pinning `#A855F7` next to an unrelated colour.
+   */
+  accentBright: 'var(--accent-bright)',
+  /** Faint accent fill behind an active glyph — a tile that is "lit". */
+  accentWash: 'var(--accent-wash)',
+  /** The faintest step: a live drop target, a hovered accented row. */
+  accentWashSoft: 'var(--accent-wash-soft)',
   /** PDF glyph tint in the file shelf. */
   fileRed: '#F87171',
 
@@ -43,12 +59,14 @@ export const color = {
    * 69% — it is not, and the eye would keep asking.
    *
    * `busy` is the accent, so an ordinary working machine is drawn in the app's own
-   * colour rather than in a warning. `warn` and `hot` borrow Fluent's caution and
-   * critical hues, and `hot` is `fileRed` — the same red the shelf and the tray's
-   * quit row already use, so there is one red in the app rather than two.
+   * colour — the user's own colour, since the accent is a preference — rather than
+   * in a warning. `warn` and `hot` borrow Fluent's caution and critical hues and
+   * are deliberately *not* customisable: they mean "caution" and "stop", and a
+   * user who set their accent to red would otherwise have three reds that say
+   * different things. `hot` is `fileRed`, so there is one red in the app.
    */
   load: {
-    busy: '#7C3AED',
+    busy: 'var(--accent)',
     warn: '#FBBF24',
     hot: '#F87171',
   },
@@ -152,7 +170,21 @@ export const size = {
   announce: { width: 300, height: 64 },
   media: { width: 380, height: 164 },
   launcher: { width: 400, height: 346 },
-  files: { width: 440, height: 206 },
+  /**
+   * The file shelf and notes card. **Deliberately not the export's 206.**
+   *
+   * The export drew a single-line note pane beside a one-row shelf, and 206 was
+   * right for that. It now carries a note *list* beside an editor, and a shelf
+   * that wraps to a second row — and the editor was the complaint: four visible
+   * lines is a card you cannot think in, which is what "larger expansion for
+   * notes" asked for. At 346 the editor holds about fourteen lines, and the full
+   * card's worth is one click away in the expanded sheet.
+   *
+   * 346 exactly, matching the launcher, because that is the tallest card there
+   * is: going past it would grow the region that holds the notch open for every
+   * module, which `layout.contentRect` exists to avoid.
+   */
+  files: { width: 440, height: 346 },
   /**
    * NOT from the design export either — see `NotchModule`. The height is a
    * *ceiling*, not the card: this is the one module sized to its contents, and
@@ -178,6 +210,25 @@ export const size = {
    * widest card is what sets how much desktop the expanded notch covers.
    */
   system: { width: 380, height: 266 },
+  /**
+   * NOT from the design export — it predates the weather module.
+   *
+   * 26 nav + 16 padding + 76 conditions block + 14 + 44 detail strip + 14 + 62
+   * forecast strip + 16 padding = 268. Wide enough for seven forecast columns at
+   * 48px with the gaps, which is the number that makes "the rest of the week"
+   * mean a week.
+   */
+  weather: { width: 400, height: 268 },
+  /**
+   * NOT from the design export either. The tallest and widest card in the app,
+   * tied with the launcher and the file shelf respectively — a month grid has six
+   * possible week rows and there is no honest way to draw fewer.
+   *
+   * 26 nav + 16 padding + 24 month header + 8 + 16 weekday row + 6×30 grid + 16
+   * padding = 286. The right pane rides alongside at the same height rather than
+   * adding to it.
+   */
+  calendar: { width: 440, height: 286 },
 } as const
 
 /** Springs — NOT from the design export (it is static). Tuned for Fluent motion. */

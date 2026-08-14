@@ -4,8 +4,12 @@ import { invoke } from '@tauri-apps/api/core'
 import { getVersion } from '@tauri-apps/api/app'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import Toggle from '../Toggle'
+import AccentPicker from './AccentPicker'
+import NotesLocation from './NotesLocation'
 import Slider from './Slider'
+import WeatherLocation from './WeatherLocation'
 import { NOTCH_POSITIONS, OPACITY, useNotificationAccess, useSettings } from '../../hooks/useSettings'
+import { useAccentColor } from '../../hooks/useAccentColor'
 import { useSurfaceOpacity } from '../../hooks/useSurfaceOpacity'
 import { color, font, radius, sectionLabel, spring } from '../../tokens'
 
@@ -126,6 +130,50 @@ const FEATURES: { id: string; title: string; body: string; icon: ReactNode }[] =
     icon: (
       <Icon>
         <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+      </Icon>
+    ),
+  },
+  {
+    id: 'notifications',
+    title: 'Notifications',
+    body: 'What Windows has been telling you, announced as it arrives and kept until you read it.',
+    icon: (
+      <Icon>
+        <path d="M18 8a6 6 0 1 0-12 0c0 5-2 6-2 6h16s-2-1-2-6" />
+        <path d="M13.7 19a2 2 0 0 1-3.4 0" />
+      </Icon>
+    ),
+  },
+  {
+    id: 'system',
+    title: 'System monitor',
+    body: 'CPU, memory, GPU and disk, with a word when one of them is pinned. Sleep, restart and shut down.',
+    icon: (
+      <Icon>
+        <path d="M3 13h3.5l2-5 3 10 2.5-7 1.5 2H21" />
+      </Icon>
+    ),
+  },
+  {
+    id: 'weather',
+    title: 'Weather',
+    body: 'Conditions where you are and the rest of the week. Pick a place in Settings.',
+    icon: (
+      <Icon>
+        <circle cx="8.5" cy="8.5" r="3" />
+        <path d="M8.5 2.6v1.4M3.1 8.5h1.4M4.6 4.6l1 1M12.4 4.6l-1 1" />
+        <path d="M8.4 19.6a3.6 3.6 0 0 1-.4-7.2 5 5 0 0 1 9.7.4 3.4 3.4 0 0 1-.3 6.8z" />
+      </Icon>
+    ),
+  },
+  {
+    id: 'calendar',
+    title: 'Calendar and reminders',
+    body: 'A month at a glance, and a nudge from the notch when six o’clock and the groceries come round.',
+    icon: (
+      <Icon>
+        <rect x="3.5" y="5" width="17" height="16" rx="2.5" />
+        <path d="M3.5 10h17M8 3.5v3M16 3.5v3" />
       </Icon>
     ),
   },
@@ -602,6 +650,8 @@ function SettingsPane({
     setBackgroundOpacity,
     setNotchPosition,
     setHotzoneHint,
+    setAccentColor,
+    setWeatherPlace,
   } = api
   const notificationAccess = useNotificationAccess()
 
@@ -637,6 +687,8 @@ function SettingsPane({
           }}
         />
       </RangeRow>
+
+      <AccentPicker value={settings.accentColor} onChange={setAccentColor} />
 
       <GroupLabel>General</GroupLabel>
 
@@ -748,6 +800,15 @@ function SettingsPane({
         }
       />
 
+      {/* Its own group: neither of these is a switch, and neither is about the
+          notch reporting something at you. They are the two places where Crest
+          needs to be told something — where you are, and where your notes went. */}
+      <GroupLabel>Weather and notes</GroupLabel>
+
+      <WeatherLocation place={settings.weatherPlace} onChange={setWeatherPlace} />
+
+      <NotesLocation />
+
       {error && (
         <p style={{ margin: '8px 12px 0', fontSize: 11.5, color: color.fileRed }}>{error}</p>
       )}
@@ -769,6 +830,10 @@ export default function SettingsWindow() {
   const [preview, setPreview] = useState<number | null>(null)
   const opacity = preview ?? api.settings.backgroundOpacity
   useSurfaceOpacity(opacity)
+  // No preview equivalent: the accent is picked, not dragged, so the write and
+  // the repaint are the same moment. This window repainting itself the instant a
+  // swatch is clicked is why the picker needs no preview swatch of its own.
+  useAccentColor(api.settings.accentColor)
 
   useEffect(() => {
     getVersion().then(setVersion).catch(() => setVersion(''))

@@ -123,5 +123,47 @@ export function useQuickNotes() {
     setActiveId(note.id)
   }, [])
 
-  return { activeNote, notes, loaded, updateActive, addNote }
+  const selectNote = useCallback((id: string) => setActiveId(id), [])
+
+  /**
+   * Delete a note, and make sure there is still one to type into.
+   *
+   * The list is never allowed to be empty — the pane's whole purpose is a place
+   * to start typing, and an empty state offering a "new note" button would be one
+   * click of ceremony in front of a text field. Deleting the last note therefore
+   * replaces it with a blank one rather than leaving nothing.
+   */
+  const deleteNote = useCallback((id: string) => {
+    setNotes((current) => {
+      const next = current.filter((note) => note.id !== id)
+      const kept = next.length > 0 ? next : [newNote()]
+
+      setActiveId((active) => {
+        if (active !== id) return active
+        // Selection moves to the note that took its place in the list, falling
+        // back to the new last one — the same thing a text editor does when you
+        // close a tab, and it keeps the pane usable without a second click.
+        const index = current.findIndex((note) => note.id === id)
+        return (kept[Math.min(index, kept.length - 1)] ?? kept[0]).id
+      })
+
+      return kept
+    })
+  }, [])
+
+  return { activeNote, activeId, notes, loaded, updateActive, addNote, selectNote, deleteNote }
+}
+
+/**
+ * The first line of a note, for the list.
+ *
+ * A note has no title field on purpose — asking for one before you can write
+ * anything down is exactly the friction "quick notes" exists to avoid — so the
+ * first non-empty line stands in, the way every notes app does it. Trimmed hard,
+ * because the list column is narrow and a line that ellipsises at its own
+ * leading whitespace looks broken.
+ */
+export function noteTitle(note: Note): string {
+  const line = note.body.split('\n').find((candidate) => candidate.trim().length > 0)
+  return line?.trim() ?? 'Empty note'
 }

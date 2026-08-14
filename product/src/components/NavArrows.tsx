@@ -10,6 +10,8 @@ const LABELS: Record<NotchModule, string> = {
   files: 'File shelf and notes',
   notifications: 'Notifications',
   system: 'System monitor',
+  weather: 'Weather',
+  calendar: 'Calendar',
 }
 
 interface Props {

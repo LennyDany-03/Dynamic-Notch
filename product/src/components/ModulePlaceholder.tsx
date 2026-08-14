@@ -7,6 +7,8 @@ const LABELS: Record<NotchModule, string> = {
   files: 'File shelf and notes',
   notifications: 'Notifications',
   system: 'System monitor',
+  weather: 'Weather and forecast',
+  calendar: 'Calendar and reminders',
 }
 
 /**

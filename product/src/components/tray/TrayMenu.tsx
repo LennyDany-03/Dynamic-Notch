@@ -13,6 +13,7 @@ import { listen } from '@tauri-apps/api/event'
 import { getVersion } from '@tauri-apps/api/app'
 import { getCurrentWindow, LogicalSize } from '@tauri-apps/api/window'
 import Toggle from '../Toggle'
+import { useAccentColor } from '../../hooks/useAccentColor'
 import { useSettings } from '../../hooks/useSettings'
 import { useSurfaceOpacity } from '../../hooks/useSurfaceOpacity'
 import { color, radius, sectionLabel, spring } from '../../tokens'
@@ -204,6 +205,29 @@ const GROUPS: Row[][] = [
         </Icon>
       ),
     },
+    {
+      id: 'weather',
+      label: 'Weather',
+      action: { kind: 'module', module: 'weather' },
+      icon: (
+        <Icon>
+          <circle cx="8.5" cy="8.5" r="3" />
+          <path d="M8.5 2.6v1.4M3.1 8.5h1.4M4.6 4.6l1 1M12.4 4.6l-1 1" />
+          <path d="M8.4 19.6a3.6 3.6 0 0 1-.4-7.2 5 5 0 0 1 9.7.4 3.4 3.4 0 0 1-.3 6.8z" />
+        </Icon>
+      ),
+    },
+    {
+      id: 'calendar',
+      label: 'Calendar',
+      action: { kind: 'module', module: 'calendar' },
+      icon: (
+        <Icon>
+          <rect x="3.5" y="5" width="17" height="16" rx="2.5" />
+          <path d="M3.5 10h17M8 3.5v3M16 3.5v3" />
+        </Icon>
+      ),
+    },
   ],
   [
     {
@@ -313,6 +337,7 @@ export default function TrayMenu() {
   // reason the hook is mounted.
   const { settings } = useSettings()
   useSurfaceOpacity(settings.backgroundOpacity)
+  useAccentColor(settings.accentColor)
 
   // `tray.rs` positions this window from its size, so the size has to be the
   // truth about the card rather than a number in the config hoping to be.
