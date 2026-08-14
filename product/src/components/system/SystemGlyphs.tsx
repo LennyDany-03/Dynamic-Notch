@@ -1,5 +1,6 @@
 import { motion, useReducedMotion } from 'framer-motion'
 import type { ReactNode } from 'react'
+import type { PerfMetric } from '../../types/perf'
 import type { BatteryStatus, BluetoothKind, NetworkStatus } from '../../types/system'
 import { color, radius } from '../../tokens'
 
@@ -67,21 +68,29 @@ function Draw({
 
 /**
  * The 44px tile the glyph sits in, matching the album art on the media banner so
- * the three announcements read as one surface.
+ * the four announcements read as one surface.
  *
  * `ping` sends a ring out from the tile — the "something connected" mark. Two of
  * them, staggered, because one ring reads as a stray highlight and three reads as
  * an alarm. Nothing is drawn for a disconnection: a loss is the absence of that,
  * and inventing a movement for it would give the two events equal weight.
+ *
+ * `accent` overrides the wash and the ring for the one banner that is not about
+ * something connecting. An overload is the only thing the notch reports that is
+ * *bad*, and drawing it in the app's own purple would file it alongside a headset
+ * pairing — see `PerfGlyph`.
  */
 export function GlyphTile({
   children,
   ping,
   live,
+  accent = color.accent,
 }: {
   children: ReactNode
   ping: boolean
   live: boolean
+  /** Ring and wash colour. Defaults to the app accent. */
+  accent?: string
 }) {
   const still = useReducedMotion() ?? false
 
@@ -99,7 +108,7 @@ export function GlyphTile({
               position: 'absolute',
               inset: 0,
               borderRadius: radius.small,
-              border: `1px solid ${color.accent}`,
+              border: `1px solid ${accent}`,
               pointerEvents: 'none',
             }}
           />
@@ -112,11 +121,14 @@ export function GlyphTile({
           height: '100%',
           display: 'grid',
           placeItems: 'center',
-          // The accent wash is what carries the state at a glance, before any of
-          // the type is read. It is deliberately faint: this is a report, and a
+          // The wash is what carries the state at a glance, before any of the
+          // type is read. It is deliberately faint: this is a report, and a
           // saturated tile in the corner of the eye reads as an error.
-          background: live ? 'rgba(124,58,237,.18)' : color.tile,
-          color: live ? tone.on : tone.off,
+          // `color-mix` rather than `color.accentWash`, because `accent` is a
+          // prop here: the overload banner passes a severity colour, and only the
+          // default case is the preference's own accent.
+          background: live ? `color-mix(in srgb, ${accent} 18%, transparent)` : color.tile,
+          color: live ? accent : tone.off,
         }}
       >
         {children}
@@ -291,6 +303,78 @@ export function BluetoothGlyph({ kind, connected }: { kind: BluetoothKind; conne
  * a two-bar connection is legible as two *of three*, and three arcs that shrink
  * to two between polls would look like the picture changing its mind.
  */
+/**
+ * The one mark in this file that is not about something being attached.
+ *
+ * A gauge, because for an overload the *reading* is the thing — there is no
+ * object to draw a picture of, and a picture of a CPU tells the user nothing they
+ * did not get from the word "CPU" on the line beside it. The arc sweeps to the
+ * value it is reporting, which makes "nearly full" legible before the number is,
+ * and it uses the same `pathLength` draw as every other glyph here rather than
+ * inventing a second kind of movement.
+ *
+ * It is drawn in the severity colour rather than the accent, and it is the only
+ * thing in the app that is. Everything else on this banner is neutral news, and
+ * an overload filed in the same purple as a headset pairing would read as one.
+ * The ring still pings — something did just happen — but in the same colour, so
+ * the whole tile is one statement.
+ *
+ * The small mark inside says which meter without competing with the arc: four or
+ * five strokes at a size where it registers as a shape rather than as a diagram.
+ */
+const METRIC_MARK: Record<PerfMetric, string[]> = {
+  // A die.
+  cpu: ['M9 9h6v6H9z', 'M12 6.4v2.6', 'M12 15v2.6'],
+  // Two modules on edge.
+  memory: ['M10 8.6v6.8', 'M14 8.6v6.8'],
+  // A board, wider than it is tall.
+  gpu: ['M8.2 9.8h7.6v4.4H8.2z'],
+  // A platter.
+  disk: ['M12 8.6a3.4 3.4 0 1 1 0 6.8 3.4 3.4 0 0 1 0-6.8z', 'M12 11.7v.6'],
+  // A bulb and a stem.
+  temperature: ['M12 8v4.4', 'M12 13.2a1.7 1.7 0 1 1 0 3.4 1.7 1.7 0 0 1 0-3.4z'],
+}
+
+export function PerfGlyph({
+  metric,
+  /** 0–1, how far round the gauge sweeps. */
+  fraction,
+  /** The severity colour, chosen by the banner from the reading. */
+  tint,
+}: {
+  metric: PerfMetric
+  fraction: number
+  tint: string
+}) {
+  const still = useReducedMotion() ?? false
+
+  // 270° of arc, opening at the bottom — a dial, not a ring. A full circle would
+  // have no visible start, so a gauge at 95% and one at 5% would look alike.
+  const arc = 'M5.28 18.72A9.5 9.5 0 1 1 18.72 18.72'
+  const swept = Math.max(0.02, Math.min(1, fraction))
+
+  return (
+    <GlyphTile ping live accent={tint}>
+      <Svg>
+        {/* The unspent part of the dial, so the sweep is read against something. */}
+        <path d={arc} opacity={0.18} />
+
+        <motion.path
+          d={arc}
+          strokeWidth={2}
+          initial={still ? false : { pathLength: 0 }}
+          animate={{ pathLength: swept }}
+          transition={{ duration: 0.55, ease: 'easeOut' }}
+        />
+
+        {METRIC_MARK[metric].map((d, index) => (
+          <Draw key={d} d={d} still={still} delay={0.3 + index * 0.06} duration={0.22} />
+        ))}
+      </Svg>
+    </GlyphTile>
+  )
+}
+
 export function NetworkGlyph({ network, connected }: { network: NetworkStatus; connected: boolean }) {
   const still = useReducedMotion() ?? false
 

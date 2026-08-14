@@ -41,7 +41,7 @@ export default function AppLogo({ appId, size }: { appId: string; size: number }
         overflow: 'hidden',
         // No tint behind a real logo: app marks bring their own colour, and a
         // purple wash under them reads as a rendering error.
-        background: showLogo ? 'transparent' : 'rgba(124,58,237,.18)',
+        background: showLogo ? 'transparent' : color.accentWash,
         color: color.accentBright,
       }}
     >

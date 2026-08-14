@@ -52,6 +52,33 @@ button {
    ───────────────────────────────────────────────────────────────────────────── */
 :root {
   --mica-alpha: 0.92;
+
+  /* ───────────────────────────────────────────────────────────────────────────
+     Accent — a preference (`accentColor`), and the only colour in the app the
+     user chooses.
+
+     One variable, everything else derived, for the same reason `--mica-alpha` is
+     one variable: the accent is read by roughly twenty components across three
+     windows, and threading a hex through all of them would put a preference in
+     every component that happens to draw something active. `useAccentColor`
+     writes `--accent` onto each window's :root and the rest follow.
+
+     The derivations are `color-mix` rather than a second and third stored value
+     so a custom accent can never disagree with itself — pick any hue and the
+     equalizer bar stays the lighter relative of the scrub bar, and the washes
+     stay the same faint version of whatever was picked.
+
+     These fallbacks must match `accent_color_default()` in `settings.rs` and
+     `DEFAULTS` in `useSettings.ts`: they are what paints for the frame or two
+     before the preference is read, and what the browser fallback uses.
+     ─────────────────────────────────────────────────────────────────────────── */
+  --accent: #7c3aed;
+  /* Equalizer bars and anything that has to stay legible *on* the accent. */
+  --accent-bright: color-mix(in srgb, var(--accent) 72%, #fff);
+  /* Tile wash behind an active glyph. */
+  --accent-wash: color-mix(in srgb, var(--accent) 18%, transparent);
+  /* The faintest step — a drop target, a hovered row. */
+  --accent-wash-soft: color-mix(in srgb, var(--accent) 9%, transparent);
 }
 
 .mica {
@@ -105,6 +132,15 @@ button {
   height: 1px;
   background: rgba(255, 255, 255, 0.12);
   border-radius: inherit;
+}
+
+/* The one spinner in the app — the weather card's manual refresh. Everything
+   else that waits either has a real progress figure (the updater) or resolves
+   fast enough not to need saying. */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Equalizer bars — collapsed pill "now playing" indicator. */

@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
+import type { PanelPref } from '../types/notch'
+import type { Place, WeatherPlace } from '../types/weather'
 
 /**
  * Mirrors `Settings` in `src-tauri/src/settings.rs`, minus `bannersRestore` —
@@ -15,8 +17,14 @@ export interface Settings {
   notifications: boolean
   /**
    * Whether the notch reports the machine's own state — a charger going in or
-   * out, a Bluetooth device connecting, the network changing. Gates the poll
-   * behind it as well as the banner: off means the notch stops looking.
+   * out, a Bluetooth device connecting, the network changing, or the CPU, memory,
+   * GPU or disk sitting pinned at the top of its range.
+   *
+   * Gates the *announcing* only. Both polls behind it keep running whatever it
+   * says, because both feed something that is drawn regardless: the charge on the
+   * pill, and the meters on the system monitor. What it does switch off is the
+   * expensive half of each — the Bluetooth device enumeration in
+   * `useSystemStatus`, and every alert rule in `usePerformance`.
    */
   systemAlerts: boolean
   muteWindowsBanners: boolean
@@ -29,6 +37,18 @@ export interface Settings {
   notchPosition: NotchPosition
   /** Whether the trigger strip is marked while the notch is away. */
   hotzoneHint: boolean
+  /**
+   * The accent, as `#RRGGBB`. Painted onto each window's `:root` by
+   * `useAccentColor`; nothing reads it directly except the picker.
+   */
+  accentColor: string
+  /**
+   * Which cards the notch offers, and in what order. Empty means never set —
+   * `resolvePanels` falls back to `MODULES` and reconciles from there.
+   */
+  panels: PanelPref[]
+  /** Where the weather module looks, or null until the user picks somewhere. */
+  weatherPlace: WeatherPlace | null
 }
 
 /**
@@ -36,9 +56,9 @@ export interface Settings {
  * added on the Rust side but missing from an old file still renders something,
  * and so the browser fallback (where `invoke` rejects) has a coherent state.
  *
- * `backgroundOpacity` has a third copy in `index.css` (the `--mica-alpha`
- * fallback); all three have to agree or the surface visibly corrects itself once
- * the real value lands.
+ * `backgroundOpacity` and `accentColor` each have a third copy in `index.css`
+ * (the `--mica-alpha` and `--accent` fallbacks); all three have to agree in both
+ * cases or the surface visibly corrects itself once the real value lands.
  */
 const DEFAULTS: Settings = {
   alwaysOnTop: true,
@@ -48,7 +68,32 @@ const DEFAULTS: Settings = {
   backgroundOpacity: 92,
   notchPosition: 'center',
   hotzoneHint: true,
+  accentColor: '#7C3AED',
+  // Empty rather than a copy of `MODULES`: that list is the frontend's own and
+  // duplicating it here would give the default two places to disagree.
+  panels: [],
+  weatherPlace: null,
 }
+
+/**
+ * The swatches offered before the hex field.
+ *
+ * Eight, spread around the wheel, all at roughly the accent's own lightness and
+ * saturation — the design was drawn against a mid-violet on a near-black Mica
+ * surface, and a pastel or a near-black accent would fail the contrast the rest
+ * of the palette assumes. A user who genuinely wants one can still type it; this
+ * is the set that is guaranteed to look like the app.
+ */
+export const ACCENT_SWATCHES: { hex: string; name: string }[] = [
+  { hex: '#7C3AED', name: 'Violet' },
+  { hex: '#2563EB', name: 'Blue' },
+  { hex: '#0891B2', name: 'Teal' },
+  { hex: '#059669', name: 'Green' },
+  { hex: '#CA8A04', name: 'Amber' },
+  { hex: '#EA580C', name: 'Orange' },
+  { hex: '#DC2626', name: 'Red' },
+  { hex: '#DB2777', name: 'Pink' },
+]
 
 /** The position picker's options, in the order they are drawn. */
 export const NOTCH_POSITIONS: { id: NotchPosition; label: string }[] = [
@@ -192,6 +237,21 @@ export function useSettings() {
     [write],
   )
 
+  const setAccentColor = useCallback(
+    (hex: string) => write('set_accent_color', 'accentColor', hex, { hex }),
+    [write],
+  )
+
+  const setPanels = useCallback(
+    (panels: PanelPref[]) => write('set_panels', 'panels', panels, { panels }),
+    [write],
+  )
+
+  const setWeatherPlace = useCallback(
+    (place: WeatherPlace | null) => write('set_weather_place', 'weatherPlace', place, { place }),
+    [write],
+  )
+
   return {
     settings,
     loaded,
@@ -203,7 +263,93 @@ export function useSettings() {
     setBackgroundOpacity,
     setNotchPosition,
     setHotzoneHint,
+    setAccentColor,
+    setPanels,
+    setWeatherPlace,
   }
+}
+
+/**
+ * Debounced place search for the weather location picker.
+ *
+ * Debounced because the control is a text field and the backend is somebody
+ * else's free service: typing "Chennai" would otherwise be seven geocoder
+ * requests, six of which are for prefixes nobody wants an answer to.
+ *
+ * A sequence number rather than an abort: `invoke` has nothing to cancel, and two
+ * searches in flight can land out of order — the shorter query is usually the
+ * faster one, so without this the list settles on the results for "Chen" a beat
+ * after showing the right ones for "Chennai".
+ */
+export function usePlaceSearch(query: string) {
+  const [results, setResults] = useState<Place[]>([])
+  const [searching, setSearching] = useState(false)
+  const sequence = useRef(0)
+
+  useEffect(() => {
+    const trimmed = query.trim()
+    if (trimmed.length < 2) {
+      setResults([])
+      setSearching(false)
+      return
+    }
+
+    const ticket = ++sequence.current
+    setSearching(true)
+
+    const timer = setTimeout(() => {
+      void invoke<Place[]>('search_places', { query: trimmed })
+        .then((found) => {
+          if (ticket === sequence.current) setResults(found)
+        })
+        .catch(() => {
+          if (ticket === sequence.current) setResults([])
+        })
+        .finally(() => {
+          if (ticket === sequence.current) setSearching(false)
+        })
+    }, 350)
+
+    return () => clearTimeout(timer)
+  }, [query])
+
+  return { results, searching }
+}
+
+/** Where notes are written. Mirrors `NotesLocation` in `src-tauri/src/notes.rs`. */
+export interface NotesLocation {
+  directory: string
+  file: string
+  exists: boolean
+}
+
+/**
+ * Where Quick Notes are saved, for Settings to show.
+ *
+ * Read per open rather than once, like `useNotificationAccess`: the file comes
+ * into existence the first time anything is typed, and someone who opens Settings
+ * to ask "where does this go" and then goes and writes a note should not have to
+ * relaunch to see `exists` flip.
+ */
+export function useNotesLocation(): NotesLocation | null {
+  const [location, setLocation] = useState<NotesLocation | null>(null)
+
+  const read = useCallback(() => {
+    void invoke<NotesLocation>('notes_location')
+      .then(setLocation)
+      .catch(() => setLocation(null))
+  }, [])
+
+  useEffect(() => read(), [read])
+
+  useEffect(() => {
+    const pending = listen('settings-opened', read)
+    return () => {
+      void pending.then((unlisten) => unlisten())
+    }
+  }, [read])
+
+  return location
 }
 
 /**

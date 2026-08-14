@@ -16,8 +16,28 @@ use tauri_plugin_updater::{Update, UpdaterExt};
 
 use crate::tray::{MENU_LABEL, NOTCH_LABEL};
 
-/// Percent complete, emitted to the popup while the installer downloads.
+/// Download progress, emitted while the installer downloads.
+///
+/// Broadcast rather than sent to the tray popup alone: the notch draws its own
+/// loader now (`UpdateAnnounce`), and the popup may not even be open — the update
+/// usually starts by itself a few seconds after launch.
 const PROGRESS_EVENT: &str = "updater-progress";
+
+/// How far along the download is.
+///
+/// Carries the byte counts as well as the percentage because the loader says
+/// "4.2 of 12.8 MB" — a bare percentage on a bar that has not moved for three
+/// seconds is indistinguishable from a stalled download, and the megabytes are
+/// what tell the user it is a big update rather than a stuck one.
+#[derive(Serialize, Clone, Copy)]
+#[serde(rename_all = "camelCase")]
+pub struct Progress {
+    pub downloaded: u64,
+    /// `None` when the server sent no content-length, which makes the bar
+    /// indeterminate rather than wrong.
+    pub total: Option<u64>,
+    pub percent: Option<u8>,
+}
 
 /// The update found by the last `updater_check`, held so that `updater_install`
 /// does not have to hit the network again — and so the bytes we install are the
@@ -69,6 +89,14 @@ pub async fn updater_check(app: AppHandle) -> Result<Option<UpdateInfo>, String>
 ///
 /// On Windows the plugin calls `std::process::exit(0)` once the installer is
 /// spawned and the `/R` flag relaunches us, so on success this never returns.
+///
+/// `installMode` is `"quiet"` in `tauri.conf.json`, so NSIS runs with `/S` and
+/// draws nothing at all — no setup window, no progress dialog, no "Crest has been
+/// installed" page. The only thing on screen is the notch's own loader, which is
+/// the point: an app that updates itself should not hand the user somebody else's
+/// installer UI. Quiet mode is only viable because the bundle is a per-user
+/// install and needs no elevation; a per-machine build would silently fail here
+/// where `"passive"` would at least have shown a UAC prompt.
 #[tauri::command]
 pub async fn updater_install(app: AppHandle) -> Result<(), String> {
     // Taken, not cloned: a failed install should send the user back through
@@ -86,12 +114,21 @@ pub async fn updater_install(app: AppHandle) -> Result<(), String> {
         .download_and_install(
             move |chunk, total| {
                 downloaded += chunk as u64;
-                // No content-length means no meaningful percentage; the popup
-                // shows an indeterminate label until `Some` arrives.
-                if let Some(total) = total.filter(|t| *t > 0) {
-                    let percent = (downloaded * 100 / total).min(100) as u8;
-                    let _ = progress_app.emit_to(MENU_LABEL, PROGRESS_EVENT, percent);
-                }
+                let total = total.filter(|t| *t > 0);
+                // No content-length means no meaningful percentage; the loader
+                // shows an indeterminate bar until `Some` arrives.
+                let percent = total.map(|t| (downloaded * 100 / t).min(100) as u8);
+
+                // Broadcast: the notch's loader and the tray popup both listen,
+                // and neither is guaranteed to be open.
+                let _ = progress_app.emit(
+                    PROGRESS_EVENT,
+                    Progress {
+                        downloaded,
+                        total,
+                        percent,
+                    },
+                );
             },
             move || {
                 // Handing off to the installer. Both windows are always-on-top,

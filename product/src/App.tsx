@@ -5,20 +5,27 @@ import NotchShell from './components/NotchShell'
 import { useNotchState } from './hooks/useNotchState'
 import { useMediaAnnounce } from './hooks/useMediaAnnounce'
 import { useMediaSession } from './hooks/useMediaSession'
+import { useAccentColor } from './hooks/useAccentColor'
+import { useAutoUpdate } from './hooks/useAutoUpdate'
 import { useFileShelf } from './hooks/useFileShelf'
+import { usePerformance } from './hooks/usePerformance'
+import { useReminders } from './hooks/useReminders'
 import { useSettings } from './hooks/useSettings'
 import { useSurfaceOpacity } from './hooks/useSurfaceOpacity'
 import { useSystemStatus } from './hooks/useSystemStatus'
+import { useWeather } from './hooks/useWeather'
 import { useWindowsNotifications } from './hooks/useWindowsNotifications'
 import { timing } from './tokens'
 import {
-  MODULES,
+  resolvePanels,
   STATE_RANK,
   type Announcement,
   type NotchModule,
   type NotchState,
 } from './types/notch'
 import type { WinNotification } from './types/notifications'
+import type { PerfAlert } from './types/perf'
+import type { Reminder } from './types/reminders'
 import type { SystemEvent } from './types/system'
 
 export default function App() {
@@ -29,9 +36,11 @@ export default function App() {
   // see the raise/settle pair in `useNotchState`.
   const { settings, loaded } = useSettings()
 
-  // Not gated on `loaded`: the default here and the CSS fallback are the same
-  // number, so an unread preference paints exactly what it was already painting.
+  // Neither is gated on `loaded`: the defaults here and the CSS fallbacks are the
+  // same values, so an unread preference paints exactly what it was already
+  // painting. That is the whole reason the three copies have to agree.
   useSurfaceOpacity(settings.backgroundOpacity)
+  useAccentColor(settings.accentColor)
 
   // One poll, two consumers: the same banner for arriving Windows notifications,
   // and the standing list the notifications module draws. Gated on `loaded` as
@@ -80,6 +89,21 @@ export default function App() {
     [notifications.notifications.length, openNotificationId],
   )
 
+  /**
+   * Which cards the notch offers, and in what order.
+   *
+   * Memoised on the stored array, not on `settings`: `useSettings` builds a fresh
+   * settings object on every broadcast, and this feeds `useNotchState`'s ring —
+   * a new array identity each time would re-run the "is the active card still
+   * visible" effect on every unrelated preference change.
+   *
+   * Not gated on `loaded`. The default is "everything, in the built-in order",
+   * which is what the notch would draw anyway, so acting on it before the file
+   * lands paints nothing that has to be taken back. That is the same test the
+   * opacity and the accent pass and the always-on-top pill fails.
+   */
+  const panels = useMemo(() => resolvePanels(settings.panels), [settings.panels])
+
   const {
     state,
     activeModule,
@@ -93,6 +117,7 @@ export default function App() {
     // Gated on `loaded` so the default never shows a pill it is about to retract.
     alwaysVisible: loaded && settings.alwaysOnTop,
     notificationsFit,
+    modules: panels.visible,
   })
   announceRef.current = announce
 
@@ -111,13 +136,18 @@ export default function App() {
       listen('tray-show', () => expand({ pin: true })),
       listen<string>('tray-navigate', (event) => {
         const module = event.payload as NotchModule
-        if (MODULES.includes(module)) showModule(module, { pin: true })
+        // Checked against the *visible* ring, not every module that exists: the
+        // tray only offers what is switched on, but the popup is a separate
+        // window reading its own copy of the preference, so a row clicked in the
+        // instant between a change and the broadcast could still name a card the
+        // notch has just dropped.
+        if (panels.visible.includes(module)) showModule(module, { pin: true })
       }),
     ]
     return () => {
       for (const p of pending) void p.then((unlisten) => unlisten())
     }
-  }, [expand, showModule])
+  }, [expand, showModule, panels.visible])
 
   // One poll shared by the collapsed pill and the media card. Drops to a slow
   // watch rate while hidden rather than stopping, so a track starting still
@@ -149,6 +179,88 @@ export default function App() {
       [announce],
     ),
   )
+
+  // How hard the machine is working, for the system monitor's meters and for the
+  // banner that says one of them has been pinned long enough to mean it.
+  //
+  // Announcing is gated on the same preference as the charger and Wi-Fi banners
+  // rather than on one of its own: `systemAlerts` is "does the notch tell me
+  // about my machine", and an overload is squarely that. A second switch would
+  // ask the user to answer the same question twice.
+  //
+  // The poll itself is not gated — the card needs its meters however the switch
+  // is set — but it does speed up while the card is actually on screen, which is
+  // the same trade `useMediaSession` makes with its watch rate.
+  const performance = usePerformance(
+    state === 'expanded' && activeModule === 'system',
+    loaded && settings.systemAlerts,
+    useCallback(
+      (alert: PerfAlert) => announce({ kind: 'performance', alert }, timing.announceMs),
+      [announce],
+    ),
+  )
+
+  // The forecast. Fetched only once a place is set — Crest deliberately does not
+  // guess where the user is, see `weather.rs` — and refreshed on open as well as
+  // on its timer, which is cheap because Rust caches for ten minutes.
+  const weather = useWeather(
+    settings.weatherPlace,
+    state === 'expanded' && activeModule === 'weather',
+  )
+
+  // Reminders, and the banner for one coming due.
+  //
+  // Mounted here rather than inside the calendar card for the same reason the
+  // notification feed is mounted here: the announcing has to keep working while
+  // the card has never been opened, which is almost all of the time. The card
+  // takes the same feed as a prop.
+  //
+  // Gated on `notifications` rather than on `systemAlerts`: a reminder is a
+  // message addressed to the user, which is what that preference covers, whereas
+  // `systemAlerts` is the machine reporting on itself. The two would be a strange
+  // pair — someone who turned off battery banners has said nothing about whether
+  // they still want to be told about the dentist.
+  const reminders = useReminders(
+    loaded && settings.notifications,
+    useCallback(
+      (reminder: Reminder) => announce({ kind: 'reminder', reminder }, timing.announceMs),
+      [announce],
+    ),
+  )
+
+  // Crest updating itself, silently, with the notch as the only UI.
+  //
+  // Only the notch window runs this — the tray popup and the settings window
+  // mount `useSettings` too, and three copies would race to spend the same parked
+  // update. The tray's manual "Check for updates" row is unaffected; it is the
+  // deliberate path, and this is the automatic one.
+  const update = useAutoUpdate(true)
+
+  // Held up by re-announcing rather than by a special state.
+  //
+  // `announce` retracts after `announceMs`, so a single call would drop the
+  // loader three seconds into a download. Calling it again on every progress tick
+  // resets that timer, which gives the banner exactly the lifetime it should
+  // have: up while bytes are arriving, gone by itself if they stop. The state
+  // machine needs no new state, no new hit rect and no exception to the pin
+  // lease — and the constant cross-fade key (see `announceKey`) is what stops the
+  // repeats from remounting the loader.
+  //
+  // `announce` declines while the cursor is on the notch or a card is open, which
+  // is the right call: the update does not need watching, and taking someone's
+  // card away to show them a progress bar would be worse than saying nothing.
+  useEffect(() => {
+    if (update.phase === 'idle') return
+    announce(
+      {
+        kind: 'update',
+        phase: update.phase,
+        version: update.version,
+        progress: update.progress,
+      },
+      timing.announceMs,
+    )
+  }, [update.phase, update.version, update.progress, announce])
 
   // A drag reaching the notch is an unambiguous request for the shelf, so it
   // skips the dwell timer and opens straight to it.
@@ -192,10 +304,23 @@ export default function App() {
         onOpenNotification={setOpenNotificationId}
         notificationsFit={notificationsFit}
         battery={battery}
+        performance={performance}
+        weather={weather}
+        reminders={reminders}
+        modules={panels.visible}
         // Gated on `loaded` for the same reason as the pill: the default is on,
         // and painting a mark on someone's wallpaper on the strength of a guess
         // is a mark they watch disappear a frame later.
-        hotzoneHint={loaded && settings.hotzoneHint}
+        //
+        // And gated on always-on-top being *off*, which is the fix for a real
+        // bug: the hint draws at the top centre and the resting pill covers that
+        // exact spot, so with the preference on the hint can never be seen. It
+        // was still being *rendered* for the one commit between `loaded` flipping
+        // true and the effect that raises the pill — long enough to fade in and
+        // straight back out. From the outside that is a switch you turn on and
+        // watch flicker, which reads as broken rather than as inapplicable.
+        // Settings now says as much rather than leaving the switch looking dead.
+        hotzoneHint={loaded && settings.hotzoneHint && !settings.alwaysOnTop}
       />
 
       {menu && <ContextMenu anchor={menu} onClose={closeMenu} />}

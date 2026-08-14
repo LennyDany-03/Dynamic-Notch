@@ -32,11 +32,17 @@ fn notifications_default() -> bool {
 }
 
 /// Whether the notch reports the machine's own state — a charger going in or
-/// out, a Bluetooth device connecting, the Wi-Fi changing.
+/// out, a Bluetooth device connecting, the Wi-Fi changing, or the CPU, memory,
+/// GPU or disk pinned at the top of its range.
+///
+/// One switch for two polls (`system.rs` and `perf.rs`) because it answers one
+/// question: does the notch tell me about my machine. Splitting it would ask the
+/// user to answer that twice.
 ///
 /// On by default, unlike `mute_windows_banners`: this only reads state Windows
-/// already shows in the tray and changes nothing outside the app, and the events
-/// it reports are ones the user just caused with their hands.
+/// already shows in the tray and Task Manager, and changes nothing outside the
+/// app. The load half earns the default separately — an overload is precisely the
+/// thing a user would not otherwise notice until it had already cost them time.
 fn system_alerts_default() -> bool {
     true
 }
@@ -102,6 +108,90 @@ fn background_opacity_default() -> u8 {
 const OPACITY_MIN: u8 = 60;
 const OPACITY_MAX: u8 = 100;
 
+/// The accent, as `#RRGGBB`.
+///
+/// Must agree with the `--accent` fallback in `src/index.css` and with `DEFAULTS`
+/// in `useSettings.ts`, for the same reason `background_opacity` must: those are
+/// what paint before the preference is read.
+///
+/// This is the design export's own `#7C3AED`. It is the *default* rather than the
+/// value now, which is the whole of this feature — but it stays the default
+/// because the export is still the design, and a user who never opens Settings
+/// should get the app as drawn.
+fn accent_color_default() -> String {
+    "#7C3AED".to_string()
+}
+
+/// Normalise a user-supplied accent to `#RRGGBB`, or reject it.
+///
+/// Accepts with or without the hash and in either case, because this is reached
+/// from a text field as well as from the swatches — someone pasting `7c3aed` out
+/// of a design tool means the obvious thing. Three-digit shorthand is expanded
+/// for the same reason.
+///
+/// Everything else is refused rather than coerced. The value ends up in a CSS
+/// custom property, and a malformed one does not fail loudly: it simply fails to
+/// parse as a colour and leaves the *previous* accent standing, which would look
+/// exactly like the preference having silently not saved.
+fn normalise_accent(raw: &str) -> Option<String> {
+    let hex = raw.trim().trim_start_matches('#');
+
+    let expanded = match hex.len() {
+        // `#abc` → `#aabbcc`, the CSS shorthand.
+        3 => hex.chars().flat_map(|c| [c, c]).collect::<String>(),
+        6 => hex.to_string(),
+        _ => return None,
+    };
+
+    if !expanded.chars().all(|c| c.is_ascii_hexdigit()) {
+        return None;
+    }
+    Some(format!("#{}", expanded.to_ascii_uppercase()))
+}
+
+/// One row of the `panels` preference: which card, and whether it is in the ring
+/// the nav arrows cycle.
+///
+/// **`id` is an opaque string and nothing here ever interprets it.** Which
+/// modules exist is a frontend fact — a card is a React component, a size token
+/// and a switch arm, none of which Rust knows about — so teaching this file the
+/// set would mean editing Rust every time a card is added, for no gain. The
+/// frontend reconciles the stored list against the modules that actually exist
+/// (`resolvePanels` in `types/notch.ts`), which is also the only place that can
+/// know what to do about a module that has just shipped or just been removed.
+///
+/// That means this value is not validated on the way in beyond being well-formed
+/// JSON, and that is deliberate: a stored id Rust does not recognise is not
+/// necessarily wrong, it may simply be from a newer build.
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct Panel {
+    pub id: String,
+    pub visible: bool,
+}
+
+/// Where the weather module looks.
+///
+/// Stored as coordinates *and* the name they were resolved from, rather than as a
+/// query string re-geocoded on every poll: the forecast API takes a latitude and
+/// a longitude, and a place name is ambiguous in a way coordinates are not
+/// (there are some thirty Springfields). The name is kept because it is what the
+/// card puts on screen and what Settings shows back to the user — re-deriving it
+/// from the coordinates would be a second network call to answer a question that
+/// was already answered when they picked the place.
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct WeatherPlace {
+    /// What to call it — "Chennai", "Chennai, Tamil Nadu".
+    pub name: String,
+    pub latitude: f64,
+    pub longitude: f64,
+    /// IANA zone from the geocoder, so a forecast for somewhere else is drawn
+    /// against *its* clock rather than against this machine's.
+    #[serde(default)]
+    pub timezone: Option<String>,
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Settings {
@@ -114,10 +204,14 @@ pub struct Settings {
     #[serde(default = "notifications_default")]
     pub notifications: bool,
 
-    /// Whether the notch announces charger, Bluetooth and Wi-Fi changes.
+    /// Whether the notch announces charger, Bluetooth, Wi-Fi and system-load
+    /// changes.
     ///
     /// Nothing for `apply` to do — like `background_opacity` it is read by the
-    /// notch off the broadcast, and the poll behind it only runs while it is on.
+    /// notch off the broadcast. Both polls behind it run regardless, because both
+    /// also feed something drawn all the time (the charge on the pill, the meters
+    /// on the system monitor); this switches off the announcing and, in
+    /// `system.rs`, the Bluetooth enumeration nothing else reads.
     #[serde(default = "system_alerts_default")]
     pub system_alerts: bool,
 
@@ -146,6 +240,42 @@ pub struct Settings {
     /// draws it from the broadcast and there is no window state behind it.
     #[serde(default = "hotzone_hint_default")]
     pub hotzone_hint: bool,
+
+    /// The accent, as `#RRGGBB`. Frontend-only, like `background_opacity`: it is
+    /// one CSS variable per window and `apply` has nothing to do with it.
+    #[serde(default = "accent_color_default")]
+    pub accent_color: String,
+
+    /// Which cards the notch offers, and in what order.
+    ///
+    /// Empty means "never set" — the frontend falls back to `MODULES`, its own
+    /// default order, with everything visible. It is not `Option` because an
+    /// empty list and "no preference" are the same thing here: a user cannot
+    /// switch every card off (the picker refuses, and `resolvePanels` falls back
+    /// if the file says otherwise), so an empty list can only mean untouched.
+    #[serde(default)]
+    pub panels: Vec<Panel>,
+
+    /// Whether startup has been set up at least once.
+    ///
+    /// Not a preference — the OS is the source of truth for whether Crest starts
+    /// with Windows, and this only records that the question has been *asked*.
+    /// Without it `autostart::migrate` cannot tell a fresh install (where startup
+    /// should default on) from a user who turned it off (where enabling it again
+    /// on every launch is the bug the old unconditional `autolaunch().enable()`
+    /// had).
+    #[serde(default)]
+    pub autostart_configured: bool,
+
+    /// Where the weather module looks, or `None` until the user picks somewhere.
+    ///
+    /// No default, and deliberately no guess. Every way of guessing reaches
+    /// outside the machine — an IP lookup hands a third party the user's address
+    /// on launch — and this app's rule for anything that reaches outside is that
+    /// the user asks for it first (see `mute_windows_banners`). The module says
+    /// as much and offers the search rather than sitting empty.
+    #[serde(default)]
+    pub weather_place: Option<WeatherPlace>,
 }
 
 impl Default for Settings {
@@ -158,6 +288,10 @@ impl Default for Settings {
             background_opacity: background_opacity_default(),
             notch_position: notch_position_default(),
             hotzone_hint: hotzone_hint_default(),
+            accent_color: accent_color_default(),
+            panels: Vec::new(),
+            autostart_configured: false,
+            weather_place: None,
         }
     }
 }
@@ -239,6 +373,10 @@ pub fn load(app: &AppHandle) -> Settings {
     // Same reasoning as the BOM: a hand-edited `"backgroundOpacity": 0` is a
     // wholly invisible app, and the window that would fix it is invisible too.
     settings.background_opacity = settings.background_opacity.clamp(OPACITY_MIN, OPACITY_MAX);
+    // And a hand-edited accent that is not a colour would leave every active
+    // state painted in whatever the last valid value was, with no way to tell
+    // that from the preference having failed to save.
+    settings.accent_color = normalise_accent(&settings.accent_color).unwrap_or_else(accent_color_default);
     settings
 }
 
@@ -416,11 +554,37 @@ pub fn apply(app: &AppHandle, settings: &Settings) {
 /// came back on for the whole session. `Current::get` covers a reader that beats
 /// even this line; the order is what stops the common case from needing it.
 pub fn init(app: &AppHandle) {
-    let stored = load(app);
+    let mut stored = load(app);
+
+    // Before the in-memory copy is seeded, because the migration may write the
+    // flag and everything downstream should see the settled value.
+    if crate::autostart::migrate(app, stored.autostart_configured) && !stored.autostart_configured {
+        stored.autostart_configured = true;
+        let _ = save(app, &stored);
+    }
+
     if let Some(current) = app.try_state::<Current>() {
         current.set(stored.clone());
     }
     apply(app, &stored);
+}
+
+/// Record that the user has made a choice about starting with Windows.
+///
+/// Called by the tray toggle. Without it, turning startup *off* would be undone
+/// by `migrate` on the next launch, which cannot otherwise tell "off on purpose"
+/// from "never set up".
+pub fn mark_autostart_configured(app: &AppHandle) {
+    let Some(current) = app.try_state::<Current>() else {
+        return;
+    };
+    let mut settings = current.get(app);
+    if settings.autostart_configured {
+        return;
+    }
+    settings.autostart_configured = true;
+    current.set(settings.clone());
+    let _ = save(app, &settings);
 }
 
 /// Give Windows its banners back on the way out.
@@ -532,10 +696,10 @@ pub fn set_notifications(
     Ok(enabled)
 }
 
-/// Whether the notch reports charger, Bluetooth and Wi-Fi changes.
+/// Whether the notch reports charger, Bluetooth, Wi-Fi and system-load changes.
 ///
-/// Nothing to apply — the notch owns the poll and starts or stops it from the
-/// broadcast, exactly as it does the notification poll. Unlike that one this has
+/// Nothing to apply — the notch owns both polls and decides from the broadcast
+/// what they are allowed to announce. Unlike the notification one this has
 /// no Windows permission behind it and nothing to refuse: the three reads are of
 /// state the shell already draws in the tray.
 #[tauri::command]
@@ -621,6 +785,84 @@ pub fn set_background_opacity(
     let _ = app.emit("settings-changed", settings.clone());
 
     Ok(percent)
+}
+
+/// The accent every active state in the app is drawn in.
+///
+/// Refuses rather than clamps, unlike the opacity slider, because the two
+/// controls behind it are a swatch and a text field: a swatch can only send
+/// something valid, and a half-typed hex from the field is a value the user has
+/// not finished choosing. Coercing `#7c3` into some nearby colour would paint the
+/// app a shade nobody asked for while they were still typing.
+///
+/// Returns the *normalised* value, which is what puts `7c3aed` pasted out of a
+/// design tool and `#7C3AED` on the same footing — the caller adopts what comes
+/// back, so the field tidies itself up.
+#[tauri::command]
+pub fn set_accent_color(
+    app: AppHandle,
+    current: State<'_, Current>,
+    hex: String,
+) -> Result<String, String> {
+    let hex = normalise_accent(&hex)
+        .ok_or_else(|| "That isn't a colour. Use a hex value like #7C3AED.".to_string())?;
+
+    let mut settings = current.get(&app);
+    settings.accent_color = hex.clone();
+    current.set(settings.clone());
+    save(&app, &settings)?;
+
+    // Nothing to apply — every window paints its own `:root` from this broadcast.
+    // Which is also the whole mechanism: the notch and the tray popup never
+    // rebuild, and the picker lives in neither of them.
+    let _ = app.emit("settings-changed", settings.clone());
+
+    Ok(hex)
+}
+
+/// Which cards the notch offers, and in what order.
+///
+/// Stores and broadcasts, and that is all — there is nothing to apply, and
+/// nothing to validate that this side could validate correctly (see `Panel`).
+/// The broadcast is the whole mechanism, as with every frontend-only preference:
+/// the notch and the tray popup are separate windows that never rebuild, and the
+/// picker lives in neither of them.
+#[tauri::command]
+pub fn set_panels(
+    app: AppHandle,
+    current: State<'_, Current>,
+    panels: Vec<Panel>,
+) -> Result<Vec<Panel>, String> {
+    let mut settings = current.get(&app);
+    settings.panels = panels.clone();
+    current.set(settings.clone());
+    save(&app, &settings)?;
+
+    let _ = app.emit("settings-changed", settings.clone());
+
+    Ok(panels)
+}
+
+/// Where the weather module looks, or `None` to forget it.
+///
+/// Takes the whole resolved place rather than a search string: the caller has
+/// just picked one row out of the geocoder's answers, and that row already
+/// carries the coordinates and the zone. Re-resolving a name here would throw
+/// away the disambiguation the user just performed.
+#[tauri::command]
+pub fn set_weather_place(
+    app: AppHandle,
+    current: State<'_, Current>,
+    place: Option<WeatherPlace>,
+) -> Result<Option<WeatherPlace>, String> {
+    let mut settings = current.get(&app);
+    settings.weather_place = place.clone();
+    current.set(settings.clone());
+    save(&app, &settings)?;
+
+    let _ = app.emit("settings-changed", settings.clone());
+
+    Ok(place)
 }
 
 /// Move the notch along the top edge, and remember where.

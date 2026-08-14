@@ -1,3 +1,69 @@
+## 0.6.0 — 2026-08-14
+
+**Three new panels, and the notch is yours to arrange.** Crest can now show you
+what your machine is doing, what the weather is, and what is on today — and you
+decide which of the seven panels you actually want and what order they sit in.
+Pick the colour it is all drawn in while you are there. Updates install
+themselves quietly in the background, and Crest starts with Windows in seconds
+rather than minutes.
+
+### New
+
+- **System monitor** — CPU, memory, GPU and disk as live meters, with the
+  temperature where your firmware reports one. Crest speaks up when something has
+  been pinned at the top of its range long enough to mean it — not for the spike
+  when an app launches, but for the machine that has been struggling for a while.
+  Sleep, restart and shut down are on the same panel, each one asking for a second
+  click before it does anything
+- **Weather** — the temperature now, what it feels like, humidity, wind and the
+  chance of rain, with the rest of the week beside it. Pick your town in Settings;
+  Crest does not go looking for where you are, and the forecast comes from
+  Open-Meteo, which needs no account
+- **Calendar and reminders** — a month at a glance with a dot on every day that
+  has something on it, and the day you have picked listed beside it. Add a
+  reminder with a time and the notch tells you when it comes round, including one
+  that fell due while your laptop was asleep
+- **Choose your panels** — a new Panels page in Settings. Switch off the ones you
+  do not use and drag the rest into the order you want. The arrows, the counter
+  and the tray menu all follow
+- **Accent colour** — eight colours, or type your own. Everything active is drawn
+  in it: the scrub bar, the switches, a connected device, today's date. The notch,
+  the tray menu and Settings all change at once
+- **Read your notes anywhere** — a Notes page in Settings showing everything you
+  have jotted down, as text, alongside the folder they are saved in
+- **Updates that install themselves** — Crest checks shortly after it starts and
+  again through the day. If there is something new it downloads and installs it on
+  its own, showing a small loader in the notch. No installer window, no prompts,
+  no wizard
+
+### Improved
+
+- **The file shelf and notes panel has been rebuilt.** Files wrap onto a second
+  row instead of scrolling off the side, each one carries its type, and removing
+  one is a button rather than a right-click you had to know about. Notes gained a
+  switcher, so every note past the first is reachable — and a button that gives
+  the note the whole card when you need the room
+- **Settings is six pages now** — About, Panels, Appearance, Weather, Notes and
+  Settings — rather than one long scroll with everything at the bottom of it
+- **The music mark on the resting pill only appears while something is playing.**
+  It used to sit there dimmed all day, which meant you stopped noticing it moved
+- Updates no longer put Windows' installer on your screen while they apply
+
+### Fixed
+
+- **Crest starts with Windows in seconds rather than minutes.** It was queuing
+  behind everything else set to launch at sign-in — on a machine with Docker,
+  Steam and a couple of game launchers ahead of it, that meant waiting five
+  minutes for the notch to appear. It now starts alongside them instead of after
+  them, and no longer refuses to start at all when you are on battery
+- **"Start with Windows" stays off when you turn it off.** It was being switched
+  back on every time Crest launched, so the setting only lasted until your next
+  reboot
+- **"Show me where it is" no longer flickers on and off.** With "Always on top"
+  switched on, the resting pill already sits exactly where that mark would go, so
+  the setting had nothing to show and would flash for a moment at every launch.
+  It now says so instead of appearing broken
+
 ## 0.5.0 — 2026-08-11
 
 **Crest keeps an eye on your machine.** Plug the charger in and the notch drops

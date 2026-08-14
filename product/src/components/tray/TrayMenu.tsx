@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ReactElement,
@@ -13,10 +14,12 @@ import { listen } from '@tauri-apps/api/event'
 import { getVersion } from '@tauri-apps/api/app'
 import { getCurrentWindow, LogicalSize } from '@tauri-apps/api/window'
 import Toggle from '../Toggle'
+import { useAccentColor } from '../../hooks/useAccentColor'
+import type { UpdateProgress } from '../../hooks/useAutoUpdate'
 import { useSettings } from '../../hooks/useSettings'
 import { useSurfaceOpacity } from '../../hooks/useSurfaceOpacity'
 import { color, radius, sectionLabel, spring } from '../../tokens'
-import type { NotchModule } from '../../types/notch'
+import { resolvePanels, type NotchModule } from '../../types/notch'
 
 /*
  * The card's height is whatever its rows add up to, and the window is told to be
@@ -132,6 +135,89 @@ function Icon({ children }: { children: ReactNode }) {
   )
 }
 
+/**
+ * The module rows, keyed rather than listed.
+ *
+ * A `Record` on the union, so adding a card fails to compile until the tray has
+ * a row for it — and, more to the point, so the *order* can come from the
+ * `panels` preference instead of from the shape of this literal. The popup shows
+ * exactly what the notch offers, in the same sequence, because a menu that listed
+ * a card the arrows cannot reach would be a second, disagreeing answer to "what
+ * does this app have in it".
+ *
+ * The labels are shorter than `MODULE_LABELS` on purpose: these sit next to an
+ * icon in a 248px popup, where "File shelf and notes" is a line that wraps and
+ * "File shelf" is a thing you click.
+ */
+const MODULE_ROWS: Record<NotchModule, { label: string; icon: ReactElement }> = {
+  media: {
+    label: 'Music player',
+    icon: (
+      <Icon>
+        <path d="M9 18V6l10-2v12" />
+        <circle cx="6.5" cy="18" r="2.5" />
+        <circle cx="16.5" cy="16" r="2.5" />
+      </Icon>
+    ),
+  },
+  launcher: {
+    label: 'Quick launcher',
+    icon: (
+      <Icon>
+        <rect x="3" y="3" width="7" height="7" rx="2" />
+        <rect x="14" y="3" width="7" height="7" rx="2" />
+        <rect x="3" y="14" width="7" height="7" rx="2" />
+        <rect x="14" y="14" width="7" height="7" rx="2" />
+      </Icon>
+    ),
+  },
+  files: {
+    label: 'File shelf',
+    icon: (
+      <Icon>
+        <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+      </Icon>
+    ),
+  },
+  notifications: {
+    label: 'Notifications',
+    icon: (
+      <Icon>
+        <path d="M18 8a6 6 0 1 0-12 0c0 5-2 6-2 6h16s-2-1-2-6" />
+        <path d="M13.7 19a2 2 0 0 1-3.4 0" />
+      </Icon>
+    ),
+  },
+  system: {
+    label: 'System monitor',
+    icon: (
+      <Icon>
+        <path d="M3 13h3.5l2-5 3 10 2.5-7 1.5 2H21" />
+      </Icon>
+    ),
+  },
+  weather: {
+    label: 'Weather',
+    icon: (
+      <Icon>
+        <circle cx="8.5" cy="8.5" r="3" />
+        <path d="M8.5 2.6v1.4M3.1 8.5h1.4M4.6 4.6l1 1M12.4 4.6l-1 1" />
+        <path d="M8.4 19.6a3.6 3.6 0 0 1-.4-7.2 5 5 0 0 1 9.7.4 3.4 3.4 0 0 1-.3 6.8z" />
+      </Icon>
+    ),
+  },
+  calendar: {
+    label: 'Calendar',
+    icon: (
+      <Icon>
+        <rect x="3.5" y="5" width="17" height="16" rx="2.5" />
+        <path d="M3.5 10h17M8 3.5v3M16 3.5v3" />
+      </Icon>
+    ),
+  },
+}
+
+/** The fixed groups. The module group is built from the preference — see below. */
 const GROUPS: Row[][] = [
   [
     {
@@ -143,54 +229,6 @@ const GROUPS: Row[][] = [
           <rect x="3" y="4" width="18" height="9" rx="3" />
           <path d="M9 17h6" />
           <path d="M12 20v-3" />
-        </Icon>
-      ),
-    },
-  ],
-  [
-    {
-      id: 'media',
-      label: 'Music player',
-      action: { kind: 'module', module: 'media' },
-      icon: (
-        <Icon>
-          <path d="M9 18V6l10-2v12" />
-          <circle cx="6.5" cy="18" r="2.5" />
-          <circle cx="16.5" cy="16" r="2.5" />
-        </Icon>
-      ),
-    },
-    {
-      id: 'launcher',
-      label: 'Quick launcher',
-      action: { kind: 'module', module: 'launcher' },
-      icon: (
-        <Icon>
-          <rect x="3" y="3" width="7" height="7" rx="2" />
-          <rect x="14" y="3" width="7" height="7" rx="2" />
-          <rect x="3" y="14" width="7" height="7" rx="2" />
-          <rect x="14" y="14" width="7" height="7" rx="2" />
-        </Icon>
-      ),
-    },
-    {
-      id: 'files',
-      label: 'File shelf',
-      action: { kind: 'module', module: 'files' },
-      icon: (
-        <Icon>
-          <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-        </Icon>
-      ),
-    },
-    {
-      id: 'notifications',
-      label: 'Notifications',
-      action: { kind: 'module', module: 'notifications' },
-      icon: (
-        <Icon>
-          <path d="M18 8a6 6 0 1 0-12 0c0 5-2 6-2 6h16s-2-1-2-6" />
-          <path d="M13.7 19a2 2 0 0 1-3.4 0" />
         </Icon>
       ),
     },
@@ -303,6 +341,21 @@ export default function TrayMenu() {
   // reason the hook is mounted.
   const { settings } = useSettings()
   useSurfaceOpacity(settings.backgroundOpacity)
+  useAccentColor(settings.accentColor)
+
+  // The popup lists what the notch offers, in the notch's order. Spliced in as
+  // the second group so the window keeps measuring itself — `useFitWindow` reads
+  // the card after layout, so a group that grew or shrank needs no arithmetic
+  // anywhere. That is exactly what the measuring was for.
+  const groups = useMemo(() => {
+    const modules = resolvePanels(settings.panels).visible.map<Row>((id) => ({
+      id,
+      label: MODULE_ROWS[id].label,
+      icon: MODULE_ROWS[id].icon,
+      action: { kind: 'module', module: id },
+    }))
+    return [GROUPS[0], modules, ...GROUPS.slice(1)]
+  }, [settings.panels])
 
   // `tray.rs` positions this window from its size, so the size has to be the
   // truth about the card rather than a number in the config hoping to be.
@@ -337,8 +390,12 @@ export default function TrayMenu() {
   }, [])
 
   useEffect(() => {
-    const pending = listen<number>('updater-progress', (event) => {
-      setUpdate({ kind: 'downloading', percent: event.payload })
+    // The payload gained byte counts when the notch grew its own loader, and it
+    // is broadcast now rather than sent here alone — the automatic update starts
+    // by itself and this popup is usually not open for it. Either way the row
+    // only wants the percentage.
+    const pending = listen<UpdateProgress>('updater-progress', (event) => {
+      setUpdate({ kind: 'downloading', percent: event.payload.percent })
     })
     return () => {
       void pending.then((unlisten) => unlisten())
@@ -457,7 +514,7 @@ export default function TrayMenu() {
             <span style={{ ...sectionLabel, marginLeft: 'auto' }}>{version}</span>
           </header>
 
-          {GROUPS.map((group, index) => (
+          {groups.map((group, index) => (
             <div key={index}>
               <Separator />
               {group.map((row) => {

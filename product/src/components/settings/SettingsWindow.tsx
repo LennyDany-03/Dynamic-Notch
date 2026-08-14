@@ -4,8 +4,13 @@ import { invoke } from '@tauri-apps/api/core'
 import { getVersion } from '@tauri-apps/api/app'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import Toggle from '../Toggle'
+import AccentPicker from './AccentPicker'
+import NotesLocation from './NotesLocation'
+import PanelOrder from './PanelOrder'
 import Slider from './Slider'
+import WeatherLocation from './WeatherLocation'
 import { NOTCH_POSITIONS, OPACITY, useNotificationAccess, useSettings } from '../../hooks/useSettings'
+import { useAccentColor } from '../../hooks/useAccentColor'
 import { useSurfaceOpacity } from '../../hooks/useSurfaceOpacity'
 import { color, font, radius, sectionLabel, spring } from '../../tokens'
 
@@ -61,7 +66,23 @@ function Icon({ children, size = 18 }: { children: ReactNode; size?: number }) {
   )
 }
 
-type Pane = 'about' | 'settings'
+/**
+ * The sidebar's panes.
+ *
+ * Split out of a single "Settings" pane once it had grown past a screenful. Two
+ * things earned their own entry rather than another group label inside it:
+ *
+ *  - **Appearance** is the pair of preferences that change how Crest *looks*
+ *    rather than what it does, and they are the two people come back to. Buried
+ *    under a heading at the top of a long scroller they were findable only by
+ *    remembering they were there.
+ *  - **Weather** is the one place Crest has to be *told* something before a
+ *    feature works at all. Sitting three groups down among switches, it read as
+ *    an option for a feature you already had, rather than as the setup step it is.
+ *
+ * Everything left is a switch about behaviour, and that is still "Settings".
+ */
+type Pane = 'about' | 'panels' | 'appearance' | 'weather' | 'notes' | 'settings'
 
 /** Nav entries, in the order they appear in the sidebar. */
 const PANES: { id: Pane; label: string; icon: ReactNode }[] = [
@@ -73,6 +94,51 @@ const PANES: { id: Pane; label: string; icon: ReactNode }[] = [
         <circle cx="12" cy="12" r="9" />
         <path d="M12 11v5" />
         <path d="M12 8h.01" />
+      </Icon>
+    ),
+  },
+  {
+    id: 'panels',
+    label: 'Panels',
+    icon: (
+      <Icon size={16}>
+        <rect x="3" y="4" width="18" height="6" rx="2" />
+        <rect x="3" y="14" width="11" height="6" rx="2" />
+        <path d="M17.5 17h3.5" />
+      </Icon>
+    ),
+  },
+  {
+    id: 'appearance',
+    label: 'Appearance',
+    icon: (
+      <Icon size={16}>
+        <path d="M12 3a9 9 0 0 0 0 18c1.4 0 2.2-.9 2.2-2 0-1-.7-1.6-.7-2.4 0-.7.6-1.3 1.4-1.3H17a4.5 4.5 0 0 0 4.5-4.6C21.5 6.3 17.3 3 12 3z" />
+        <circle cx="7.6" cy="11.4" r="1.1" fill="currentColor" stroke="none" />
+        <circle cx="11" cy="7.8" r="1.1" fill="currentColor" stroke="none" />
+        <circle cx="15.4" cy="8.8" r="1.1" fill="currentColor" stroke="none" />
+      </Icon>
+    ),
+  },
+  {
+    id: 'weather',
+    label: 'Weather',
+    icon: (
+      <Icon size={16}>
+        <circle cx="8.5" cy="8.5" r="3" />
+        <path d="M8.5 2.6v1.4M3.1 8.5h1.4M4.6 4.6l1 1M12.4 4.6l-1 1" />
+        <path d="M8.4 19.6a3.6 3.6 0 0 1-.4-7.2 5 5 0 0 1 9.7.4 3.4 3.4 0 0 1-.3 6.8z" />
+      </Icon>
+    ),
+  },
+  {
+    id: 'notes',
+    label: 'Notes',
+    icon: (
+      <Icon size={16}>
+        <path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H15l4 4v13.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 20.5z" />
+        <path d="M14.5 3v4.5H19" />
+        <path d="M8.5 13h7M8.5 16.5h4.5" />
       </Icon>
     ),
   },
@@ -126,6 +192,50 @@ const FEATURES: { id: string; title: string; body: string; icon: ReactNode }[] =
     icon: (
       <Icon>
         <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+      </Icon>
+    ),
+  },
+  {
+    id: 'notifications',
+    title: 'Notifications',
+    body: 'What Windows has been telling you, announced as it arrives and kept until you read it.',
+    icon: (
+      <Icon>
+        <path d="M18 8a6 6 0 1 0-12 0c0 5-2 6-2 6h16s-2-1-2-6" />
+        <path d="M13.7 19a2 2 0 0 1-3.4 0" />
+      </Icon>
+    ),
+  },
+  {
+    id: 'system',
+    title: 'System monitor',
+    body: 'CPU, memory, GPU and disk, with a word when one of them is pinned. Sleep, restart and shut down.',
+    icon: (
+      <Icon>
+        <path d="M3 13h3.5l2-5 3 10 2.5-7 1.5 2H21" />
+      </Icon>
+    ),
+  },
+  {
+    id: 'weather',
+    title: 'Weather',
+    body: 'Conditions where you are and the rest of the week. Pick a place in Settings.',
+    icon: (
+      <Icon>
+        <circle cx="8.5" cy="8.5" r="3" />
+        <path d="M8.5 2.6v1.4M3.1 8.5h1.4M4.6 4.6l1 1M12.4 4.6l-1 1" />
+        <path d="M8.4 19.6a3.6 3.6 0 0 1-.4-7.2 5 5 0 0 1 9.7.4 3.4 3.4 0 0 1-.3 6.8z" />
+      </Icon>
+    ),
+  },
+  {
+    id: 'calendar',
+    title: 'Calendar and reminders',
+    body: 'A month at a glance, and a nudge from the notch when six o’clock and the groceries come round.',
+    icon: (
+      <Icon>
+        <rect x="3.5" y="5" width="17" height="16" rx="2.5" />
+        <path d="M3.5 10h17M8 3.5v3M16 3.5v3" />
       </Icon>
     ),
   },
@@ -582,7 +692,46 @@ function AboutPane({ version }: { version: string }) {
   )
 }
 
-function SettingsPane({
+/**
+ * Which cards the notch offers, and in what order.
+ *
+ * Its own pane because it is not a preference among preferences — it decides what
+ * the app *is* for this user. Seven cards is also past the point where a ring is
+ * comfortable to walk, so most people will want fewer, and the place to say so
+ * should not be three groups down a list of switches.
+ */
+function PanelsPane({ api }: { api: ReturnType<typeof useSettings> }) {
+  const { settings, error, setPanels } = api
+
+  return (
+    <>
+      <h3 style={{ ...sectionLabel, margin: '0 0 8px' }}>Panels</h3>
+
+      <Paragraph>
+        The notch cycles these with the arrows at the top of each card. Switch off
+        the ones you don’t use and drag the rest into the order you want them —
+        the tray menu follows the same list.
+      </Paragraph>
+
+      <div style={{ height: 6 }} />
+
+      <PanelOrder stored={settings.panels} onChange={setPanels} />
+
+      {error && (
+        <p style={{ margin: '8px 12px 0', fontSize: 11.5, color: color.fileRed }}>{error}</p>
+      )}
+    </>
+  )
+}
+
+/**
+ * How Crest looks: the two preferences that change nothing about what it does.
+ *
+ * Its own pane rather than a group at the top of the settings scroller, because
+ * these are the two people come back to and adjust — and both repaint every
+ * window live, so the pane you are looking at *is* the preview.
+ */
+function AppearancePane({
   api,
   opacity,
   onPreviewOpacity,
@@ -592,22 +741,11 @@ function SettingsPane({
   opacity: number
   onPreviewOpacity: (percent: number | null) => void
 }) {
-  const {
-    settings,
-    error,
-    setAlwaysOnTop,
-    setNotifications,
-    setSystemAlerts,
-    setMuteWindowsBanners,
-    setBackgroundOpacity,
-    setNotchPosition,
-    setHotzoneHint,
-  } = api
-  const notificationAccess = useNotificationAccess()
+  const { settings, error, setBackgroundOpacity, setAccentColor } = api
 
   return (
     <>
-      <h3 style={{ ...sectionLabel, margin: '0 0 8px' }}>Appearance</h3>
+      <h3 style={{ ...sectionLabel, margin: '0 0 8px' }}>Surface</h3>
 
       <RangeRow
         title="Background opacity"
@@ -638,7 +776,81 @@ function SettingsPane({
         />
       </RangeRow>
 
-      <GroupLabel>General</GroupLabel>
+      <GroupLabel>Colour</GroupLabel>
+
+      <AccentPicker value={settings.accentColor} onChange={setAccentColor} />
+
+      {error && (
+        <p style={{ margin: '8px 12px 0', fontSize: 11.5, color: color.fileRed }}>{error}</p>
+      )}
+    </>
+  )
+}
+
+/**
+ * Where the weather module looks.
+ *
+ * A pane of its own for one control, which looks like too much until you notice
+ * it is not a preference: it is the one thing Crest has to be *told* before a
+ * feature works at all. Sitting three groups down a list of switches, it read as
+ * an option for something you already had.
+ */
+/**
+ * Notes: where they live, and a way to read them.
+ *
+ * Its own pane for the same reason Weather has one — it is not a switch. It is
+ * the answer to "where did what I typed go", and that question deserves better
+ * than being the last group at the bottom of a list of toggles.
+ */
+function NotesPane() {
+  return (
+    <>
+      <h3 style={{ ...sectionLabel, margin: '0 0 8px' }}>Notes</h3>
+
+      <Paragraph>
+        Quick Notes live on the file shelf card in the notch and save themselves as
+        you type. Everything you have written is here too, in one place, as text.
+      </Paragraph>
+
+      <div style={{ height: 6 }} />
+
+      <NotesLocation />
+    </>
+  )
+}
+
+function WeatherPane({ api }: { api: ReturnType<typeof useSettings> }) {
+  const { settings, error, setWeatherPlace } = api
+
+  return (
+    <>
+      <h3 style={{ ...sectionLabel, margin: '0 0 8px' }}>Weather</h3>
+
+      <WeatherLocation place={settings.weatherPlace} onChange={setWeatherPlace} />
+
+      {error && (
+        <p style={{ margin: '8px 12px 0', fontSize: 11.5, color: color.fileRed }}>{error}</p>
+      )}
+    </>
+  )
+}
+
+function SettingsPane({ api }: { api: ReturnType<typeof useSettings> }) {
+  const {
+    settings,
+    error,
+    setAlwaysOnTop,
+    setNotifications,
+    setSystemAlerts,
+    setMuteWindowsBanners,
+    setNotchPosition,
+    setHotzoneHint,
+  } = api
+  const notificationAccess = useNotificationAccess()
+
+  return (
+    <>
+      <h3 style={{ ...sectionLabel, margin: '0 0 8px' }}>General</h3>
 
       <ChoiceRow
         title="Position"
@@ -656,9 +868,15 @@ function SettingsPane({
 
       <SettingRow
         title="Show me where it is"
-        body="Marks the top edge with a thin line at the spot that summons the notch, so you know where to send your cursor. It disappears the moment the notch comes down, and stays out of the way when the notch is already on screen."
+        body="Marks the top edge with a thin line at the spot that summons the notch, so you know where to send your cursor. It disappears the moment the notch comes down."
         on={settings.hotzoneHint}
         onToggle={() => setHotzoneHint(!settings.hotzoneHint)}
+        // Nothing this switch does is visible while the pill is resting on
+        // screen: the mark is drawn at the top centre and the pill sits on that
+        // exact spot. Dimming it and saying so is the honest version — it used to
+        // be left on, draw for one commit at startup and vanish, which looks like
+        // a broken switch rather than one that does not apply.
+        disabled={settings.alwaysOnTop}
         icon={
           <Icon>
             <path d="M8 4h8" />
@@ -668,6 +886,22 @@ function SettingsPane({
           </Icon>
         }
       />
+
+      {settings.alwaysOnTop && (
+        <p
+          style={{
+            margin: '2px 12px 0',
+            paddingLeft: 30,
+            fontSize: 11.5,
+            lineHeight: 1.5,
+            color: color.text.muted,
+          }}
+        >
+          Not needed right now — <strong style={{ color: color.text.secondary, fontWeight: 500 }}>Always on top</strong> is
+          keeping the notch on screen, so the pill is already sitting on the spot this
+          would mark. Turn that off and the line comes back.
+        </p>
+      )}
 
       <SettingRow
         title="Always on top"
@@ -735,8 +969,8 @@ function SettingsPane({
       <GroupLabel>Your machine</GroupLabel>
 
       <SettingRow
-        title="Charger, Bluetooth and Wi-Fi"
-        body="Tells you the moment a charger goes in or comes out, a Bluetooth device connects or drops, or your network changes — with the charge left and the device's own name. A few seconds in the notch, then gone."
+        title="Charger, Wi-Fi and system load"
+        body="Tells you the moment a charger goes in or comes out, a Bluetooth device connects or drops, or your network changes — and speaks up when your CPU, memory, GPU or disk has been pinned long enough to mean it. A few seconds in the notch, then gone. The system monitor keeps its meters either way."
         on={settings.systemAlerts}
         onToggle={() => setSystemAlerts(!settings.systemAlerts)}
         icon={
@@ -769,6 +1003,10 @@ export default function SettingsWindow() {
   const [preview, setPreview] = useState<number | null>(null)
   const opacity = preview ?? api.settings.backgroundOpacity
   useSurfaceOpacity(opacity)
+  // No preview equivalent: the accent is picked, not dragged, so the write and
+  // the repaint are the same moment. This window repainting itself the instant a
+  // swatch is clicked is why the picker needs no preview swatch of its own.
+  useAccentColor(api.settings.accentColor)
 
   useEffect(() => {
     getVersion().then(setVersion).catch(() => setVersion(''))
@@ -960,8 +1198,16 @@ export default function SettingsWindow() {
                 >
                   {pane === 'about' ? (
                     <AboutPane version={version} />
+                  ) : pane === 'panels' ? (
+                    <PanelsPane api={api} />
+                  ) : pane === 'appearance' ? (
+                    <AppearancePane api={api} opacity={opacity} onPreviewOpacity={setPreview} />
+                  ) : pane === 'weather' ? (
+                    <WeatherPane api={api} />
+                  ) : pane === 'notes' ? (
+                    <NotesPane />
                   ) : (
-                    <SettingsPane api={api} opacity={opacity} onPreviewOpacity={setPreview} />
+                    <SettingsPane api={api} />
                   )}
                 </motion.div>
               </AnimatePresence>

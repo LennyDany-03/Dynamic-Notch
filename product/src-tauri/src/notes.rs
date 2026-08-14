@@ -34,6 +34,40 @@ fn notes_path(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(dir.join("notes.json"))
 }
 
+/// Where notes actually live, for Settings to show and to open.
+///
+/// The directory is reported alongside the file because those are two different
+/// answers to two different questions: the path is what the user wants to *read*
+/// ("so that's where it goes"), and the directory is what Explorer can be pointed
+/// at. Opening the file itself would launch whatever is registered for `.json`,
+/// which on a default Windows install is nothing at all.
+///
+/// The directory is created here as a side effect of `notes_path`, which is
+/// deliberate — Settings showing a path that does not exist yet, because the user
+/// has not typed a note, would read as the feature being broken.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NotesLocation {
+    pub directory: String,
+    pub file: String,
+    /// Whether anything has been written yet. Settings says "nothing saved yet"
+    /// rather than showing a path to a file that is not there.
+    pub exists: bool,
+}
+
+#[tauri::command]
+pub fn notes_location(app: AppHandle) -> Result<NotesLocation, String> {
+    let path = notes_path(&app)?;
+    Ok(NotesLocation {
+        directory: path
+            .parent()
+            .map(|dir| dir.to_string_lossy().into_owned())
+            .unwrap_or_default(),
+        exists: path.exists(),
+        file: path.to_string_lossy().into_owned(),
+    })
+}
+
 #[tauri::command]
 pub fn read_notes(app: AppHandle) -> Result<NotesFile, String> {
     let path = notes_path(&app)?;

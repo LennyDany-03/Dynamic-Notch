@@ -78,7 +78,7 @@ export default function BatteryBadge({
           // The state, carried by the surface as well as by the glyph. Faint
           // enough to stay a background: the number is what is being read, and a
           // saturated chip at the top of the screen reads as an alert.
-          ...(battery.acPower && { background: 'rgba(124,58,237,.16)' }),
+          ...(battery.acPower && { background: color.accentWash }),
           ...(low && { background: 'rgba(248,113,113,.14)' }),
         }),
       }}

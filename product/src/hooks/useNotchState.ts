@@ -48,6 +48,7 @@ import {
 export function useNotchState({
   alwaysVisible = false,
   notificationsFit,
+  modules = MODULES,
 }: {
   alwaysVisible?: boolean
   /**
@@ -56,9 +57,17 @@ export function useNotchState({
    * the module alone — see `layout.notificationsCardHeight`.
    */
   notificationsFit?: NotificationsFit
+  /**
+   * The cards the arrows cycle, in order — the `panels` preference, resolved.
+   *
+   * Defaults to `MODULES` so the browser fallback and any caller that does not
+   * care still gets the full ring. Guaranteed non-empty by `resolvePanels`, which
+   * is what lets `cycleModule` index into it without a guard.
+   */
+  modules?: readonly NotchModule[]
 } = {}) {
   const [state, setState] = useState<NotchState>('hidden')
-  const [activeModule, setActiveModule] = useState<NotchModule>('media')
+  const [activeModule, setActiveModule] = useState<NotchModule>(() => modules[0] ?? 'media')
 
   /**
    * What the banner is reporting. Never cleared: the card fades out over a
@@ -234,12 +243,17 @@ export function useNotchState({
 
       // A music banner dwells through to the full card just as the pill does:
       // reaching for something that reported a track is a request to see the
-      // rest of it. A notification has no card behind it, so hovering only holds
-      // it up to be read — the cancelled retract above is the whole behaviour,
-      // and it collapses on the ordinary grace once the cursor leaves.
+      // rest of it. An overload banner does the same, and more sharply — it has
+      // just said the machine is struggling, and the card behind it is where the
+      // other three meters and the power row are. A notification or a charger has
+      // no card behind it, so hovering those only holds them up to be read — the
+      // cancelled retract above is the whole behaviour, and they collapse on the
+      // ordinary grace once the cursor leaves.
+      const kind = announcementRef.current?.kind
       const dwells =
         state === 'peek' ||
-        (state === 'announce' && announcementRef.current?.kind === 'media')
+        (state === 'announce' &&
+          (kind === 'media' || kind === 'performance' || kind === 'reminder'))
       if (dwells) {
         // Guarded so a re-render mid-dwell does not restart the countdown.
         if (!dwellRef.current) {
@@ -369,11 +383,13 @@ export function useNotchState({
     clearAnnounce()
     pin()
     setAnnouncement(next)
-    // Music is the one announcement with a card behind it, so a dwell on that
-    // banner should land on the media card rather than wherever the notch was
-    // last left. A notification has nothing to open into and leaves the
-    // selection alone.
+    // The two announcements with a card behind them point the dwell at it, so
+    // reaching for the banner lands on the thing it was about rather than on
+    // wherever the notch was last left. The other two have nothing to open into
+    // and leave the selection alone.
     if (next.kind === 'media') setActiveModule('media')
+    if (next.kind === 'performance') setActiveModule('system')
+    if (next.kind === 'reminder') setActiveModule('calendar')
     setState('announce')
 
     announceRef.current = setTimeout(() => {
@@ -402,17 +418,49 @@ export function useNotchState({
     showModule(moduleRef.current, options)
   }, [showModule])
 
-  /** Step through the modules, wrapping at both ends. */
+  /**
+   * Step through the modules, wrapping at both ends.
+   *
+   * Reads the ring from a ref rather than closing over it, so switching a card
+   * off in Settings does not hand every consumer a new `nextModule`/`previousModule`
+   * identity — `NotchShell` takes them as props and would re-render the whole card
+   * for a preference change that only matters at the moment an arrow is clicked.
+   *
+   * `indexOf` can be -1 when the active card has just been switched off. `-1 + 1`
+   * lands on index 0 and `-1 - 1` wraps to the last, both of which are reasonable
+   * places to arrive — and the effect below will usually have moved off it first.
+   */
+  const modulesRef = useRef(modules)
+  modulesRef.current = modules
+
   const cycleModule = useCallback((direction: 1 | -1) => {
     clearGrace()
     clearDwell()
     clearAnnounce()
     setActiveModule((current) => {
-      const index = MODULES.indexOf(current)
-      return MODULES[(index + direction + MODULES.length) % MODULES.length]
+      const ring = modulesRef.current
+      const index = ring.indexOf(current)
+      return ring[(index + direction + ring.length) % ring.length]
     })
     setState('expanded')
   }, [])
+
+  /**
+   * Follow the preference when the card on screen is switched off.
+   *
+   * Without this the notch keeps drawing a card the user has just removed — and
+   * worse, one the arrows can no longer reach, because `cycleModule` steps from a
+   * position in the ring that no longer contains it. Moving to the first visible
+   * card is the least surprising landing: it is the one the notch opens on
+   * anyway.
+   *
+   * Deliberately not `showModule`: this is a correction, not an intent. Changing
+   * the state would expand the notch in front of a user who is in the settings
+   * window ticking boxes.
+   */
+  useEffect(() => {
+    setActiveModule((current) => (modules.includes(current) ? current : modules[0]))
+  }, [modules])
 
   const nextModule = useCallback(() => cycleModule(1), [cycleModule])
   const previousModule = useCallback(() => cycleModule(-1), [cycleModule])
