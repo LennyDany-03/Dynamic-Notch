@@ -170,6 +170,69 @@ pub fn task_exists() -> bool {
         .unwrap_or(false)
 }
 
+/// Whether this binary is one that should be allowed to enrol itself in startup.
+///
+/// A build run out of the source tree must not, and the reason is a bug that
+/// took a login to notice. `create_task` records `current_exe()`, and under
+/// `npm run tauri dev` that is `target\debug\…exe` — a binary that loads Vite's
+/// dev server instead of the bundled frontend and, since `windows_subsystem`
+/// applies only to release, opens a console window. Registered once it outlives
+/// the dev session entirely: `task_exists()` is true from then on, so `migrate`
+/// never repoints it and installing the real app changes nothing. Every login
+/// afterwards brought up a console and a webview reading "localhost refused to
+/// connect". Running `tauri dev` is not a request to start with Windows.
+///
+/// `tauri build` leaves a *release* binary in that same tree, and running it to
+/// try it out is no more a request than the other, so the path is checked too.
+fn is_installed_build(exe: &Path) -> bool {
+    if cfg!(debug_assertions) {
+        return false;
+    }
+    let path = exe.to_string_lossy().to_lowercase();
+    !(path.contains(r"\target\debug\") || path.contains(r"\target\release\"))
+}
+
+/// Decode `schtasks` output, which is UTF-16 on some machines and the console
+/// codepage on others.
+///
+/// The BOM is the reliable half; the NUL in the second byte covers output that
+/// arrives without one, since every character this command emits before the
+/// first newline is ASCII.
+fn decode(bytes: &[u8]) -> String {
+    let utf16 = bytes.len() >= 2 && (bytes[..2] == [0xFF, 0xFE] || bytes[1] == 0);
+    if utf16 {
+        let units: Vec<u16> = bytes
+            .chunks_exact(2)
+            .map(|pair| u16::from_le_bytes([pair[0], pair[1]]))
+            .collect();
+        // The BOM decodes to a zero-width space rather than vanishing, and a
+        // stray one at the front of the haystack is a trap for the next reader.
+        String::from_utf16_lossy(&units)
+            .trim_start_matches('\u{FEFF}')
+            .to_owned()
+    } else {
+        String::from_utf8_lossy(bytes).into_owned()
+    }
+}
+
+/// Whether the registered task launches `exe`.
+///
+/// A substring test rather than an XML parse: the only question ever asked is
+/// "does the task point at me?", and the answer does not need the document.
+fn task_targets(exe: &Path) -> bool {
+    let Ok(out) = schtasks(&["/Query", "/TN", TASK_NAME, "/XML"]) else {
+        return false;
+    };
+    if !out.status.success() {
+        return false;
+    }
+    // Windows paths are case-insensitive, and the scheduler echoes back whatever
+    // case it was given.
+    decode(&out.stdout)
+        .to_lowercase()
+        .contains(&exe.to_string_lossy().to_lowercase())
+}
+
 fn create_task() -> Result<(), String> {
     let exe = std::env::current_exe().map_err(|e| format!("couldn't find the app: {e}"))?;
     let path = write_xml(&task_xml(&exe))?;
@@ -214,10 +277,23 @@ pub fn is_enabled(app: &AppHandle) -> bool {
 /// Falls back to the Run key if the task cannot be created, because a slow start
 /// is worth more than no start. Turning it *off* always clears both, so a machine
 /// that once fell back does not keep launching from the leftover.
+///
+/// Turning it *on* is refused outright for a build run out of the source tree —
+/// see `is_installed_build`. The refusal is here rather than inside `create_task`
+/// because the fallback would otherwise write that same dev path to the Run key,
+/// which is the identical bug by the slower mechanism. The caller is told the
+/// state actually reached, so the tray switch snaps back rather than lying.
 pub fn set_enabled(app: &AppHandle, enabled: bool) -> bool {
     if !enabled {
         let _ = delete_task();
         let _ = app.autolaunch().disable();
+        return is_enabled(app);
+    }
+
+    let installed = std::env::current_exe()
+        .map(|exe| is_installed_build(&exe))
+        .unwrap_or(false);
+    if !installed {
         return is_enabled(app);
     }
 
@@ -247,13 +323,35 @@ pub fn set_enabled(app: &AppHandle, enabled: bool) -> bool {
 ///    `autolaunch().enable()` ran unconditionally and quietly reversed the tray
 ///    toggle every time. `configured` tells the two apart.
 ///
+/// A fourth case sits inside the first: the task exists but launches something
+/// else. That is an install that has moved, or — the way it actually happened —
+/// a task left pointing at a `tauri dev` binary, which no amount of installing
+/// the real app would have corrected on its own. An installed build repoints the
+/// task at itself, which is also what makes that state self-healing on the next
+/// launch rather than something a user has to know about.
+///
 /// Returns whether the caller should record that startup has now been configured.
 pub fn migrate(app: &AppHandle, configured: bool) -> bool {
+    let exe = std::env::current_exe().ok();
+    let installed = exe.as_deref().map(is_installed_build).unwrap_or(false);
+
     if task_exists() {
         // A leftover Run entry alongside the task would spawn a doomed second
         // process every login.
         let _ = app.autolaunch().disable();
+        if let Some(exe) = exe.filter(|_| installed) {
+            if !task_targets(&exe) {
+                let _ = create_task();
+            }
+        }
         return true;
+    }
+
+    // Nothing is registered and this build must not register anything, so there
+    // is also no choice to record: `configured` has to stay false, or the first
+    // installed launch would read it as "off on purpose" and never start up.
+    if !installed {
+        return false;
     }
 
     let had_run_key = app.autolaunch().is_enabled().unwrap_or(false);
@@ -311,6 +409,45 @@ mod tests {
         let _ = schtasks(&["/Delete", "/TN", PROBE, "/F"]);
 
         assert!(created.status.success(), "schtasks rejected the XML: {stdout}");
+    }
+
+    /// The build tree is never a startup candidate.
+    ///
+    /// Asserted on the path half, which is what still applies to a release
+    /// binary run out of `target\release`; under `cargo test` the
+    /// `debug_assertions` half already refuses everything, installed path
+    /// included, which is the behaviour the second case pins down.
+    #[test]
+    fn refuses_to_enrol_a_build_tree_binary() {
+        let dev = Path::new(
+            r"C:\Users\me\Code\dynamic-notch\product\src-tauri\target\debug\windows_dynamic_noich.exe",
+        );
+        let built = Path::new(
+            r"C:\Users\me\Code\dynamic-notch\product\src-tauri\target\release\windows_dynamic_noich.exe",
+        );
+        let installed = Path::new(r"C:\Users\me\AppData\Local\Crest\windows_dynamic_noich.exe");
+
+        assert!(!is_installed_build(dev));
+        assert!(!is_installed_build(built));
+        assert_eq!(is_installed_build(installed), !cfg!(debug_assertions));
+    }
+
+    /// `schtasks` output is decoded whichever way it arrives.
+    ///
+    /// The UTF-16 case is the one that matters: read as UTF-8 the NULs survive
+    /// as interior bytes, the path never matches, and `migrate` would rewrite
+    /// the task on every single launch.
+    #[test]
+    fn decodes_schtasks_output_in_either_encoding() {
+        let text = "<Command>C:\\Crest\\app.exe</Command>";
+
+        let mut utf16 = vec![0xFF, 0xFE];
+        for unit in text.encode_utf16() {
+            utf16.extend_from_slice(&unit.to_le_bytes());
+        }
+
+        assert_eq!(decode(text.as_bytes()), text);
+        assert_eq!(decode(&utf16), text);
     }
 
     #[test]
