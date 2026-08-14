@@ -1,3 +1,39 @@
+## 0.6.1 — 2026-08-14
+
+**Crest comes in five looks now.** Until now there was one — near-black with a
+violet accent — and the only thing you could change about it was that accent.
+There is a Theme page in Settings with five palettes on it, including the first
+light one, and picking one repaints the notch, the tray menu and Settings
+together.
+
+### New
+
+- **Five themes**, on a new Theme page in Settings. **Crest** is the near-black
+  and violet the app has always been, and stays the one you get out of the box.
+  **Glacier** is cool slate and ice, quiet and technical. **Ember** is warm black
+  and amber, closer to lamplight than to a screen. **Daylight** is the first light
+  theme, for a bright desktop and a light taskbar. **Mono** has no colour in it at
+  all — what is active is simply brighter
+- **Every theme brings its own accent**, so choosing a look is one decision rather
+  than two. If you want a different colour on top of the theme you picked, the
+  accent picker under Appearance still does exactly what it did — set one and it
+  stays until you change theme again
+- **The Theme page shows you what you are choosing.** Each entry draws a small
+  notch in that theme's own colours, with its palette laid out underneath, so the
+  difference between two of them is something you can see rather than guess at
+
+### Improved
+
+- **Everything Crest draws follows the theme**, down to the hairlines between
+  rows, the dashed outline on the file shelf, the well behind a search field and
+  the shadow under a sheet. Nothing is left painted for the dark theme it was
+  drawn in
+- **A warning still reads as a warning in every theme.** The load meters shift
+  their amber and red so they stay legible against a light surface, and so the
+  caution step does not end up sitting next to Ember's amber accent saying
+  something different. Mono keeps them coloured for the same reason — a grey
+  warning is not a quieter warning, it is no warning at all
+
 ## 0.6.0 — 2026-08-14
 
 **Three new panels, and the notch is yours to arrange.** Crest can now show you
