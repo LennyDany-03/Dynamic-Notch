@@ -1,3 +1,48 @@
+## 0.6.5 — 2026-08-14
+
+**Crest knows about your other screens.** Until now the notch lived on the main
+display and nowhere else, which is fine right up until the monitor you actually
+work on is the one to the left. There is a Display page in Settings now: it shows
+the screens you have, laid out the way they sit on your desk, and lets you send
+the notch to whichever one you want — or put one on every screen and stop
+choosing. Unplug a monitor and the notch comes home on its own. Elsewhere, the
+panels answer to a scroll, and the calendar has room for what you typed into it.
+
+### New
+
+- **A Display page in Settings.** Your screens are drawn the way they are
+  arranged, at the sizes they really are, numbered to match Windows' own display
+  settings — so the one you want is the one you can point at. The mark on a
+  screen's top edge is the notch itself; click a screen to send it there
+- **Put the notch on every display.** One switch, and each screen gets its own —
+  same panels, same banners — so it is always on the monitor you are looking at.
+  They come and go with the screens themselves, with nothing to set up
+- **Unplug a monitor and the notch comes home.** If the screen you sent it to
+  isn't there, it moves to your main display until that screen is back. You never
+  have to pick it again: Crest remembers where you wanted it and puts it back the
+  moment the cable is in, which is the difference between docking a laptop and
+  reconfiguring one
+- **Scroll over an open panel to move between panels**, alongside the arrows at
+  the top. Your notifications and your reminders still scroll on their own, and
+  reading to the bottom of one does not tip you into the next panel
+
+### Improved
+
+- **The calendar has room for what you actually typed.** At its old width the
+  month took more than half the card and a reminder's title was left about eleven
+  characters a line, so anything with a real name in it broke mid-word. The card
+  is wider, and the time a reminder is due now sits under its title rather than
+  squeezing it — which also means it is always shown, instead of appearing only
+  for something due in the next day
+- **The panel's name sits in the middle of the strip at the top of each card.**
+  The "2 of 7" counter beside it is gone: the arrows already say there is more
+  than one panel, nobody navigates by which numbered slot a card is in, and it was
+  pushing the name off centre to say so
+- **The battery is sized to the surface it's drawn on** — full size on the resting
+  pill, where there is room to read it properly, and a step down in the strip at
+  the top of each panel, where 0.6.2's larger badge had started competing with the
+  panel name instead of sitting quietly in the corner
+
 ## 0.6.2 — 2026-08-14
 
 **A charge you can actually read.** The battery on the resting pill and in the
