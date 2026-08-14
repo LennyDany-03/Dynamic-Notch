@@ -48,6 +48,7 @@ import {
 export function useNotchState({
   alwaysVisible = false,
   notificationsFit,
+  modules = MODULES,
 }: {
   alwaysVisible?: boolean
   /**
@@ -56,9 +57,17 @@ export function useNotchState({
    * the module alone — see `layout.notificationsCardHeight`.
    */
   notificationsFit?: NotificationsFit
+  /**
+   * The cards the arrows cycle, in order — the `panels` preference, resolved.
+   *
+   * Defaults to `MODULES` so the browser fallback and any caller that does not
+   * care still gets the full ring. Guaranteed non-empty by `resolvePanels`, which
+   * is what lets `cycleModule` index into it without a guard.
+   */
+  modules?: readonly NotchModule[]
 } = {}) {
   const [state, setState] = useState<NotchState>('hidden')
-  const [activeModule, setActiveModule] = useState<NotchModule>('media')
+  const [activeModule, setActiveModule] = useState<NotchModule>(() => modules[0] ?? 'media')
 
   /**
    * What the banner is reporting. Never cleared: the card fades out over a
@@ -409,17 +418,49 @@ export function useNotchState({
     showModule(moduleRef.current, options)
   }, [showModule])
 
-  /** Step through the modules, wrapping at both ends. */
+  /**
+   * Step through the modules, wrapping at both ends.
+   *
+   * Reads the ring from a ref rather than closing over it, so switching a card
+   * off in Settings does not hand every consumer a new `nextModule`/`previousModule`
+   * identity — `NotchShell` takes them as props and would re-render the whole card
+   * for a preference change that only matters at the moment an arrow is clicked.
+   *
+   * `indexOf` can be -1 when the active card has just been switched off. `-1 + 1`
+   * lands on index 0 and `-1 - 1` wraps to the last, both of which are reasonable
+   * places to arrive — and the effect below will usually have moved off it first.
+   */
+  const modulesRef = useRef(modules)
+  modulesRef.current = modules
+
   const cycleModule = useCallback((direction: 1 | -1) => {
     clearGrace()
     clearDwell()
     clearAnnounce()
     setActiveModule((current) => {
-      const index = MODULES.indexOf(current)
-      return MODULES[(index + direction + MODULES.length) % MODULES.length]
+      const ring = modulesRef.current
+      const index = ring.indexOf(current)
+      return ring[(index + direction + ring.length) % ring.length]
     })
     setState('expanded')
   }, [])
+
+  /**
+   * Follow the preference when the card on screen is switched off.
+   *
+   * Without this the notch keeps drawing a card the user has just removed — and
+   * worse, one the arrows can no longer reach, because `cycleModule` steps from a
+   * position in the ring that no longer contains it. Moving to the first visible
+   * card is the least surprising landing: it is the one the notch opens on
+   * anyway.
+   *
+   * Deliberately not `showModule`: this is a correction, not an intent. Changing
+   * the state would expand the notch in front of a user who is in the settings
+   * window ticking boxes.
+   */
+  useEffect(() => {
+    setActiveModule((current) => (modules.includes(current) ? current : modules[0]))
+  }, [modules])
 
   const nextModule = useCallback(() => cycleModule(1), [cycleModule])
   const previousModule = useCallback(() => cycleModule(-1), [cycleModule])

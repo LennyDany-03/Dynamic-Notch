@@ -149,6 +149,27 @@ fn normalise_accent(raw: &str) -> Option<String> {
     Some(format!("#{}", expanded.to_ascii_uppercase()))
 }
 
+/// One row of the `panels` preference: which card, and whether it is in the ring
+/// the nav arrows cycle.
+///
+/// **`id` is an opaque string and nothing here ever interprets it.** Which
+/// modules exist is a frontend fact — a card is a React component, a size token
+/// and a switch arm, none of which Rust knows about — so teaching this file the
+/// set would mean editing Rust every time a card is added, for no gain. The
+/// frontend reconciles the stored list against the modules that actually exist
+/// (`resolvePanels` in `types/notch.ts`), which is also the only place that can
+/// know what to do about a module that has just shipped or just been removed.
+///
+/// That means this value is not validated on the way in beyond being well-formed
+/// JSON, and that is deliberate: a stored id Rust does not recognise is not
+/// necessarily wrong, it may simply be from a newer build.
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct Panel {
+    pub id: String,
+    pub visible: bool,
+}
+
 /// Where the weather module looks.
 ///
 /// Stored as coordinates *and* the name they were resolved from, rather than as a
@@ -225,6 +246,16 @@ pub struct Settings {
     #[serde(default = "accent_color_default")]
     pub accent_color: String,
 
+    /// Which cards the notch offers, and in what order.
+    ///
+    /// Empty means "never set" — the frontend falls back to `MODULES`, its own
+    /// default order, with everything visible. It is not `Option` because an
+    /// empty list and "no preference" are the same thing here: a user cannot
+    /// switch every card off (the picker refuses, and `resolvePanels` falls back
+    /// if the file says otherwise), so an empty list can only mean untouched.
+    #[serde(default)]
+    pub panels: Vec<Panel>,
+
     /// Where the weather module looks, or `None` until the user picks somewhere.
     ///
     /// No default, and deliberately no guess. Every way of guessing reaches
@@ -247,6 +278,7 @@ impl Default for Settings {
             notch_position: notch_position_default(),
             hotzone_hint: hotzone_hint_default(),
             accent_color: accent_color_default(),
+            panels: Vec::new(),
             weather_place: None,
         }
     }
@@ -748,6 +780,29 @@ pub fn set_accent_color(
     let _ = app.emit("settings-changed", settings.clone());
 
     Ok(hex)
+}
+
+/// Which cards the notch offers, and in what order.
+///
+/// Stores and broadcasts, and that is all — there is nothing to apply, and
+/// nothing to validate that this side could validate correctly (see `Panel`).
+/// The broadcast is the whole mechanism, as with every frontend-only preference:
+/// the notch and the tray popup are separate windows that never rebuild, and the
+/// picker lives in neither of them.
+#[tauri::command]
+pub fn set_panels(
+    app: AppHandle,
+    current: State<'_, Current>,
+    panels: Vec<Panel>,
+) -> Result<Vec<Panel>, String> {
+    let mut settings = current.get(&app);
+    settings.panels = panels.clone();
+    current.set(settings.clone());
+    save(&app, &settings)?;
+
+    let _ = app.emit("settings-changed", settings.clone());
+
+    Ok(panels)
 }
 
 /// Where the weather module looks, or `None` to forget it.

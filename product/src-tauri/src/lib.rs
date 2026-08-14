@@ -103,6 +103,7 @@ pub fn run() {
             settings::set_mute_windows_banners,
             settings::set_background_opacity,
             settings::set_accent_color,
+            settings::set_panels,
             settings::set_weather_place,
             settings::set_notch_position,
             settings::set_hotzone_hint,

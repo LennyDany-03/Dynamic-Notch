@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
+import type { PanelPref } from '../types/notch'
 import type { Place, WeatherPlace } from '../types/weather'
 
 /**
@@ -41,6 +42,11 @@ export interface Settings {
    * `useAccentColor`; nothing reads it directly except the picker.
    */
   accentColor: string
+  /**
+   * Which cards the notch offers, and in what order. Empty means never set —
+   * `resolvePanels` falls back to `MODULES` and reconciles from there.
+   */
+  panels: PanelPref[]
   /** Where the weather module looks, or null until the user picks somewhere. */
   weatherPlace: WeatherPlace | null
 }
@@ -63,6 +69,9 @@ const DEFAULTS: Settings = {
   notchPosition: 'center',
   hotzoneHint: true,
   accentColor: '#7C3AED',
+  // Empty rather than a copy of `MODULES`: that list is the frontend's own and
+  // duplicating it here would give the default two places to disagree.
+  panels: [],
   weatherPlace: null,
 }
 
@@ -233,6 +242,11 @@ export function useSettings() {
     [write],
   )
 
+  const setPanels = useCallback(
+    (panels: PanelPref[]) => write('set_panels', 'panels', panels, { panels }),
+    [write],
+  )
+
   const setWeatherPlace = useCallback(
     (place: WeatherPlace | null) => write('set_weather_place', 'weatherPlace', place, { place }),
     [write],
@@ -250,6 +264,7 @@ export function useSettings() {
     setNotchPosition,
     setHotzoneHint,
     setAccentColor,
+    setPanels,
     setWeatherPlace,
   }
 }

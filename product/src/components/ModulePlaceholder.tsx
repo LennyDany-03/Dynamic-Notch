@@ -1,15 +1,5 @@
 import { color, sectionLabel, size } from '../tokens'
-import type { NotchModule } from '../types/notch'
-
-const LABELS: Record<NotchModule, string> = {
-  media: 'Media controls',
-  launcher: 'Quick launcher and clipboard',
-  files: 'File shelf and notes',
-  notifications: 'Notifications',
-  system: 'System monitor',
-  weather: 'Weather and forecast',
-  calendar: 'Calendar and reminders',
-}
+import { MODULE_LABELS, type NotchModule } from '../types/notch'
 
 /**
  * Stand-in for an expanded module. Exists only to prove the state machine, the
@@ -29,7 +19,7 @@ export default function ModulePlaceholder({ module }: { module: NotchModule }) {
         flexDirection: 'column',
       }}
     >
-      <div style={sectionLabel}>{LABELS[module]}</div>
+      <div style={sectionLabel}>{MODULE_LABELS[module]}</div>
       <div
         style={{
           flex: 1,

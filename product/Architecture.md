@@ -560,13 +560,31 @@ Each command should be added only when its corresponding feature is being built 
   The general rule this is an instance of: **any native popup is out of bounds in
   the overlay window.** Selects, date inputs, colour inputs and context menus all
   have the same problem, and all of them need an in-card equivalent.
-- **The notes pane grew a list, and the card grew with it.** The export drew one
-  borderless textarea, which had two faults that only showed in use: it was four
-  lines tall, and every note past the first was *unreachable* — `+` created them
-  and the pane only ever drew `notes[0]`. Now there is a rail titled from each
-  note's own first line (asking someone to name a thought before writing it down
-  is the friction this module exists to remove), and a full-card expansion for
-  when the editor is not enough.
+- **The notes pane uses a different control at each size, and that is the point.**
+  The export drew one borderless textarea, which had two faults that only showed
+  in use: it was four lines tall, and every note past the first was *unreachable*
+  — `+` created them and the pane only ever drew `notes[0]`.
+
+  The first fix was a list rail down the left of the pane, and it was worse than
+  the problem. The inline pane is 210px wide, so the rail got 62 of them: titles
+  like "flip-bottle-of-water" wrapped to two clipped lines, the active row's faint
+  accent wash was indistinguishable from the tile behind it, and the editor was
+  left with 138px to type in. The mistake was using one shape at both sizes.
+
+  So the two views are now different controls over the same notes. **Inline**, the
+  editor gets the whole pane (194px, up from 138) and switching is a horizontal
+  strip of chips above it — titles run along the axis they are actually written
+  on, the strip scrolls, and it only exists when there is more than one note.
+  **Expanded**, there is room for a real list beside the editor: title, when it was
+  last touched, and a visible delete instead of a right-click nobody could
+  discover. The active chip takes a *filled* accent rather than a wash, because at
+  20px a wash reads as no selection at all.
+
+  Titles come from each note's own first line (`noteTitle`) — asking someone to
+  name a thought before they can write it down is the friction this module exists
+  to remove — and `addNote` is a no-op when the open note is already blank, or "+"
+  on an empty note makes a second empty note and the switcher fills with identical
+  "Untitled" chips.
 
   The expansion is a swap *inside* the fixed card, not a bigger card. Same
   constraint as `NotificationDetail`: anything drawn outside the card's own rect
@@ -580,16 +598,66 @@ Each command should be added only when its corresponding feature is being built 
   fits two rows of tiles with the box actually filled and nine lines of note
   inline, and the answer to "I need more room" is the expansion rather than a card
   permanently sized for the longest note anyone might write.
-- **The settings window is four panes, not two.** A single "Settings" pane had
-  grown past a screenful, and two things in it were worse than merely long.
+- **Which cards the notch offers is a preference, not a literal.** `MODULES` was
+  the ring; it is now only the default order and the canonical set of modules
+  that exist. `panels` — an ordered list of `{ id, visible }` — is what the arrows
+  cycle, resolved by `resolvePanels`. Seven cards is past the point where a ring
+  is comfortable to walk, and the sequence was whatever suited whoever added the
+  last one.
+
+  Everything that read `MODULES` reads the resolved list: the nav counter (so it
+  says "2/3" and not "4/7"), `cycleModule`, the tray popup's module rows, and the
+  `tray-navigate` guard. `useNotchState` also corrects `activeModule` when the
+  card on screen is switched off — without it the notch keeps drawing a card the
+  arrows can no longer reach, because `cycleModule` steps from a position in the
+  ring that no longer contains it.
+
+  All the difficulty is in reconciliation, and it is in one function. Four ways
+  the stored value and the code can disagree, all of which have to survive: a
+  module that shipped in an update is **appended visible** (silently never
+  appearing is indistinguishable from a bug), a removed one is dropped,
+  duplicates take the first, and everything-switched-off falls back to all. The
+  picker refuses to remove the last visible card, but the file is hand-editable
+  and the running app must not depend on the picker having been the writer.
+
+  Rust stores `id` as an opaque string and never interprets it. Which modules
+  exist is a frontend fact — a component, a size token and a switch arm — so
+  teaching `settings.rs` the set would mean editing Rust to add a card, and it
+  could not know what to do about an id from a newer build anyway.
+
+  The reorder is `framer-motion`'s `Reorder`, with one non-obvious bit:
+  `onReorder` fires on every swap *during* the gesture, not on drop. Writing each
+  of those straight through would round-trip via Rust and come back as a
+  freshly-parsed array, changing every item's `value` identity underneath the
+  drag — and Framer matches items by that identity, so the gesture dies on the
+  spot. The drag therefore moves local state and commits once, on release.
+- **The hotzone hint is suppressed while always-on-top is on.** The mark draws at
+  the top centre and the resting pill covers that exact spot, so with the
+  preference on it can never be seen — but it was still being *rendered* for the
+  one commit between `loaded` flipping true and the effect that raises the pill,
+  which is long enough to fade in and back out. A switch you turn on and watch
+  flicker reads as broken rather than as inapplicable. It is gated off outright
+  now and the Settings row is disabled with a line explaining that the pill is
+  already sitting where the mark would go. Drawing it under the pill is not a fix.
+- **The notes row in Settings reads the notes; it does not reveal the file.** It
+  opened Explorer on `notes.json`, which answers the wrong question: someone
+  asking where their notes are is asking to *read* them, and following the button
+  got them a file Windows has nothing registered for — and, in an editor,
+  `[{"id":"a3f…","body":"lost-in-space\nbgmi"}]`. That is the storage format, not
+  the notes. `NotesViewer` renders the same content as text, with newlines intact
+  and the body selectable. `useSavedNotes` is a separate read-only hook rather
+  than a flag on `useQuickNotes`: mounting the writer in the settings window would
+  put two debounced autosaves on one file, and whichever rendered last would win.
+- **The settings window is six panes, not two.** A single "Settings" pane had
+  grown past a screenful, and several things in it were worse than merely long.
   *Appearance* — the accent and the opacity — is the pair people come back to and
   adjust, and buried under the first heading of a long scroller they were findable
   only by remembering they were there. *Weather* is not a preference at all: it is
   the one thing Crest has to be **told** before a feature works, and sitting three
   groups down among switches it read as an option for something you already had.
-  Both are their own nav entry now. What is left is switches about behaviour,
-  which is what "Settings" means, plus the notes path — which stays because it is
-  a fact about behaviour rather than something to set.
+  *Panels* and *Notes* followed for the same reason — neither is a switch, and
+  both are things people go looking for rather than adjust in passing. What is
+  left under "Settings" is switches about behaviour, which is what the word means.
 - **The equalizer is drawn only while audio is playing.** It used to be permanent
   — dimmed with no session, frozen low when paused — on the reasoning that a
   stable pill is a calm one. In use it was the opposite: the pill rests on screen

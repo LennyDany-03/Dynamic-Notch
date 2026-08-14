@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { revealItemInDir } from '@tauri-apps/plugin-opener'
+import { AnimatePresence } from 'framer-motion'
+import NotesViewer from './NotesViewer'
 import RowShell from './RowShell'
 import { useNotesLocation } from '../../hooks/useSettings'
 import { color, radius } from '../../tokens'
@@ -14,10 +15,14 @@ import { color, radius } from '../../tokens'
  * want, because the next thing they do with it is back the file up or open it in
  * an editor.
  *
- * **Shows the folder rather than opening the file.** `revealItemInDir` puts
- * Explorer on the folder with `notes.json` selected; launching the file itself
- * would hand it to whatever is registered for `.json`, which on a default Windows
- * install is nothing.
+ * **The primary action reads the notes, it does not reveal the file.** It used to
+ * open Explorer on the folder, which answered the wrong question: someone asking
+ * where their notes are is asking to *read* them, and following that button got
+ * you a `.json` file that Windows has nothing registered for — and, opened in a
+ * text editor, `[{"id":"a3f…","body":"lost-in-space\nbgmi"}]`. That is the
+ * storage format, not the notes. `NotesViewer` shows the same content as text.
+ * The path stays on the row for anyone who wants the file itself, and copies in
+ * one click.
  *
  * The path is deliberately not configurable. Moving it would mean owning a
  * migration — copy or move, what happens to the old file, what happens when the
@@ -29,6 +34,7 @@ export default function NotesLocation() {
   const location = useNotesLocation()
   const [hovered, setHovered] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [viewing, setViewing] = useState(false)
 
   if (!location) return null
 
@@ -64,9 +70,10 @@ export default function NotesLocation() {
   )
 
   return (
+    <>
     <RowShell
       title="Where notes are saved"
-      body="Quick Notes save themselves as you type — there is no save button, and nothing is ever waiting to be written. This is the file they go into."
+      body="Quick Notes save themselves as you type — there is no save button, and nothing is ever waiting to be written. Read them here, or open the file yourself."
       icon={
         <svg viewBox="0 0 24 24" width={18} height={18} fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
           <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
@@ -93,9 +100,36 @@ export default function NotesLocation() {
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
-        {button('reveal', 'Show in Explorer', () => {
-          void revealItemInDir(location.exists ? location.file : location.directory).catch(() => {})
-        })}
+        {/* The primary action, and drawn as one: reading the notes is what this
+            row is for, and the path underneath is the footnote. */}
+        <button
+          type="button"
+          onClick={() => setViewing(true)}
+          onMouseEnter={() => setHovered('open')}
+          onMouseLeave={() => setHovered(null)}
+          style={{
+            flex: 'none',
+            height: 26,
+            padding: '0 12px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            borderRadius: radius.small,
+            fontSize: 11.5,
+            fontWeight: 600,
+            color: '#fff',
+            background: color.accent,
+            opacity: hovered === 'open' ? 0.88 : 1,
+            transition: 'opacity 90ms linear',
+          }}
+        >
+          <svg viewBox="0 0 24 24" width={12} height={12} fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H9a3 3 0 0 1 3 3v13a2.5 2.5 0 0 0-2.5-2.5H4z" />
+            <path d="M20 5.5A1.5 1.5 0 0 0 18.5 4H15a3 3 0 0 0-3 3v13a2.5 2.5 0 0 1 2.5-2.5H20z" />
+          </svg>
+          Open notes
+        </button>
+
         {button('copy', copied ? 'Copied' : 'Copy path', copy)}
 
         {!location.exists && (
@@ -108,5 +142,10 @@ export default function NotesLocation() {
         )}
       </div>
     </RowShell>
+
+    <AnimatePresence>
+      {viewing && <NotesViewer onClose={() => setViewing(false)} />}
+    </AnimatePresence>
+    </>
   )
 }

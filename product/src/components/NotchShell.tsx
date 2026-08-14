@@ -56,6 +56,8 @@ interface Props {
   weather: WeatherFeed
   /** The reminder list. Owned by `App` because the banner needs it card or no card. */
   reminders: ReminderFeed
+  /** The cards in the ring, in order — the resolved `panels` preference. */
+  modules: readonly NotchModule[]
   /** The "show me where the notch is" preference. See `HotzoneHint`. */
   hotzoneHint: boolean
 }
@@ -183,6 +185,7 @@ export default function NotchShell({
   performance,
   weather,
   reminders,
+  modules,
   hotzoneHint,
 }: Props) {
   // The same call the state machine makes, with the same fit — the card that is
@@ -249,6 +252,7 @@ export default function NotchShell({
                       active={activeModule}
                       onPrev={onPreviousModule}
                       onNext={onNextModule}
+                      modules={modules}
                       battery={battery}
                     />
                   </div>

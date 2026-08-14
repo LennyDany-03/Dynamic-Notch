@@ -116,12 +116,24 @@ export function useQuickNotes() {
     [activeId],
   )
 
+  /**
+   * Start a new note — unless the one already open is blank, in which case that
+   * *is* the new note and this only puts the caret back in it.
+   *
+   * Without the guard, "+" on an empty note makes a second empty note, and the
+   * switcher fills up with identical "Untitled" entries that all have to be
+   * deleted by hand. Clicking a button twice is not a request for two of
+   * something when the first one was never used.
+   */
   const addNote = useCallback(() => {
+    const current = notesRef.current.find((note) => note.id === activeId)
+    if (current && current.body.trim().length === 0) return
+
     const note = newNote()
     // Newest first, so the active note is always notes[0] on next load.
-    setNotes((current) => [note, ...current])
+    setNotes((existing) => [note, ...existing])
     setActiveId(note.id)
-  }, [])
+  }, [activeId])
 
   const selectNote = useCallback((id: string) => setActiveId(id), [])
 
@@ -155,6 +167,41 @@ export function useQuickNotes() {
 }
 
 /**
+ * Everything on disk, read once, for somewhere that is not the notes pane.
+ *
+ * A second hook rather than a flag on `useQuickNotes`, because the two have
+ * opposite responsibilities: that one owns the notes and writes them, this one
+ * only looks. Mounting the writer in the settings window to render a list would
+ * put a debounced autosave behind a viewer — and with two writers live, whichever
+ * rendered last would win the file.
+ *
+ * `reload` rather than a poll: the settings window is not where notes are typed,
+ * and the one moment the list can be stale is the moment it is opened.
+ */
+export function useSavedNotes() {
+  const [notes, setNotes] = useState<Note[]>([])
+  const [loaded, setLoaded] = useState(false)
+
+  const reload = useCallback(async () => {
+    try {
+      if (isTauri()) {
+        const file = await invoke<{ notes: Note[] }>('read_notes')
+        setNotes(file?.notes ?? [])
+      } else {
+        setNotes(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]'))
+      }
+    } catch (err) {
+      console.error('quick notes: read failed', err)
+      setNotes([])
+    } finally {
+      setLoaded(true)
+    }
+  }, [])
+
+  return { notes, loaded, reload }
+}
+
+/**
  * The first line of a note, for the list.
  *
  * A note has no title field on purpose — asking for one before you can write
@@ -165,5 +212,8 @@ export function useQuickNotes() {
  */
 export function noteTitle(note: Note): string {
   const line = note.body.split('\n').find((candidate) => candidate.trim().length > 0)
-  return line?.trim() ?? 'Empty note'
+  // "Untitled" rather than "Empty note": the switcher shows this next to real
+  // titles, and "Empty note" reads as a description of a problem where this is
+  // just a note nobody has typed into yet.
+  return line?.trim() ?? 'Untitled'
 }

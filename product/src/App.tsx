@@ -16,7 +16,7 @@ import { useWeather } from './hooks/useWeather'
 import { useWindowsNotifications } from './hooks/useWindowsNotifications'
 import { timing } from './tokens'
 import {
-  MODULES,
+  resolvePanels,
   STATE_RANK,
   type Announcement,
   type NotchModule,
@@ -88,6 +88,21 @@ export default function App() {
     [notifications.notifications.length, openNotificationId],
   )
 
+  /**
+   * Which cards the notch offers, and in what order.
+   *
+   * Memoised on the stored array, not on `settings`: `useSettings` builds a fresh
+   * settings object on every broadcast, and this feeds `useNotchState`'s ring —
+   * a new array identity each time would re-run the "is the active card still
+   * visible" effect on every unrelated preference change.
+   *
+   * Not gated on `loaded`. The default is "everything, in the built-in order",
+   * which is what the notch would draw anyway, so acting on it before the file
+   * lands paints nothing that has to be taken back. That is the same test the
+   * opacity and the accent pass and the always-on-top pill fails.
+   */
+  const panels = useMemo(() => resolvePanels(settings.panels), [settings.panels])
+
   const {
     state,
     activeModule,
@@ -101,6 +116,7 @@ export default function App() {
     // Gated on `loaded` so the default never shows a pill it is about to retract.
     alwaysVisible: loaded && settings.alwaysOnTop,
     notificationsFit,
+    modules: panels.visible,
   })
   announceRef.current = announce
 
@@ -119,13 +135,18 @@ export default function App() {
       listen('tray-show', () => expand({ pin: true })),
       listen<string>('tray-navigate', (event) => {
         const module = event.payload as NotchModule
-        if (MODULES.includes(module)) showModule(module, { pin: true })
+        // Checked against the *visible* ring, not every module that exists: the
+        // tray only offers what is switched on, but the popup is a separate
+        // window reading its own copy of the preference, so a row clicked in the
+        // instant between a change and the broadcast could still name a card the
+        // notch has just dropped.
+        if (panels.visible.includes(module)) showModule(module, { pin: true })
       }),
     ]
     return () => {
       for (const p of pending) void p.then((unlisten) => unlisten())
     }
-  }, [expand, showModule])
+  }, [expand, showModule, panels.visible])
 
   // One poll shared by the collapsed pill and the media card. Drops to a slow
   // watch rate while hidden rather than stopping, so a track starting still
@@ -251,10 +272,20 @@ export default function App() {
         performance={performance}
         weather={weather}
         reminders={reminders}
+        modules={panels.visible}
         // Gated on `loaded` for the same reason as the pill: the default is on,
         // and painting a mark on someone's wallpaper on the strength of a guess
         // is a mark they watch disappear a frame later.
-        hotzoneHint={loaded && settings.hotzoneHint}
+        //
+        // And gated on always-on-top being *off*, which is the fix for a real
+        // bug: the hint draws at the top centre and the resting pill covers that
+        // exact spot, so with the preference on the hint can never be seen. It
+        // was still being *rendered* for the one commit between `loaded` flipping
+        // true and the effect that raises the pill — long enough to fade in and
+        // straight back out. From the outside that is a switch you turn on and
+        // watch flicker, which reads as broken rather than as inapplicable.
+        // Settings now says as much rather than leaving the switch looking dead.
+        hotzoneHint={loaded && settings.hotzoneHint && !settings.alwaysOnTop}
       />
 
       {menu && <ContextMenu anchor={menu} onClose={closeMenu} />}

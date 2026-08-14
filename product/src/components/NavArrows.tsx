@@ -1,23 +1,19 @@
 import { useState } from 'react'
 import BatteryBadge from './system/BatteryBadge'
 import { color, sectionLabel } from '../tokens'
-import { MODULES, type NotchModule } from '../types/notch'
+import { MODULE_LABELS, type NotchModule } from '../types/notch'
 import type { BatteryStatus } from '../types/system'
-
-const LABELS: Record<NotchModule, string> = {
-  media: 'Media controls',
-  launcher: 'Launcher and clipboard',
-  files: 'File shelf and notes',
-  notifications: 'Notifications',
-  system: 'System monitor',
-  weather: 'Weather',
-  calendar: 'Calendar',
-}
 
 interface Props {
   active: NotchModule
   onPrev: () => void
   onNext: () => void
+  /**
+   * The cards in the ring, in order — the `panels` preference, resolved. The
+   * counter reads against this rather than against every module that exists, so
+   * a user who keeps three of the seven sees "2/3" and not "4/7".
+   */
+  modules: readonly NotchModule[]
   /** The charge, drawn in the corner of the strip. Null on a machine without one. */
   battery: BatteryStatus | null
 }
@@ -94,9 +90,13 @@ function Chevron({
  * were unreachable in practice. Arrows flanking the module name answer both
  * "where am I" and "how do I move".
  */
-export default function NavArrows({ active, onPrev, onNext, battery }: Props) {
-  const position = MODULES.indexOf(active) + 1
+export default function NavArrows({ active, onPrev, onNext, modules, battery }: Props) {
+  const position = modules.indexOf(active) + 1
   const badge = battery !== null && battery.percent !== null
+  // The arrows say nothing useful with one card in the ring: there is nowhere to
+  // go, and a pair of chevrons that return you to where you are is a control that
+  // lies. The label keeps the centre either way, because the strip is a grid.
+  const single = modules.length <= 1
 
   return (
     <div
@@ -114,7 +114,13 @@ export default function NavArrows({ active, onPrev, onNext, battery }: Props) {
           space left over once the badge has taken its corner. */}
       {badge && <span aria-hidden style={{ width: BADGE_WIDTH, flex: 'none' }} />}
 
-      <Chevron direction="left" label="Previous panel" onClick={onPrev} />
+      {/* A spacer of the chevron's own size when there is nowhere to go, so the
+          label stays on the card's centre line instead of sliding 20px left. */}
+      {single ? (
+        <span aria-hidden style={{ width: 20, flex: 'none' }} />
+      ) : (
+        <Chevron direction="left" label="Previous panel" onClick={onPrev} />
+      )}
 
       <span
         style={{
@@ -127,13 +133,19 @@ export default function NavArrows({ active, onPrev, onNext, battery }: Props) {
           textOverflow: 'ellipsis',
         }}
       >
-        {LABELS[active]}
-        <span style={{ color: color.text.muted, opacity: 0.6, marginLeft: 6 }}>
-          {position}/{MODULES.length}
-        </span>
+        {MODULE_LABELS[active]}
+        {!single && (
+          <span style={{ color: color.text.muted, opacity: 0.6, marginLeft: 6 }}>
+            {position}/{modules.length}
+          </span>
+        )}
       </span>
 
-      <Chevron direction="right" label="Next panel" onClick={onNext} />
+      {single ? (
+        <span aria-hidden style={{ width: 20, flex: 'none' }} />
+      ) : (
+        <Chevron direction="right" label="Next panel" onClick={onNext} />
+      )}
 
       {badge && (
         <span
