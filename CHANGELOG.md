@@ -1,3 +1,40 @@
+## 0.6.6 — 2026-08-17
+
+**Where your sound goes, without going looking for it.** Moving from your
+speakers to your headset is four clicks deep in a flyout that closes if you look
+at it wrong, and the microphone is somewhere else entirely. There is a Quick
+Access panel now: your speakers and your microphone, one row each, showing what
+Windows is actually using — click one, pick another, done. Notifications learned
+a few manners in the same release, and can now be copied, put off for five
+minutes, or opened if there was a link in them.
+
+### New
+
+- **A Quick Access panel — your speakers and your microphone.** Each row shows
+  the device Windows is really using right now, not a setting of Crest's, so it
+  stays right when you change it from anywhere else. Click a row for everything
+  else that is plugged in, and pick one. Switching moves your calls too, rather
+  than leaving voice chat on the device you just left
+- **Plug something in while the panel is open and it appears.** The list is live —
+  a headset waking up, a monitor's speakers arriving with the cable — so you are
+  never choosing from a list that was true a minute ago
+- **Notifications you can do something with.** Open one in the notch and there
+  are three buttons under it: **Copy** takes the whole message, **Snooze 5m**
+  puts it away and brings it back in five minutes, and **Open link** appears when
+  there is a link in the message and opens it in your browser. Snoozing only
+  hides it from Crest — it stays exactly where it is in Windows' own notification
+  centre the whole time, so nothing can be lost this way
+
+### Fixed
+
+- **The notification buttons no longer move under your cursor.** Which buttons a
+  message had depended on whether it contained a link, and the row reflowed around
+  that — so Dismiss sat somewhere slightly different from one notification to the
+  next
+- **A link at the end of a sentence opens the link.** The full stop after it was
+  being taken as part of the address, which reliably opened a page that wasn't
+  there
+
 ## 0.6.5 — 2026-08-14
 
 **Crest knows about your other screens.** Until now the notch lived on the main
