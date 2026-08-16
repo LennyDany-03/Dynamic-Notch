@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
+import { timing } from '../tokens'
 import type { WinNotification } from '../types/notifications'
 
 /**
@@ -62,6 +63,15 @@ export interface NotificationFeed {
   dismiss: (id: string) => void
   /** Empty the centre. */
   clearAll: () => void
+  /**
+   * Take one entry out of Crest's list for `timing.snoozeMs` and announce it
+   * again when that runs out.
+   *
+   * Crest's list only — the notification is never touched in Windows' own centre,
+   * which is what makes this safe to offer: the worst case of a snooze that never
+   * comes back is a notification sitting exactly where Windows put it.
+   */
+  snooze: (notification: WinNotification) => void
 }
 
 export function useWindowsNotifications(
@@ -76,6 +86,14 @@ export function useWindowsNotifications(
   const [notifications, setNotifications] = useState<WinNotification[]>([])
   const [loaded, setLoaded] = useState(false)
   const [unavailable, setUnavailable] = useState(false)
+  // Snoozed ids and their timers, held together: the set is what hides the rows
+  // and the map is what brings them back, so anything that clears one has to
+  // clear the other or an entry is hidden for the life of the process.
+  const snoozedRef = useRef(new Set<string>())
+  const snoozeTimersRef = useRef(new Map<string, ReturnType<typeof setTimeout>>())
+  // What the last poll actually found, so an expiring snooze can tell "still
+  // there, announce it again" from "the user cleared it while it was away".
+  const liveIdsRef = useRef(new Set<string>())
 
   useEffect(() => {
     if (!enabled || !isTauri()) {
@@ -117,7 +135,16 @@ export function useWindowsNotifications(
       }
 
       seen = ids
-      setNotifications([...current].sort((a, b) => b.timestamp - a.timestamp))
+      liveIdsRef.current = ids
+      // Snoozed entries are filtered out of the *list* but stay in `seen`, which
+      // tracks what Windows holds rather than what Crest is showing — dropping
+      // them from the baseline would make the snooze expiry a fresh arrival and
+      // announce it twice.
+      setNotifications(
+        current
+          .filter((notification) => !snoozedRef.current.has(notification.id))
+          .sort((a, b) => b.timestamp - a.timestamp),
+      )
       setUnavailable(false)
       setLoaded(true)
     }
@@ -127,6 +154,13 @@ export function useWindowsNotifications(
     return () => {
       cancelled = true
       clearInterval(id)
+      // Both halves. Clearing only the timers leaves every snoozed id in the set
+      // with nothing left to remove it, so toggling the preference off and on
+      // hid those notifications permanently.
+      for (const timer of snoozeTimersRef.current.values()) clearTimeout(timer)
+      snoozeTimersRef.current.clear()
+      snoozedRef.current.clear()
+      liveIdsRef.current.clear()
     }
   }, [enabled])
 
@@ -148,5 +182,25 @@ export function useWindowsNotifications(
     void invoke('clear_all_notifications').catch(() => {})
   }, [])
 
-  return { notifications, loaded, unavailable, dismiss, clearAll }
+  const snooze = useCallback((notification: WinNotification) => {
+    const existing = snoozeTimersRef.current.get(notification.id)
+    if (existing) clearTimeout(existing)
+
+    snoozedRef.current.add(notification.id)
+    setNotifications((current) => current.filter((entry) => entry.id !== notification.id))
+
+    const timer = setTimeout(() => {
+      snoozeTimersRef.current.delete(notification.id)
+      snoozedRef.current.delete(notification.id)
+      // Only if it is still there. Five minutes is long enough to have cleared
+      // the centre from Windows' own flyout, and a banner for a notification the
+      // user has already dealt with is worse than no banner at all — the list
+      // repopulates from the next poll either way.
+      if (liveIdsRef.current.has(notification.id)) onArriveRef.current([notification])
+    }, timing.snoozeMs)
+
+    snoozeTimersRef.current.set(notification.id, timer)
+  }, [])
+
+  return { notifications, loaded, unavailable, dismiss, clearAll, snooze }
 }

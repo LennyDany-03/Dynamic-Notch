@@ -1,4 +1,7 @@
+import { useState } from 'react'
 import { motion } from 'framer-motion'
+import { invoke } from '@tauri-apps/api/core'
+import { openUrl } from '@tauri-apps/plugin-opener'
 import AppLogo from './AppLogo'
 import { relativeTime } from '../../hooks/useClipboardHistory'
 import type { WinNotification } from '../../types/notifications'
@@ -23,10 +26,12 @@ export default function NotificationDetail({
   notification,
   onClose,
   onDismiss,
+  onSnooze,
 }: {
   notification: WinNotification
   onClose: () => void
   onDismiss: () => void
+  onSnooze: () => void
 }) {
   // Windows joins the toast's text elements as "title: body". Splitting the first
   // segment back out gives the sheet a heading, which is what makes a long message
@@ -35,6 +40,24 @@ export default function NotificationDetail({
   const split = notification.message.indexOf(': ')
   const title = split > 0 ? notification.message.slice(0, split) : notification.message
   const body = split > 0 ? notification.message.slice(split + 2) : ''
+
+  // The trailing class excludes the punctuation a URL is commonly written next to
+  // rather than in — a full stop ending the sentence, a closing bracket around
+  // the whole link. `[^\s<>]+` swallowed those and opened a 404.
+  const link = notification.message.match(/https?:\/\/[^\s<>]*[^\s<>.,;:!?)\]}'"]/i)?.[0]
+
+  const [copied, setCopied] = useState(false)
+
+  const actionStyle = {
+    height: 26,
+    flex: 'none',
+    padding: '0 10px',
+    borderRadius: radius.small,
+    fontSize: 11,
+    fontWeight: 500,
+    color: color.text.strong,
+    background: color.tile,
+  } as const
 
   return (
     <div style={{ position: 'absolute', inset: 0, zIndex: 2 }}>
@@ -144,39 +167,63 @@ export default function NotificationDetail({
           )}
         </div>
 
+        {/* Two rows, and deliberately not one that wraps. Four actions plus a
+            status line do not fit across a 420 card, so a single flex row with
+            `flexWrap` reflowed differently depending on whether the message
+            happened to contain a link — the Dismiss button moved under the
+            cursor between one notification and the next. Splitting it costs
+            about sixteen pixels of the message pane and never moves. */}
         <div
           style={{
             flex: 'none',
             marginTop: 12,
             paddingTop: 10,
             borderTop: `1px solid ${color.divider}`,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
           }}
         >
-          {/* No "open in the app" button, deliberately. `UserNotificationListener`
-              reads the centre; it cannot activate an entry, and a button that
-              looked like Windows' own and did nothing would be worse than none. */}
-          <span style={{ flex: 1, fontSize: 11, color: color.text.muted }}>
+          {/* Still true, and still the reason there is no "open in the app"
+              button: `UserNotificationListener` reads the centre, it cannot
+              activate an entry, and a button that looked like Windows' own and
+              did nothing would be worse than none. Everything below acts on the
+              text Crest already has. */}
+          <div style={{ fontSize: 11, color: color.text.muted }}>
             Still in Windows' notification centre
-          </span>
+          </div>
 
-          <button
-            type="button"
-            onClick={onDismiss}
-            style={{
-              height: 26,
-              padding: '0 12px',
-              borderRadius: radius.small,
-              fontSize: 11.5,
-              fontWeight: 500,
-              color: color.text.strong,
-              background: color.tile,
-            }}
-          >
-            Dismiss
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
+            <button
+              type="button"
+              onClick={() => {
+                void invoke('copy_to_clipboard', { text: notification.message })
+                  .then(() => setCopied(true))
+                  .catch(() => {})
+              }}
+              style={actionStyle}
+            >
+              {copied ? 'Copied' : 'Copy'}
+            </button>
+
+            <button type="button" onClick={onSnooze} style={actionStyle}>
+              Snooze 5m
+            </button>
+
+            {link && (
+              <button
+                type="button"
+                title={link}
+                onClick={() => void openUrl(link).catch(() => {})}
+                style={actionStyle}
+              >
+                Open link
+              </button>
+            )}
+
+            <span style={{ flex: 1 }} />
+
+            <button type="button" onClick={onDismiss} style={actionStyle}>
+              Dismiss
+            </button>
+          </div>
         </div>
       </motion.div>
     </div>

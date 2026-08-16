@@ -56,6 +56,9 @@ windows = { version = "0.58", features = [
   "Networking_Connectivity",
   "Devices_Bluetooth",
   "Devices_Enumeration",
+  "Win32_Devices_FunctionDiscovery",
+  # Windows Core Audio endpoints behind Quick Access.
+  "Win32_Media_Audio",
   "Win32_System_Power",
   # CPU / GPU / disk / thermal counters and the power row, for `perf.rs`.
   "Win32_System_Performance",
@@ -67,9 +70,11 @@ windows = { version = "0.58", features = [
   "Win32_System_Threading",
   "Win32_Security",
   "Win32_System_Com",
+  "Win32_System_Com_StructuredStorage",
   "Win32_System_Ole",
   "Win32_UI_Shell",
   "Win32_UI_Shell_Common",
+  "Win32_UI_Shell_PropertiesSystem",
   # Launcher icons arrive as HBITMAP DIB sections.
   "Win32_Graphics_Gdi",
 ] }

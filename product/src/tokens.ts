@@ -293,6 +293,26 @@ export const size = {
    * is the card on screen; 480 in the 560 canvas still leaves 40px either side.
    */
   calendar: { width: 480, height: 286 },
+  /**
+   * NOT from the design export either — it predates Quick Access entirely.
+   *
+   * Sized *to* its contents, like `system` and unlike `notifications`: two roles
+   * is the whole card, and every box in the arithmetic is pinned in
+   * `QuickAccessModule`. 26 nav + 8 padding + 14 header + 8 + 56 row + 6 + 56 row
+   * + 12 padding = 186.
+   *
+   * It shipped at 238, sized to leave room under the second row for a dropdown
+   * anchored to it. That is the dead zone `layout.contentRect` warns about, drawn
+   * inside the visible card: fifty pixels of empty Mica under the last row, held
+   * open over nothing whenever the picker was shut — which is nearly always. The
+   * endpoint list is a full-card sheet now, so the card is only ever as tall as
+   * what is in it. Do not re-reserve space here for a menu.
+   *
+   * 420 matches the notifications card, and it is what a Windows endpoint name
+   * needs: "Speakers (High Definition Audio Device)" is not a string anyone gets
+   * to shorten.
+   */
+  quickAccess: { width: 420, height: 186 },
 } as const
 
 /** Springs — NOT from the design export (it is static). Tuned for Fluent motion. */
@@ -332,6 +352,17 @@ export const timing = {
    * had no expiry.
    */
   pinMs: 4000,
+  /**
+   * How long a snoozed notification stays out of the list before it is announced
+   * again.
+   *
+   * Five minutes because snooze is for "not while I am in the middle of this",
+   * not for "tomorrow" — the notification is still in Windows' own centre the
+   * whole time, so nothing is being deferred that could not be gone back to. It
+   * is in-memory and deliberately not persisted: a snooze that survived a
+   * relaunch would fire a banner for something the user last saw days ago.
+   */
+  snoozeMs: 5 * 60 * 1000,
 } as const
 
 /** Top-center trigger strip at the very top edge of the screen, in CSS px. */

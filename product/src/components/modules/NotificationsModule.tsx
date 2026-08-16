@@ -141,7 +141,7 @@ export default function NotificationsModule({
   openId: string | null
   onOpen: (id: string | null) => void
 }) {
-  const { notifications, loaded, unavailable, dismiss, clearAll } = feed
+  const { notifications, loaded, unavailable, dismiss, clearAll, snooze } = feed
 
   const open = notifications.find((notification) => notification.id === openId) ?? null
 
@@ -234,6 +234,10 @@ export default function NotificationsModule({
             onDismiss={() => {
               onOpen(null)
               dismiss(open.id)
+            }}
+            onSnooze={() => {
+              onOpen(null)
+              snooze(open)
             }}
           />
         )}

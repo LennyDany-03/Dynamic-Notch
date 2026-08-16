@@ -216,6 +216,17 @@ const MODULE_ROWS: Record<NotchModule, { label: string; icon: ReactElement }> = 
       </Icon>
     ),
   },
+  quickAccess: {
+    label: 'Quick Access',
+    icon: (
+      <Icon>
+        <path d="M4 7h16M4 12h16M4 17h16" />
+        <circle cx="9" cy="7" r="2" fill="currentColor" stroke="none" />
+        <circle cx="15" cy="12" r="2" fill="currentColor" stroke="none" />
+        <circle cx="11" cy="17" r="2" fill="currentColor" stroke="none" />
+      </Icon>
+    ),
+  },
 }
 
 /** The fixed groups. The module group is built from the preference — see below. */
