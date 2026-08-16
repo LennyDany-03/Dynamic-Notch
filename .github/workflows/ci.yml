@@ -1,0 +1,231 @@
+# Verifies a pull request before it can land on `main`.
+#
+# This repo is two independent projects that share nothing but a git history
+# (see CLAUDE.md), so a root-level lint says nothing about `product/` and vice
+# versa. Each gets its own job, and each job is skipped when nothing in its half
+# changed — a README typo should not spend ten minutes compiling Rust.
+#
+# THE AGGREGATOR IS THE REQUIRED CHECK, NOT THE INDIVIDUAL JOBS.
+#
+# A job skipped by an `if:` reports no status at all — not "success", nothing.
+# Branch protection waits forever for a required check that never reports, so
+# making `Site` or `Rust` required directly would leave any PR that did not
+# touch that half permanently unmergeable, showing "Expected — waiting for
+# status". The `CI` job at the bottom always runs, aggregates the rest, and is
+# the single name to tick in Settings → Rules.
+#
+# Check names only appear in that picker after they have reported once, so merge
+# this and let it run on one PR before trying to add it.
+
+name: CI
+
+on:
+  pull_request:
+  # `main` is verified too, so a broken merge is visible immediately rather than
+  # on whichever unlucky PR is opened next.
+  push:
+    branches: [main]
+
+# A force-push or a quick second commit supersedes the run it interrupted.
+# Never cancel `main` runs though — those are the record of whether main is green.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  # ------------------------------------------------------------------ #
+  # Which halves of the repo did this change touch?
+  # ------------------------------------------------------------------ #
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      site: ${{ steps.filter.outputs.site }}
+      product: ${{ steps.filter.outputs.product }}
+      rust: ${{ steps.filter.outputs.rust }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          # Every filter includes this workflow, so a change to CI is always
+          # tested by the CI it changes.
+          filters: |
+            site:
+              - 'app/**'
+              - 'components/**'
+              - 'lib/**'
+              - 'public/**'
+              - 'next.config.ts'
+              - 'eslint.config.mjs'
+              - 'postcss.config.mjs'
+              - 'tsconfig.json'
+              - 'package.json'
+              - 'package-lock.json'
+              - '.github/workflows/ci.yml'
+            # Listed positively rather than as `product/**` minus src-tauri.
+            # A `!` pattern would be wrong here: paths-filter matches a file if
+            # ANY pattern matches, and picomatch reads `!product/src-tauri/**`
+            # as "everything that is not under src-tauri" — so CHANGELOG.md and
+            # even the site's own files would match it, and this job would run
+            # on every pull request. Verified, not theoretical.
+            product:
+              - 'product/src/**'
+              - 'product/public/**'
+              - 'product/index.html'
+              - 'product/package.json'
+              - 'product/package-lock.json'
+              - 'product/tsconfig.json'
+              - 'product/vite.config.js'
+              - '.github/workflows/ci.yml'
+            rust:
+              - 'product/src-tauri/**'
+              - '.github/workflows/ci.yml'
+
+  # ------------------------------------------------------------------ #
+  # The marketing site (repo root).
+  # ------------------------------------------------------------------ #
+  site:
+    name: Site
+    needs: changes
+    if: needs.changes.outputs.site == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - run: npm ci
+
+      - run: npm run lint
+
+      # There is deliberately no separate `tsc --noEmit` step here. `next build`
+      # runs the TypeScript check itself, and a standalone `tsc` cannot pass on a
+      # fresh checkout anyway: tsconfig.json includes `next-env.d.ts` and
+      # `.next/types/**`, both generated and both gitignored, so it fails on
+      # `LayoutProps` and the `*.png` module declarations before it reaches any
+      # real code. Verified — do not "fix" CI by adding one back.
+      - run: npm run build
+
+  # ------------------------------------------------------------------ #
+  # Crest's frontend (product/). No Rust here, so this runs on Linux.
+  # ------------------------------------------------------------------ #
+  product:
+    name: Product frontend
+    needs: changes
+    if: needs.changes.outputs.product == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: product
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: product/package-lock.json
+
+      - run: npm ci
+
+      # `npm run build` in product/ is `vite build` only — no tsc step — so type
+      # errors do not fail it. This is the only thing that type-checks Crest.
+      - name: Type-check
+        run: npx tsc --noEmit
+
+      - run: npm run build
+
+  # ------------------------------------------------------------------ #
+  # Crest's Rust backend. Windows-only code, so this cannot run on Linux.
+  # ------------------------------------------------------------------ #
+  rust:
+    name: Rust
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: product/src-tauri
+
+      # No frontend build first: `tauri-build` does not require `frontendDist`
+      # to exist for a check/clippy pass (verified), so this job stays
+      # independent of the product job and of npm entirely.
+      #
+      # `-D warnings` is deliberately absent. The crate currently emits five
+      # clippy warnings, so turning them into errors would make every PR red
+      # from day one. They are printed in this job's log, and `-D warnings` is
+      # the right flag to add the day those five are cleaned up.
+      #
+      # `cargo fmt --check` is absent for the same reason: nine files differ
+      # from rustfmt today, and reformatting load-bearing code (see
+      # product/Architecture.md) is not something CI should force in passing.
+      - name: Clippy
+        working-directory: product/src-tauri
+        run: cargo clippy --all-targets
+
+  # ------------------------------------------------------------------ #
+  # The three release numbers agree, and the changelog section exists.
+  #
+  # Unfiltered on purpose: it needs no npm install and finishes in seconds, and
+  # running it on every PR means `main` is always known-consistent rather than
+  # only after a PR that happened to touch one of the three files.
+  # ------------------------------------------------------------------ #
+  # The job id uses an underscore, not a hyphen: `needs.release-meta.result` is
+  # ambiguous in GitHub's expression language, where `-` is also subtraction.
+  release_meta:
+    name: Release metadata
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: node .github/scripts/release-meta.mjs
+
+  # ------------------------------------------------------------------ #
+  # The one required check. See the header.
+  # ------------------------------------------------------------------ #
+  ci:
+    name: CI
+    if: always()
+    needs: [changes, site, product, rust, release_meta]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Summarise
+        run: |
+          echo "Detect changes:   ${{ needs.changes.result }}"
+          echo "Site:             ${{ needs.site.result }}"
+          echo "Product frontend: ${{ needs.product.result }}"
+          echo "Rust:             ${{ needs.rust.result }}"
+          echo "Release metadata: ${{ needs.release_meta.result }}"
+
+      # `skipped` is a pass: it means the filter decided that half was untouched.
+      - name: Fail if any job failed
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: |
+          echo "::error::At least one CI job failed. See the summary above."
+          exit 1
