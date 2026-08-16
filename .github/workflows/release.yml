@@ -2,14 +2,30 @@
 # containing the installer, its `.sig`, and the `latest.json` manifest that
 # installed copies poll.
 #
-# Tag-triggered, not push-triggered, and deliberately so: every run of this
-# workflow is an update prompt on a customer's machine. Commits are for us; tags
-# are for them.
+# THE VERSION IN tauri.conf.json IS THE TRIGGER.
 #
-#   1. bump `version` in product/src-tauri/tauri.conf.json  (this is the number
-#      the updater compares — nothing else in the repo decides it)
-#   2. git commit
-#   3. git tag v0.2.0 && git push origin main --tags
+# This used to be tag-only: you tagged by hand and the tag started the build.
+# Now a push to `main` whose `product/src-tauri/tauri.conf.json` carries a
+# version that has never been released makes the tag for you and then builds it.
+# Merging a version bump *is* the release.
+#
+# The guard against accidents is not a path filter, it is the tag itself: the
+# gate below asks the remote whether `v<version>` already exists and stops if it
+# does. So editing tauri.conf.json for any other reason (a window setting, a
+# bundle option) does nothing, re-running does nothing, and only a number that
+# has never shipped can ship. Every push to main runs the gate — it is a
+# checkout and one `git ls-remote`, a few seconds — and almost all of them stop
+# there.
+#
+# The hand-tagged path still works exactly as it did, and is the way to re-cut a
+# release whose build failed. See Release.md.
+#
+# Note for anyone extending this: a tag pushed with the default GITHUB_TOKEN
+# does NOT trigger workflows — GitHub blocks that to stop workflows recursing.
+# This file does not care, because the gate and the build are two jobs in one
+# run rather than two workflows chained through a tag. Do not split them apart
+# expecting the tag push to start the second half; it will not, and the failure
+# is silent.
 #
 # Required repository secrets (Settings → Secrets and variables → Actions):
 #   TAURI_SIGNING_PRIVATE_KEY  contents of ~/.tauri/crest.key
@@ -23,6 +39,7 @@ name: Release
 
 on:
   push:
+    branches: [main]
     tags:
       - 'v*'
   # Lets you re-run a failed publish from the Actions tab without moving a tag.
@@ -32,9 +49,120 @@ on:
         description: 'Existing tag to build and publish (e.g. v0.2.0)'
         required: true
 
+# One release at a time, and never cancel one in flight — a half-finished
+# publish is a release page with some of its assets.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
 jobs:
+  # ------------------------------------------------------------------ #
+  # Decide whether this push is a release, and if so make the tag for it.
+  #
+  # Everything that can say no lives here, before anything is published and
+  # before the tag exists: a version that already shipped, a changelog section
+  # that is missing or empty, a lib/site.ts left on the old number. A failure in
+  # this job leaves the repo exactly as it found it — no stray tag to clean up.
+  # ------------------------------------------------------------------ #
+  gate:
+    name: Decide
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    outputs:
+      release: ${{ steps.decide.outputs.release }}
+      tag: ${{ steps.target.outputs.tag }}
+      version: ${{ steps.meta.outputs.version }}
+      notes: ${{ steps.meta.outputs.notes }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # Three ways in, and they disagree about who names the version:
+      #   dispatch / tag push — the tag is authoritative, the human chose it
+      #   push to main        — tauri.conf.json is authoritative
+      - name: Resolve target
+        id: target
+        env:
+          DISPATCH_TAG: ${{ github.event.inputs.tag }}
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            tag="$DISPATCH_TAG"
+            source="dispatch"
+          elif [ "${{ github.ref_type }}" = "tag" ]; then
+            tag="${{ github.ref_name }}"
+            source="tag"
+          else
+            tag="v$(node -p "require('./product/src-tauri/tauri.conf.json').version")"
+            source="branch"
+          fi
+          echo "Resolved $source → $tag"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "source=$source" >> "$GITHUB_OUTPUT"
+
+      # A hand-pushed tag or a dispatch is an explicit instruction and always
+      # proceeds. A push to main only proceeds if this version has never been
+      # released — that check is the whole safety mechanism.
+      - name: Has this version already shipped?
+        id: decide
+        env:
+          TAG: ${{ steps.target.outputs.tag }}
+          SOURCE: ${{ steps.target.outputs.source }}
+        run: |
+          set -euo pipefail
+          if [ "$SOURCE" != "branch" ]; then
+            echo "$SOURCE: releasing $TAG as instructed."
+            echo "release=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "$TAG already exists — this push did not bump the version. Nothing to do."
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "$TAG has never been released. Proceeding."
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Shared with ci.yml, so a pull request cannot pass a consistency check
+      # that the release then fails. Also produces the release body.
+      - name: Validate release metadata
+        id: meta
+        if: steps.decide.outputs.release == 'true'
+        env:
+          TAG: ${{ steps.target.outputs.tag }}
+        run: node .github/scripts/release-meta.mjs --expect "$TAG"
+
+      - name: Create and push tag
+        if: steps.decide.outputs.release == 'true' && steps.target.outputs.source == 'branch'
+        env:
+          TAG: ${{ steps.target.outputs.tag }}
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Crest $VERSION"
+          git push origin "refs/tags/$TAG"
+          echo "Tagged ${{ github.sha }} as $TAG"
+
+  # ------------------------------------------------------------------ #
+  # Build and publish.
+  # ------------------------------------------------------------------ #
   release:
+    name: Build and publish
+    needs: gate
+    if: needs.gate.outputs.release == 'true'
     runs-on: windows-latest
+    timeout-minutes: 60
 
     # tauri-action creates the release and uploads assets, both of which are
     # writes to the repository.
@@ -42,9 +170,11 @@ jobs:
       contents: write
 
     steps:
+      # Always the tag, never the branch — by this point it exists either way,
+      # so the build is reproducible from the same ref that gets published.
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.tag || github.ref }}
+          ref: ${{ needs.gate.outputs.tag }}
 
       - uses: actions/setup-node@v4
         with:
@@ -64,52 +194,9 @@ jobs:
         run: npm ci
 
       # Release notes come from CHANGELOG.md rather than a string in this file,
-      # so each release gets its own text without editing the workflow. A tag
-      # with no matching section fails here — before anything is published —
-      # because notes are easy to forget and an empty release page is worse than
-      # a red build you can re-run.
-      - name: Extract release notes from CHANGELOG.md
-        id: notes
-        shell: pwsh
-        run: |
-          $tag = "${{ github.event.inputs.tag || github.ref_name }}"
-          $version = $tag -replace '^v', ''
-          # Explicit encoding: without it the em-dashes and arrows in the notes
-          # get read as ANSI and published as mojibake.
-          $lines = Get-Content CHANGELOG.md -Encoding utf8
-
-          $start = -1
-          for ($i = 0; $i -lt $lines.Count; $i++) {
-            if ($lines[$i] -match "^##\s+\[?$([regex]::Escape($version))\]?(\s|$)") {
-              $start = $i + 1
-              break
-            }
-          }
-          if ($start -lt 0) {
-            throw "CHANGELOG.md has no '## $version' section. Add one, commit it, then re-tag."
-          }
-
-          # The section runs until the next heading of the same level, or EOF.
-          $end = $lines.Count
-          for ($i = $start; $i -lt $lines.Count; $i++) {
-            if ($lines[$i] -match '^##\s') { $end = $i; break }
-          }
-
-          $body = if ($end -gt $start) { ($lines[$start..($end - 1)] -join "`n").Trim() } else { '' }
-          if ([string]::IsNullOrWhiteSpace($body)) {
-            throw "The '## $version' section in CHANGELOG.md is empty."
-          }
-
-          # Multi-line step outputs need a heredoc delimiter that cannot collide
-          # with the note text itself.
-          $delim = "NOTES_EOF_$([guid]::NewGuid().ToString('N'))"
-          "body<<$delim"  | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-          $body           | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-          $delim          | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-
-          Write-Host "Release notes for $version ($($body.Length) chars):"
-          Write-Host $body
-
+      # so each release gets its own text without editing the workflow. They are
+      # extracted in the gate job above, before the tag is made, so a missing
+      # section fails while it is still free to fix.
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -117,9 +204,9 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           projectPath: product
-          tagName: ${{ github.event.inputs.tag || github.ref_name }}
+          tagName: ${{ needs.gate.outputs.tag }}
           releaseName: 'Crest __VERSION__'
-          releaseBody: ${{ steps.notes.outputs.body }}
+          releaseBody: ${{ needs.gate.outputs.notes }}
           # Published immediately — a draft release is not reachable at the
           # `releases/latest/download/latest.json` URL the app polls, so leaving
           # it drafted would silently ship nothing.

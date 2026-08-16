@@ -1,0 +1,31 @@
+# Who has to approve what.
+#
+# Since release.yml started tagging on its own, merging a pull request that
+# bumps a version number publishes an update to every installed copy of Crest.
+# That is the intended behaviour, but it moves the release gate from "a human
+# typed `git tag`" to "a human clicked Merge" — and the difference between an
+# ordinary PR and a release is now three lines in three files that are easy to
+# skim past.
+#
+# These entries make that difference explicit: any PR touching the files that
+# decide a release needs the maintainer's review, whoever opened it.
+#
+# NOTE: this file does nothing on its own. It only blocks merges once
+# "Require review from Code Owners" is ticked in
+# Settings → Rules → the ruleset targeting `main` →
+# Require a pull request before merging → Show additional settings.
+
+# The number that decides what ships, and its two companions.
+/product/src-tauri/tauri.conf.json   @LennyDany-03
+/lib/site.ts                         @LennyDany-03
+/CHANGELOG.md                        @LennyDany-03
+
+# The automation itself — a PR that edits CI or the release pipeline can undo
+# every guard above.
+/.github/                            @LennyDany-03
+
+# The design records. These carry the reasoning behind decisions that look wrong
+# out of context, and a change here is usually a change of mind rather than a
+# change of code.
+/CLAUDE.md                           @LennyDany-03
+/product/Architecture.md             @LennyDany-03
