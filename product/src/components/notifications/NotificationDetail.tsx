@@ -1,4 +1,7 @@
 import { motion } from 'framer-motion'
+import { invoke } from '@tauri-apps/api/core'
+import { downloadDir } from '@tauri-apps/api/path'
+import { openPath, openUrl } from '@tauri-apps/plugin-opener'
 import AppLogo from './AppLogo'
 import { relativeTime } from '../../hooks/useClipboardHistory'
 import type { WinNotification } from '../../types/notifications'
@@ -23,10 +26,12 @@ export default function NotificationDetail({
   notification,
   onClose,
   onDismiss,
+  onSnooze,
 }: {
   notification: WinNotification
   onClose: () => void
   onDismiss: () => void
+  onSnooze: () => void
 }) {
   // Windows joins the toast's text elements as "title: body". Splitting the first
   // segment back out gives the sheet a heading, which is what makes a long message
@@ -35,6 +40,17 @@ export default function NotificationDetail({
   const split = notification.message.indexOf(': ')
   const title = split > 0 ? notification.message.slice(0, split) : notification.message
   const body = split > 0 ? notification.message.slice(split + 2) : ''
+  const link = notification.message.match(/https?:\/\/[^\s<>]+/i)?.[0]
+  const isDownload = /\bdownload(?:ed|ing)?\b/i.test(notification.message)
+  const actionStyle = {
+    height: 26,
+    padding: '0 9px',
+    borderRadius: radius.small,
+    fontSize: 11,
+    fontWeight: 500,
+    color: color.text.strong,
+    background: color.tile,
+  } as const
 
   return (
     <div style={{ position: 'absolute', inset: 0, zIndex: 2 }}>
@@ -150,30 +166,44 @@ export default function NotificationDetail({
             marginTop: 12,
             paddingTop: 10,
             borderTop: `1px solid ${color.divider}`,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          flexWrap: 'wrap',
           }}
         >
-          {/* No "open in the app" button, deliberately. `UserNotificationListener`
-              reads the centre; it cannot activate an entry, and a button that
-              looked like Windows' own and did nothing would be worse than none. */}
-          <span style={{ flex: 1, fontSize: 11, color: color.text.muted }}>
-            Still in Windows' notification centre
+          <span style={{ flex: 1, minWidth: 76, fontSize: 11, color: color.text.muted }}>
+            Crest actions
           </span>
+
+          <button type="button" onClick={() => void invoke('copy_to_clipboard', { text: notification.message })} style={actionStyle}>
+            Copy
+          </button>
+
+          <button type="button" onClick={onSnooze} style={actionStyle}>
+            Snooze 5m
+          </button>
+
+          {link && (
+            <button type="button" onClick={() => void openUrl(link)} style={actionStyle}>
+              Open link
+            </button>
+          )}
+
+          {isDownload && (
+            <button
+              type="button"
+              onClick={() => void downloadDir().then(openPath).catch(() => {})}
+              style={actionStyle}
+            >
+              Downloads
+            </button>
+          )}
 
           <button
             type="button"
             onClick={onDismiss}
-            style={{
-              height: 26,
-              padding: '0 12px',
-              borderRadius: radius.small,
-              fontSize: 11.5,
-              fontWeight: 500,
-              color: color.text.strong,
-              background: color.tile,
-            }}
+            style={actionStyle}
           >
             Dismiss
           </button>

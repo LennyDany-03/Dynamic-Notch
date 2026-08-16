@@ -62,6 +62,8 @@ export interface NotificationFeed {
   dismiss: (id: string) => void
   /** Empty the centre. */
   clearAll: () => void
+  /** Hide an entry in Crest and announce it again after a short delay. */
+  snooze: (notification: WinNotification, durationMs: number) => void
 }
 
 export function useWindowsNotifications(
@@ -76,6 +78,8 @@ export function useWindowsNotifications(
   const [notifications, setNotifications] = useState<WinNotification[]>([])
   const [loaded, setLoaded] = useState(false)
   const [unavailable, setUnavailable] = useState(false)
+  const snoozedRef = useRef(new Set<string>())
+  const snoozeTimersRef = useRef(new Map<string, ReturnType<typeof setTimeout>>())
 
   useEffect(() => {
     if (!enabled || !isTauri()) {
@@ -117,7 +121,11 @@ export function useWindowsNotifications(
       }
 
       seen = ids
-      setNotifications([...current].sort((a, b) => b.timestamp - a.timestamp))
+      setNotifications(
+        current
+          .filter((notification) => !snoozedRef.current.has(notification.id))
+          .sort((a, b) => b.timestamp - a.timestamp),
+      )
       setUnavailable(false)
       setLoaded(true)
     }
@@ -127,6 +135,8 @@ export function useWindowsNotifications(
     return () => {
       cancelled = true
       clearInterval(id)
+      for (const timer of snoozeTimersRef.current.values()) clearTimeout(timer)
+      snoozeTimersRef.current.clear()
     }
   }, [enabled])
 
@@ -148,5 +158,19 @@ export function useWindowsNotifications(
     void invoke('clear_all_notifications').catch(() => {})
   }, [])
 
-  return { notifications, loaded, unavailable, dismiss, clearAll }
+  const snooze = useCallback((notification: WinNotification, durationMs: number) => {
+    const existing = snoozeTimersRef.current.get(notification.id)
+    if (existing) clearTimeout(existing)
+
+    snoozedRef.current.add(notification.id)
+    setNotifications((current) => current.filter((entry) => entry.id !== notification.id))
+    const timer = setTimeout(() => {
+      snoozeTimersRef.current.delete(notification.id)
+      snoozedRef.current.delete(notification.id)
+      onArriveRef.current([notification])
+    }, durationMs)
+    snoozeTimersRef.current.set(notification.id, timer)
+  }, [])
+
+  return { notifications, loaded, unavailable, dismiss, clearAll, snooze }
 }

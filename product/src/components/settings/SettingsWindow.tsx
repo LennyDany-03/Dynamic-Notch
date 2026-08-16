@@ -194,7 +194,7 @@ const PANES: { id: Pane; label: string; icon: ReactNode }[] = [
   },
   {
     id: 'settings',
-    label: 'Settings',
+    label: 'System',
     icon: (
       <Icon size={16}>
         <path d="M4 7h9" />

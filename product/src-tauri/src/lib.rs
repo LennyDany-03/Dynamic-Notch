@@ -1,4 +1,5 @@
 mod autostart;
+mod audio;
 mod clipboard;
 mod display;
 mod icons;
@@ -60,6 +61,8 @@ pub fn run() {
         ))
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
+            audio::list_audio_devices,
+            audio::set_default_audio_device,
             media::get_current_media,
             media::media_play_pause,
             media::media_next,

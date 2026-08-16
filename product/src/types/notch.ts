@@ -53,6 +53,7 @@ export type NotchModule =
   | 'system'
   | 'weather'
   | 'calendar'
+  | 'quickAccess'
 
 /**
  * The **default** order and the full set of modules that exist.
@@ -76,6 +77,7 @@ export const MODULES: readonly NotchModule[] = [
   'system',
   'weather',
   'calendar',
+  'quickAccess',
 ] as const
 
 /**
@@ -98,6 +100,7 @@ export const MODULE_LABELS: Record<NotchModule, string> = {
   system: 'System monitor',
   weather: 'Weather',
   calendar: 'Calendar',
+  quickAccess: 'Quick Access',
 }
 
 /**

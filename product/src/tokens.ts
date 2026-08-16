@@ -293,6 +293,8 @@ export const size = {
    * is the card on screen; 480 in the 560 canvas still leaves 40px either side.
    */
   calendar: { width: 480, height: 286 },
+  /** Quick Access keeps both role pickers inside the fixed card. */
+  quickAccess: { width: 420, height: 238 },
 } as const
 
 /** Springs — NOT from the design export (it is static). Tuned for Fluent motion. */

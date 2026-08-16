@@ -16,6 +16,7 @@ import LauncherModule from './modules/LauncherModule'
 import NotificationsModule from './modules/NotificationsModule'
 import SystemModule from './modules/SystemModule'
 import WeatherModule from './modules/WeatherModule'
+import QuickAccessModule from './modules/QuickAccessModule'
 import type { MediaSession } from '../hooks/useMediaSession'
 import type { FileShelfState } from '../hooks/useFileShelf'
 import type { ReminderFeed } from '../hooks/useReminders'
@@ -108,6 +109,8 @@ function ModuleContent({
       return <WeatherModule feed={weather} />
     case 'calendar':
       return <CalendarModule feed={reminders} />
+    case 'quickAccess':
+      return <QuickAccessModule />
     default:
       return <ModulePlaceholder module={module} />
   }
