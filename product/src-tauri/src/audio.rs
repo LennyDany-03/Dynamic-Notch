@@ -33,10 +33,24 @@ mod native {
     };
     use windows::Win32::System::Com::StructuredStorage::PropVariantToStringAlloc;
 
-    // `IPolicyConfig` is the Windows shell's endpoint-policy interface. Microsoft
-    // does not publish a projection for it, but the shell uses this stable COM
-    // contract to select the system default endpoint. The preceding entries are
-    // deliberately retained in the vtable: SetDefaultEndpoint is slot 13.
+    // `IPolicyConfig` is the Windows shell's endpoint-policy interface, and it is
+    // the one interface in this app that Microsoft does not publish. It has to be
+    // hand-declared because *there is no documented way to change the default
+    // audio endpoint at all* — Core Audio can enumerate and read the default, and
+    // nothing in the public surface can write it. The alternative is opening the
+    // Sound control panel and asking the user to do it, which is the four-click
+    // trip this card exists to remove.
+    //
+    // What makes it safe enough to ship: a COM IID *is* the contract. The
+    // `CoCreateInstance` below asks for this IID specifically, so it either hands
+    // back an object whose vtable has this exact layout or it fails with
+    // E_NOINTERFACE — a changed layout would have to arrive under a new IID to be
+    // COM at all. This pair (CLSID_CPolicyConfigClient / IID_IPolicyConfig) has
+    // been stable from Vista through Windows 11 and is what every audio switcher
+    // on Windows uses. The preceding entries are retained rather than padded over
+    // because the slot index is the whole contract: SetDefaultEndpoint is slot 13
+    // (three `IUnknown` slots plus the ten methods declared before it), and a
+    // miscount would call a different method with a mismatched signature.
     #[repr(transparent)]
     #[derive(Clone, PartialEq, Eq)]
     struct PolicyConfig(IUnknown);
@@ -129,8 +143,12 @@ mod native {
         let mut devices = Vec::with_capacity(count as usize);
 
         for index in 0..count {
-            let device = unsafe { collection.Item(index).map_err(|error| error.to_string())? };
-            let id = endpoint_id(&device)?;
+            // One endpoint failing is not the list failing. A device mid-way
+            // through being removed answers E_INVALIDARG here, and taking the
+            // whole card down over it would mean an unplugged headset blanking
+            // the speaker list for as long as Windows took to tidy up.
+            let Ok(device) = (unsafe { collection.Item(index) }) else { continue };
+            let Ok(id) = endpoint_id(&device) else { continue };
             devices.push(AudioDevice {
                 name: endpoint_name(&device),
                 is_default: default_id.as_deref() == Some(id.as_str()),
@@ -143,9 +161,21 @@ mod native {
 
     pub fn list() -> Result<Vec<AudioDevice>, String> {
         let _apartment = ComApartment::initialize();
-        let mut devices = endpoints(eRender, "speakers")?;
-        devices.extend(endpoints(eCapture, "microphone")?);
-        Ok(devices)
+
+        // The two roles are read independently and only a total failure is an
+        // error: a machine with no capture endpoint at all is ordinary (a desktop
+        // with speakers and no microphone), and it must still get its speaker row.
+        let render = endpoints(eRender, "speakers");
+        let capture = endpoints(eCapture, "microphone");
+
+        match (render, capture) {
+            (Ok(mut devices), Ok(rest)) => {
+                devices.extend(rest);
+                Ok(devices)
+            }
+            (Ok(devices), Err(_)) | (Err(_), Ok(devices)) => Ok(devices),
+            (Err(error), Err(_)) => Err(error),
+        }
     }
 
     pub fn set_default(device_type: &str, device_id: &str) -> Result<(), String> {
@@ -165,15 +195,25 @@ mod native {
         }
 
         let policy: PolicyConfig = unsafe {
-            CoCreateInstance(&POLICY_CONFIG_CLIENT, None, CLSCTX_ALL).map_err(|error| error.to_string())?
+            CoCreateInstance(&POLICY_CONFIG_CLIENT, None, CLSCTX_ALL)
+                .map_err(|_| "Windows would not open its audio policy service".to_string())?
         };
         let wide: Vec<u16> = device_id.encode_utf16().chain(Some(0)).collect();
         let vtable = Interface::vtable(&policy);
+
+        // All three roles, not just `eConsole`. Windows keeps a separate default
+        // for voice chat, and a card whose whole promise is "sound comes out of
+        // this now" that left calls on the old headset would be answering a
+        // question nobody asked. The Sound control panel's split is for people who
+        // went looking for it; this is the one-click path.
         for role in [eConsole, eMultimedia, eCommunications] {
             unsafe {
                 (vtable.set_default_endpoint)(Interface::as_raw(&policy), PCWSTR(wide.as_ptr()), role)
                     .ok()
-                    .map_err(|error| error.to_string())?;
+                    // Short on purpose: this crosses to the card's header, which
+                    // is one line. An HRESULT's own text is a sentence and a hex
+                    // code, and would arrive ellipsized to nothing useful.
+                    .map_err(|_| "Windows refused the switch".to_string())?;
             }
         }
         Ok(())

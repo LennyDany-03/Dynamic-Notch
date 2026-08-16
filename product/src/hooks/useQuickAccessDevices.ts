@@ -1,13 +1,34 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import {
   DEFAULT_QUICK_ACCESS_DEVICES,
-  type DeviceAssignment,
   type QuickAccessDevice,
   type QuickAccessDeviceType,
 } from '../types/devices'
 
-const STORAGE_KEY = 'crest.quick-access.assignments'
+/**
+ * The machine's audio endpoints, and the one call that re-points a role at one.
+ *
+ * There is no stored preference here and there deliberately never will be. The
+ * *Windows* default is the setting — `set_default_audio_device` moves it and
+ * `isDefault` reads it back — so Crest keeps no copy that could disagree with
+ * the volume flyout, a headset being unplugged, or another app switching the
+ * default out from under it. That is also why `assign` re-reads rather than
+ * setting local state optimistically: the invoke resolves only after Core Audio
+ * has accepted the change, so the very next read is already correct and a
+ * guess in between could only ever be wrong.
+ *
+ * Polled while the card is on screen rather than watched. `IMMNotificationClient`
+ * is the event-driven answer and it needs a live COM callback object parked on a
+ * thread for the life of the process; this card is visible for a few seconds at a
+ * time, so a poll that exists only while it is mounted is the cheaper half of
+ * that trade. State is set only when something *drawn* moves, or the rows would
+ * re-render on a 2s timer under the cursor.
+ */
+
+/** Matches the notification and system polls — cheap, and fast enough that
+ *  plugging a headset in while the card is open lands within a blink. */
+const POLL_MS = 2000
 
 const isTauri = () => !!(window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__
 
@@ -18,24 +39,11 @@ interface NativeAudioDevice {
   isDefault: boolean
 }
 
-async function readDevices(): Promise<QuickAccessDevice[]> {
-  if (isTauri()) {
-    try {
-      const devices = await invoke<NativeAudioDevice[]>('list_audio_devices')
-      return devices.map((device) => ({
-        id: device.id,
-        name: device.name,
-        type: device.deviceType,
-        source: 'system',
-        isDefault: device.isDefault,
-      }))
-    } catch {
-      // The card remains usable in the browser fallback if the native bridge is
-      // unavailable during startup or after a development rebuild.
-      return [...DEFAULT_QUICK_ACCESS_DEVICES]
-    }
-  }
+/** Everything the card draws, in order, so a poll can skip a render. */
+const signature = (devices: QuickAccessDevice[]) =>
+  devices.map((device) => `${device.type}:${device.id}:${device.name}:${device.isDefault}`).join('|')
 
+async function readBrowserDevices(): Promise<QuickAccessDevice[]> {
   if (!navigator.mediaDevices?.enumerateDevices) return [...DEFAULT_QUICK_ACCESS_DEVICES]
 
   try {
@@ -46,7 +54,7 @@ async function readDevices(): Promise<QuickAccessDevice[]> {
         id: device.deviceId || `system-${device.kind}`,
         name: device.label || (device.kind === 'audioinput' ? 'System microphone' : 'System audio'),
         type: device.kind === 'audioinput' ? 'microphone' : 'speakers',
-        source: 'system' as const,
+        isDefault: false,
       }))
 
     // Chromium commonly exposes microphones before it exposes output devices.
@@ -64,56 +72,110 @@ async function readDevices(): Promise<QuickAccessDevice[]> {
   }
 }
 
-function readAssignments(): DeviceAssignment[] {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]')
-    return Array.isArray(parsed) ? parsed : []
-  } catch {
-    return []
-  }
+export interface QuickAccessFeed {
+  devices: QuickAccessDevice[]
+  /** False until the first read settles. An empty card before that means "not yet". */
+  loaded: boolean
+  /** Core Audio refused. The card says so rather than drawing plausible rows. */
+  unavailable: boolean
+  /** The last failed assignment, for the card to show and the next one to clear. */
+  error: string | null
+  /** The endpoint currently carrying this role, or undefined if there is none. */
+  activeId: (type: QuickAccessDeviceType) => string | undefined
+  assign: (type: QuickAccessDeviceType, deviceId: string) => void
 }
 
-/**
- * Device discovery and assignment state live here rather than in the card.
- * A future Windows audio adapter can replace readDevices and the assignment
- * commit without changing QuickAccessModule or its device rows.
- */
-export function useQuickAccessDevices() {
-  const [devices, setDevices] = useState<QuickAccessDevice[]>([...DEFAULT_QUICK_ACCESS_DEVICES])
-  const [assignments, setAssignments] = useState<DeviceAssignment[]>([])
+export function useQuickAccessDevices(): QuickAccessFeed {
+  const [devices, setDevices] = useState<QuickAccessDevice[]>([])
+  const [loaded, setLoaded] = useState(false)
+  const [unavailable, setUnavailable] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    setAssignments(readAssignments())
-    void readDevices().then(setDevices)
+  // The browser fallback has no Windows default to read back, so the selection
+  // it shows lives here for the session. Never persisted: nothing was actually
+  // routed, and a choice that survived a reload would claim otherwise.
+  const [fallbackSelection, setFallbackSelection] = useState<
+    Partial<Record<QuickAccessDeviceType, string>>
+  >({})
 
-    const onDeviceChange = () => void readDevices().then(setDevices)
-    navigator.mediaDevices?.addEventListener?.('devicechange', onDeviceChange)
-    return () => navigator.mediaDevices?.removeEventListener?.('devicechange', onDeviceChange)
-  }, [])
+  const signatureRef = useRef('')
 
-  const assign = useCallback((type: QuickAccessDeviceType, deviceId: string) => {
-    if (isTauri()) {
-      return invoke('set_default_audio_device', { deviceType: type, deviceId }).then(async () => {
-        setDevices(await readDevices())
-      })
+  const read = useCallback(async () => {
+    if (!isTauri()) {
+      const next = await readBrowserDevices()
+      if (signatureRef.current !== signature(next)) {
+        signatureRef.current = signature(next)
+        setDevices(next)
+      }
+      setLoaded(true)
+      return
     }
 
-    setAssignments((current) => {
-      const next = [...current.filter((assignment) => assignment.type !== type), { type, deviceId }]
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
-      } catch {
-        // A browser fallback can be storage-restricted; the live selection still works.
+    try {
+      const native = await invoke<NativeAudioDevice[]>('list_audio_devices')
+      const next: QuickAccessDevice[] = native.map((device) => ({
+        id: device.id,
+        name: device.name,
+        type: device.deviceType,
+        isDefault: device.isDefault,
+      }))
+      if (signatureRef.current !== signature(next)) {
+        signatureRef.current = signature(next)
+        setDevices(next)
       }
-      return next
-    })
-    return Promise.resolve()
+      setUnavailable(false)
+    } catch {
+      setUnavailable(true)
+    }
+    setLoaded(true)
   }, [])
 
-  const assigned = useMemo(
-    () => new Map(assignments.map((assignment) => [assignment.type, assignment.deviceId])),
-    [assignments],
+  useEffect(() => {
+    let cancelled = false
+    const tick = () => {
+      if (!cancelled) void read()
+    }
+
+    tick()
+    const id = setInterval(tick, POLL_MS)
+    // Chromium raises this without a permission for the *count* changing, which
+    // is the case that matters here; the poll covers everything it misses.
+    navigator.mediaDevices?.addEventListener?.('devicechange', tick)
+    return () => {
+      cancelled = true
+      clearInterval(id)
+      navigator.mediaDevices?.removeEventListener?.('devicechange', tick)
+    }
+  }, [read])
+
+  const assign = useCallback(
+    (type: QuickAccessDeviceType, deviceId: string) => {
+      setError(null)
+
+      if (!isTauri()) {
+        setFallbackSelection((current) => ({ ...current, [type]: deviceId }))
+        return
+      }
+
+      void invoke('set_default_audio_device', { deviceType: type, deviceId })
+        .then(read)
+        .catch((reason: unknown) => {
+          // Surfaced rather than swallowed. Endpoints go away between opening the
+          // card and clicking a row — a headset sleeping is enough — and a click
+          // that silently did nothing is indistinguishable from a broken button.
+          setError(typeof reason === 'string' ? reason : 'Could not switch that device')
+          void read()
+        })
+    },
+    [read],
   )
 
-  return { devices, assigned, assign }
+  const activeId = useCallback(
+    (type: QuickAccessDeviceType) =>
+      devices.find((device) => device.type === type && device.isDefault)?.id ??
+      fallbackSelection[type],
+    [devices, fallbackSelection],
+  )
+
+  return { devices, loaded, unavailable, error, activeId, assign }
 }

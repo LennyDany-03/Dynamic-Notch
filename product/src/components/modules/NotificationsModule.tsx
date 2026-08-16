@@ -237,7 +237,7 @@ export default function NotificationsModule({
             }}
             onSnooze={() => {
               onOpen(null)
-              snooze(open, 5 * 60 * 1000)
+              snooze(open)
             }}
           />
         )}
