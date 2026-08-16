@@ -83,7 +83,6 @@ function useFitWindow(card: RefObject<HTMLDivElement | null>, openCount: number)
 }
 
 type Action =
-  | { kind: 'show' }
   | { kind: 'module'; module: NotchModule }
   | { kind: 'autostart' }
   | { kind: 'settings' }
@@ -227,24 +226,30 @@ const MODULE_ROWS: Record<NotchModule, { label: string; icon: ReactElement }> = 
       </Icon>
     ),
   },
+  screenshots: {
+    label: 'Screenshots',
+    icon: (
+      <Icon>
+        <rect x="3" y="5" width="18" height="14" rx="2" />
+        <circle cx="8.5" cy="10" r="1.5" />
+        <path d="M4 17l4.5-4.5 3.5 3.5 3-3L20 17" />
+      </Icon>
+    ),
+  },
 }
 
-/** The fixed groups. The module group is built from the preference — see below. */
+/**
+ * The fixed groups. The module group is built from the preference — see below.
+ *
+ * There used to be a "Show notch" row above the modules, and it is gone. Every
+ * module row already opens the notch — on the card it names — so it was a row that
+ * did strictly less than the seven under it while sitting at the top where the eye
+ * lands first. It was also the third way to do the same thing: left-clicking the
+ * tray icon still calls `tray::show_notch`, and that is the gesture people reach
+ * for. `tray_show_notch` and the `tray-show` event both stay, because that
+ * left-click is what fires them.
+ */
 const GROUPS: Row[][] = [
-  [
-    {
-      id: 'show',
-      label: 'Show notch',
-      action: { kind: 'show' },
-      icon: (
-        <Icon>
-          <rect x="3" y="4" width="18" height="9" rx="3" />
-          <path d="M9 17h6" />
-          <path d="M12 20v-3" />
-        </Icon>
-      ),
-    },
-  ],
   [
     {
       id: 'autostart',
@@ -259,7 +264,11 @@ const GROUPS: Row[][] = [
     },
     {
       id: 'settings',
-      label: 'Settings',
+      // "Preferences", not "Settings". The window it opens is mostly things you
+      // *prefer* rather than things you configure, and "Settings" collides with
+      // Windows' own — a tray row reading Settings next to Start with Windows
+      // reads like a shortcut to the OS panel.
+      label: 'Preferences',
       action: { kind: 'settings' },
       icon: (
         <Icon>
@@ -356,10 +365,12 @@ export default function TrayMenu() {
   useTheme(settings.theme)
   useAccentColor(settings.accentColor)
 
-  // The popup lists what the notch offers, in the notch's order. Spliced in as
-  // the second group so the window keeps measuring itself — `useFitWindow` reads
-  // the card after layout, so a group that grew or shrank needs no arithmetic
-  // anywhere. That is exactly what the measuring was for.
+  // The popup lists what the notch offers, in the notch's order. It is the *first*
+  // group now that "Show notch" has gone — the cards are what this menu is for, and
+  // everything below them is about the app rather than about the notch. The window
+  // keeps measuring itself either way: `useFitWindow` reads the card after layout,
+  // so a group that grew or shrank needs no arithmetic anywhere. That is exactly
+  // what the measuring was for.
   const groups = useMemo(() => {
     const modules = resolvePanels(settings.panels).visible.map<Row>((id) => ({
       id,
@@ -367,7 +378,7 @@ export default function TrayMenu() {
       icon: MODULE_ROWS[id].icon,
       action: { kind: 'module', module: id },
     }))
-    return [GROUPS[0], modules, ...GROUPS.slice(1)]
+    return [modules, ...GROUPS]
   }, [settings.panels])
 
   // `tray.rs` positions this window from its size, so the size has to be the
@@ -425,9 +436,6 @@ export default function TrayMenu() {
 
   const run = (action: Action) => {
     switch (action.kind) {
-      case 'show':
-        void invoke('tray_show_notch')
-        break
       case 'module':
         void invoke('tray_navigate', { module: action.module })
         break

@@ -21,6 +21,10 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-opener = "2"
 tauri-plugin-autostart = "2"
+# The summon shortcut. A global hotkey has to be registered with the OS — a
+# keydown listener in the webview only fires for a window that has focus, and the
+# notch deliberately never takes any. See `hotkey.rs`.
+tauri-plugin-global-shortcut = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["full"] }

@@ -6,15 +6,28 @@ import { openUrl } from '@tauri-apps/plugin-opener'
 import Toggle from '../Toggle'
 import AccentPicker from './AccentPicker'
 import DisplayPicker from './DisplayPicker'
+import HotkeyCapture from './HotkeyCapture'
 import NotesLocation from './NotesLocation'
 import PanelOrder from './PanelOrder'
 import RowShell from './RowShell'
 import Slider from './Slider'
 import ThemePicker from './ThemePicker'
 import WeatherLocation from './WeatherLocation'
-import { NOTCH_POSITIONS, OPACITY, useNotificationAccess, useSettings } from '../../hooks/useSettings'
+import {
+  ANIMATION_SPEED,
+  COLLAPSE_DELAY,
+  CORNER_RADIUS,
+  NOTCH_HEIGHT,
+  NOTCH_POSITIONS,
+  NOTCH_WIDTH,
+  OPACITY,
+  PANEL_SCALE,
+  useNotificationAccess,
+  useSettings,
+} from '../../hooks/useSettings'
 import { useDisplays } from '../../hooks/useDisplays'
 import { useAccentColor } from '../../hooks/useAccentColor'
+import { useCornerRadius } from '../../hooks/useCornerRadius'
 import { useSurfaceOpacity } from '../../hooks/useSurfaceOpacity'
 import { useTheme } from '../../hooks/useTheme'
 import { color, font, radius, sectionLabel, spring } from '../../tokens'
@@ -275,6 +288,18 @@ const FEATURES: { id: string; title: string; body: string; icon: ReactNode }[] =
         <circle cx="8.5" cy="8.5" r="3" />
         <path d="M8.5 2.6v1.4M3.1 8.5h1.4M4.6 4.6l1 1M12.4 4.6l-1 1" />
         <path d="M8.4 19.6a3.6 3.6 0 0 1-.4-7.2 5 5 0 0 1 9.7.4 3.4 3.4 0 0 1-.3 6.8z" />
+      </Icon>
+    ),
+  },
+  {
+    id: 'screenshots',
+    title: 'Screenshots',
+    body: 'The last few captures you took, one hover from being dragged into whatever they were for.',
+    icon: (
+      <Icon>
+        <rect x="3" y="5" width="18" height="14" rx="2" />
+        <circle cx="8.5" cy="10" r="1.5" />
+        <path d="M4 17l4.5-4.5 3.5 3.5 3-3L20 17" />
       </Icon>
     ),
   },
@@ -570,6 +595,72 @@ function RangeRow({
 }
 
 /**
+ * `RangeRow` with its own slider and its own preview state.
+ *
+ * The opacity row does not use this and deliberately keeps its preview hoisted to
+ * the window: that preference repaints *this* window, so the value has to survive
+ * the pane unmounting when the user switches to About. Everything below is either
+ * about the notch — a different window, which only ever sees the committed value —
+ * or, in the corner radius's case, hands its preview upward through `onPreview`
+ * for exactly the opacity's reason.
+ *
+ * The preview exists at all because the readout would otherwise sit at the old
+ * value for the whole drag and jump on release, which makes a slider feel broken
+ * even when the thing it controls is on another screen.
+ */
+function LiveRange({
+  title,
+  body,
+  icon,
+  value,
+  bounds,
+  format,
+  onCommit,
+  onPreview,
+}: {
+  title: string
+  body: string
+  icon: ReactNode
+  /** The stored value. */
+  value: number
+  bounds: { min: number; max: number; step: number }
+  /** How the number is spelled in the readout — "264 px", "150%", "0.3 s". */
+  format: (value: number) => string
+  onCommit: (value: number) => void
+  /** For a preference that paints this window too. See `cornerRadius`. */
+  onPreview?: (value: number | null) => void
+}) {
+  const [preview, setPreview] = useState<number | null>(null)
+  const shown = preview ?? value
+
+  const push = (next: number | null) => {
+    setPreview(next)
+    onPreview?.(next)
+  }
+
+  return (
+    <RangeRow title={title} body={body} display={format(shown)} icon={icon}>
+      <Slider
+        label={title}
+        value={shown}
+        min={bounds.min}
+        max={bounds.max}
+        step={bounds.step}
+        onPreview={push}
+        onCommit={(next) => {
+          // Dropped in the same tick as the write, as in the opacity row: the
+          // stored value is what everything paints from once this lands, and
+          // holding a preview over it would ignore a clamp Rust applied on the
+          // way through.
+          push(null)
+          onCommit(next)
+        }}
+      />
+    </RangeRow>
+  )
+}
+
+/**
  * A preference with a handful of named states. Same anatomy as `RangeRow` — the
  * control gets its own line, because three segments squeezed into the trailing
  * column would be three 40px targets.
@@ -815,23 +906,50 @@ function ThemePane({ api }: { api: ReturnType<typeof useSettings> }) {
 }
 
 /**
- * How Crest looks: the two preferences that change nothing about what it does.
+ * How Crest looks — and, now, how big it is and how fast it moves.
  *
  * Its own pane rather than a group at the top of the settings scroller, because
- * these are the two people come back to and adjust — and both repaint every
- * window live, so the pane you are looking at *is* the preview.
+ * these are the preferences people come back to and adjust, and most of them
+ * repaint every window live so the pane you are looking at *is* the preview.
+ *
+ * Five groups, and the order is the order of the decisions rather than of the
+ * controls. Surface and Colour are what the notch is made of. Shape is how much
+ * room it takes. Motion is how it behaves once you have decided that. The
+ * shortcut is last because it is the one thing here that is not about looking at
+ * the notch at all — it is a second way to *reach* it, and it sits in this pane
+ * only because it belongs next to the rest of "make it yours" rather than buried
+ * among the switches in Settings.
+ *
+ * Nothing here needs `apply` on the Rust side: every one of them is a number the
+ * frontend reads off the broadcast, which is why they can all be dragged and
+ * watched at once.
  */
 function AppearancePane({
   api,
   opacity,
   onPreviewOpacity,
+  onPreviewCornerRadius,
 }: {
   api: ReturnType<typeof useSettings>
   /** Stored value, or the position of a drag in progress. */
   opacity: number
   onPreviewOpacity: (percent: number | null) => void
+  /** The radius applies to this window too, so its drag is hoisted like the opacity's. */
+  onPreviewCornerRadius: (px: number | null) => void
 }) {
-  const { settings, error, setBackgroundOpacity, setAccentColor } = api
+  const {
+    settings,
+    error,
+    setBackgroundOpacity,
+    setAccentColor,
+    setNotchWidth,
+    setNotchHeight,
+    setCornerRadius,
+    setAnimationSpeed,
+    setPanelScale,
+    setCollapseDelay,
+    setHotkey,
+  } = api
 
   return (
     <>
@@ -869,6 +987,120 @@ function AppearancePane({
       <GroupLabel>Colour</GroupLabel>
 
       <AccentPicker value={settings.accentColor} onChange={setAccentColor} />
+
+      <GroupLabel>Shape</GroupLabel>
+
+      <LiveRange
+        title="Notch width"
+        body="How wide the pill is when the notch is resting. It carries the clock with a music mark and the charge either side, so a wider pill gives all three more air — and a narrower one is less to see out of the corner of your eye."
+        value={settings.notchWidth}
+        bounds={NOTCH_WIDTH}
+        format={(px) => `${px} px`}
+        onCommit={setNotchWidth}
+        icon={
+          <Icon>
+            <rect x="2.5" y="9" width="19" height="6" rx="3" />
+            <path d="M2.5 6v-2M21.5 6v-2" />
+            <path d="M2.5 5h19" />
+          </Icon>
+        }
+      />
+
+      <LiveRange
+        title="Notch height"
+        body="How tall that same pill is. The chips inside it are a fixed size, so this is the space around them."
+        value={settings.notchHeight}
+        bounds={NOTCH_HEIGHT}
+        format={(px) => `${px} px`}
+        onCommit={setNotchHeight}
+        icon={
+          <Icon>
+            <rect x="7" y="6" width="10" height="12" rx="4" />
+            <path d="M3 6h2M3 18h2" />
+            <path d="M4 6v12" />
+          </Icon>
+        }
+      />
+
+      <LiveRange
+        title="Corner radius"
+        body="How rounded every Crest surface is — the notch's cards, the tray menu and this window. All the way down is square corners."
+        value={settings.cornerRadius}
+        bounds={CORNER_RADIUS}
+        format={(px) => `${px} px`}
+        onCommit={setCornerRadius}
+        onPreview={onPreviewCornerRadius}
+        icon={
+          <Icon>
+            <path d="M4 20V10a6 6 0 0 1 6-6h10" />
+            <path d="M4 20h3M20 4v3" />
+          </Icon>
+        }
+      />
+
+      <LiveRange
+        title="Panel width"
+        body="How wide the cards are drawn when the notch opens. Their heights don’t move — each card is built to fit exactly what is in it — so this is elbow room rather than more content. Wide cards stop growing before narrow ones do, at the edge of the space the notch has."
+        value={settings.panelScale}
+        bounds={PANEL_SCALE}
+        format={(percent) => `${percent}%`}
+        onCommit={setPanelScale}
+        icon={
+          <Icon>
+            <rect x="6" y="5" width="12" height="14" rx="2.5" />
+            <path d="M3 8v8M21 8v8" />
+            <path d="M3 12h2M19 12h2" />
+          </Icon>
+        }
+      />
+
+      <GroupLabel>Motion</GroupLabel>
+
+      <LiveRange
+        title="Animation speed"
+        body="How quickly the notch grows, shrinks and swaps between cards. It is the same movement throughout — faster or slower, never bouncier."
+        value={settings.animationSpeed}
+        bounds={ANIMATION_SPEED}
+        format={(percent) => `${percent}%`}
+        onCommit={setAnimationSpeed}
+        icon={
+          <Icon>
+            <path d="M3 12h5l2-5 3 10 2-5h6" />
+          </Icon>
+        }
+      />
+
+      <LiveRange
+        title="Auto-collapse delay"
+        body="How long the notch waits after your cursor leaves before it closes. Short gets out of the way immediately; long lets you slip off the edge of a card and come back without losing it."
+        value={settings.collapseDelay}
+        bounds={COLLAPSE_DELAY}
+        format={(ms) => (ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`)}
+        onCommit={setCollapseDelay}
+        icon={
+          <Icon>
+            <circle cx="12" cy="13" r="8" />
+            <path d="M12 9v4l2.5 2" />
+            <path d="M9 2h6" />
+          </Icon>
+        }
+      />
+
+      <GroupLabel>Shortcut</GroupLabel>
+
+      <RowShell
+        title="Summon the notch"
+        body="A key combination that opens the notch wherever you are, and closes it again if it is already open. Click the box and press the keys you want. Needs Ctrl, Alt, Shift or Win with it — a shortcut without one would take that key away from everything else on your PC."
+        icon={
+          <Icon>
+            <rect x="2.5" y="6" width="19" height="12" rx="2.5" />
+            <path d="M6 10h.01M9.5 10h.01M13 10h.01M16.5 10h.01" />
+            <path d="M7.5 14h9" />
+          </Icon>
+        }
+      >
+        <HotkeyCapture value={settings.hotkey} onChange={setHotkey} />
+      </RowShell>
 
       {error && (
         <p style={{ margin: '8px 12px 0', fontSize: 11.5, color: color.fileRed }}>{error}</p>
@@ -1183,6 +1415,7 @@ function SettingsPane({ api }: { api: ReturnType<typeof useSettings> }) {
     setMuteWindowsBanners,
     setNotchPosition,
     setHotzoneHint,
+    setScreenshots,
   } = api
   const notificationAccess = useNotificationAccess()
 
@@ -1320,6 +1553,26 @@ function SettingsPane({ api }: { api: ReturnType<typeof useSettings> }) {
         }
       />
 
+      {/* Its own group rather than a row under "Your machine": nothing here is the
+          machine reporting on itself, and unlike everything above it this switch
+          governs a *card* as well as a banner — one question about whether Crest
+          looks at those folders at all. */}
+      <GroupLabel>Screenshots</GroupLabel>
+
+      <SettingRow
+        title="Keep recent screenshots"
+        body="Watches the folders Windows saves screenshots to, shows the last few on a card, and drops a thumbnail down the moment you take one — so you can drag it straight into whatever it was for. Crest only reads them: nothing is copied, moved or deleted."
+        on={settings.screenshots}
+        onToggle={() => setScreenshots(!settings.screenshots)}
+        icon={
+          <Icon>
+            <rect x="3" y="5" width="18" height="14" rx="2" />
+            <circle cx="8.5" cy="10" r="1.5" />
+            <path d="M4 17l4.5-4.5 3.5 3.5 3-3L20 17" />
+          </Icon>
+        }
+      />
+
       {error && (
         <p style={{ margin: '8px 12px 0', fontSize: 11.5, color: color.fileRed }}>{error}</p>
       )}
@@ -1341,6 +1594,12 @@ export default function SettingsWindow() {
   const [preview, setPreview] = useState<number | null>(null)
   const opacity = preview ?? api.settings.backgroundOpacity
   useSurfaceOpacity(opacity)
+  // The radius applies to this window's own Mica shell, so it is hoisted for the
+  // same reason the opacity is: the pane it is dragged from unmounts when the user
+  // switches to About, and a preview held inside it would take the window's
+  // corners with it mid-drag.
+  const [cornerPreview, setCornerPreview] = useState<number | null>(null)
+  useCornerRadius(cornerPreview ?? api.settings.cornerRadius)
   // No preview equivalent for either: both are picked, not dragged, so the write
   // and the repaint are the same moment. This window repainting itself the
   // instant a swatch is clicked is why neither picker needs a preview of its
@@ -1546,7 +1805,12 @@ export default function SettingsWindow() {
                   ) : pane === 'theme' ? (
                     <ThemePane api={api} />
                   ) : pane === 'appearance' ? (
-                    <AppearancePane api={api} opacity={opacity} onPreviewOpacity={setPreview} />
+                    <AppearancePane
+                      api={api}
+                      opacity={opacity}
+                      onPreviewOpacity={setPreview}
+                      onPreviewCornerRadius={setCornerPreview}
+                    />
                   ) : pane === 'display' ? (
                     <DisplayPane api={api} />
                   ) : pane === 'weather' ? (

@@ -8,9 +8,11 @@ import { useMediaAnnounce } from './hooks/useMediaAnnounce'
 import { useMediaSession } from './hooks/useMediaSession'
 import { useAccentColor } from './hooks/useAccentColor'
 import { useAutoUpdate } from './hooks/useAutoUpdate'
+import { useCornerRadius } from './hooks/useCornerRadius'
 import { useFileShelf } from './hooks/useFileShelf'
 import { usePerformance } from './hooks/usePerformance'
 import { useReminders } from './hooks/useReminders'
+import { useScreenshots } from './hooks/useScreenshots'
 import { useSettings } from './hooks/useSettings'
 import { useSurfaceOpacity } from './hooks/useSurfaceOpacity'
 import { useTheme } from './hooks/useTheme'
@@ -29,6 +31,7 @@ import {
 import type { WinNotification } from './types/notifications'
 import type { PerfAlert } from './types/perf'
 import type { Reminder } from './types/reminders'
+import type { Screenshot } from './types/screenshots'
 import type { SystemEvent } from './types/system'
 
 /**
@@ -64,12 +67,33 @@ export default function App() {
   // see the raise/settle pair in `useNotchState`.
   const { settings, loaded } = useSettings()
 
-  // Neither is gated on `loaded`: the defaults here and the CSS fallbacks are the
-  // same values, so an unread preference paints exactly what it was already
-  // painting. That is the whole reason the three copies have to agree.
+  // None of these is gated on `loaded`: the defaults here and the CSS fallbacks
+  // are the same values, so an unread preference paints exactly what it was
+  // already painting. That is the whole reason the copies have to agree.
   useSurfaceOpacity(settings.backgroundOpacity)
   useTheme(settings.theme)
   useAccentColor(settings.accentColor)
+  useCornerRadius(settings.cornerRadius)
+
+  /**
+   * The adjustable geometry, as one value.
+   *
+   * Memoised on the three numbers rather than on `settings`, which is a fresh
+   * object on every broadcast: this is handed to `useNotchState`, where it is
+   * mirrored into a ref that the 60Hz cursor poll reads, and to `NotchShell`. A
+   * new identity per broadcast would be harmless in both — neither has it in a
+   * dependency list that matters — but the two of them holding *the same object*
+   * is the visible statement that the card and its hit rect are one input, which
+   * is the invariant `layout.ts` exists for.
+   */
+  const metrics = useMemo(
+    () => ({
+      pillWidth: settings.notchWidth,
+      pillHeight: settings.notchHeight,
+      panelScale: settings.panelScale,
+    }),
+    [settings.notchWidth, settings.notchHeight, settings.panelScale],
+  )
 
   // One poll, two consumers: the same banner for arriving Windows notifications,
   // and the standing list the notifications module draws. Gated on `loaded` as
@@ -139,6 +163,7 @@ export default function App() {
     announcement,
     showModule,
     expand,
+    toggle,
     announce,
     nextModule,
     previousModule,
@@ -147,6 +172,11 @@ export default function App() {
     alwaysVisible: loaded && settings.alwaysOnTop,
     notificationsFit,
     modules: panels.visible,
+    // Neither is gated on `loaded`, for the reason the opacity is not: the
+    // defaults here are the design's own numbers, so acting on them before the
+    // file lands is acting on what the notch would have drawn anyway.
+    metrics,
+    graceMs: settings.collapseDelay,
   })
   announceRef.current = announce
 
@@ -171,9 +201,17 @@ export default function App() {
 
   // The tray popup can only ask; the state machine still owns what opens. Both
   // are pinned, because the cursor is down by the taskbar when they arrive.
+  //
+  // The summon shortcut arrives on the same footing: Rust registers it with
+  // Windows and emits when it fires (see `hotkey.rs`), and what that means is the
+  // state machine's business, not the keyboard's. Every notch window listens, so
+  // with mirroring on the shortcut puts a card on every screen — which is the
+  // point of mirroring, and the one thing this cannot narrow down, since which
+  // screen the user is looking at is not a thing a keystroke says.
   useEffect(() => {
     const pending = [
       listen('tray-show', () => expand({ pin: true })),
+      listen('hotkey-toggle', () => toggle()),
       listen<string>('tray-navigate', (event) => {
         const module = event.payload as NotchModule
         // Checked against the *visible* ring, not every module that exists: the
@@ -187,7 +225,7 @@ export default function App() {
     return () => {
       for (const p of pending) void p.then((unlisten) => unlisten())
     }
-  }, [expand, showModule, panels.visible])
+  }, [expand, showModule, toggle, panels.visible])
 
   // One poll shared by the collapsed pill and the media card. Drops to a slow
   // watch rate while hidden rather than stopping, so a track starting still
@@ -317,6 +355,26 @@ export default function App() {
   const revealShelf = useCallback(() => showModule('files'), [showModule])
   const shelf = useFileShelf(revealShelf)
 
+  // Recent screenshots, and the banner for one that has just landed.
+  //
+  // Mounted here rather than inside the card for the reason the notification feed
+  // and the reminders are: the announcing has to keep working while the card has
+  // never been opened, which is almost all of the time — and a capture is the one
+  // event in this app where the useful moment and the moment it happens are the
+  // same one. The card takes the same feed as a prop.
+  //
+  // Gated on `loaded` like the other two, and for the same reason: the default is
+  // on, and starting a poll on the strength of a guess would put a banner in front
+  // of someone who had turned the feature off.
+  const screenshotsEnabled = loaded && settings.screenshots
+  const screenshots = useScreenshots(
+    screenshotsEnabled,
+    useCallback(
+      (shot: Screenshot) => announce({ kind: 'screenshot', shot }, timing.announceMs),
+      [announce],
+    ),
+  )
+
   const [menu, setMenu] = useState<MenuAnchor | null>(null)
   const closeMenu = useCallback(() => setMenu(null), [])
 
@@ -357,7 +415,11 @@ export default function App() {
         performance={performance}
         weather={weather}
         reminders={reminders}
+        screenshots={screenshots}
+        screenshotsEnabled={screenshotsEnabled}
         modules={panels.visible}
+        metrics={metrics}
+        animationSpeed={settings.animationSpeed}
         // Gated on `loaded` for the same reason as the pill: the default is on,
         // and painting a mark on someone's wallpaper on the strength of a guess
         // is a mark they watch disappear a frame later.

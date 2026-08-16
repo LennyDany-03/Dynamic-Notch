@@ -83,6 +83,36 @@ export interface Settings {
   panels: PanelPref[]
   /** Where the weather module looks, or null until the user picks somewhere. */
   weatherPlace: WeatherPlace | null
+
+  /**
+   * The resting pill's size, in CSS pixels.
+   *
+   * **Not the window's size.** The overlay is a fixed 560×420 transparent canvas
+   * that is never resized — see `layout.ts` — so this moves the card drawn inside
+   * it. Read by `App`, handed to `layout.ts` as `NotchMetrics`, and from there to
+   * both the renderer and the hit-test at once.
+   */
+  notchWidth: number
+  notchHeight: number
+  /** Corner radius of every Mica shell. One CSS variable — see `useCornerRadius`. */
+  cornerRadius: number
+  /** How fast the notch's own motion runs, as a percentage. See `scaleSpring`. */
+  animationSpeed: number
+  /** Expanded card widths, as a percentage of the design's own. */
+  panelScale: number
+  /** How long the notch waits after the cursor leaves, in ms. `timing.graceMs`. */
+  collapseDelay: number
+  /**
+   * The shortcut that summons the notch, as an accelerator string
+   * (`"Ctrl+Shift+KeyN"`), or null for none.
+   *
+   * Nothing in the frontend acts on this — Rust registers it with Windows and
+   * emits `hotkey-toggle` when it fires. It is read here to draw the picker, and
+   * because the picker has to show what is currently bound.
+   */
+  hotkey: string | null
+  /** Whether the notch keeps recent screenshots to hand. */
+  screenshots: boolean
 }
 
 /**
@@ -110,6 +140,18 @@ const DEFAULTS: Settings = {
   // duplicating it here would give the default two places to disagree.
   panels: [],
   weatherPlace: null,
+  // These four have a third copy each, for the same reason `backgroundOpacity`
+  // does — `size.peek` and `radius.shell`/`--radius-shell` are what the notch
+  // paints with before the file is read, and `timing.graceMs` is what it collapses
+  // on. A disagreement is a visible correction on every launch.
+  notchWidth: 264,
+  notchHeight: 34,
+  cornerRadius: 16,
+  animationSpeed: 100,
+  panelScale: 100,
+  collapseDelay: 300,
+  hotkey: null,
+  screenshots: true,
 }
 
 /**
@@ -163,6 +205,28 @@ export const NOTCH_POSITIONS: { id: NotchPosition; label: string }[] = [
  * value it would be handed back a different answer for.
  */
 export const OPACITY = { min: 60, max: 100, step: 2 } as const
+
+/**
+ * Bounds for the geometry and motion sliders.
+ *
+ * Every one of these mirrors a pair of constants in `settings.rs`, which clamps
+ * anyway — as with `OPACITY`, this is so a control cannot ask for a value it would
+ * be handed a different answer for and then visibly snap back. The *reasoning*
+ * behind each bound lives in Rust, next to the clamp that enforces it, rather than
+ * being restated here and drifting.
+ *
+ * `step` is the one thing that is this side's alone: it is how coarse the drag is,
+ * which is a property of the control rather than of the preference. Width moves in
+ * 4s because a pill two pixels wider is not a decision anyone is making; the
+ * collapse delay moves in 50ms because that is roughly the smallest change to it
+ * anyone can feel.
+ */
+export const NOTCH_WIDTH = { min: 240, max: 460, step: 4 } as const
+export const NOTCH_HEIGHT = { min: 26, max: 56, step: 2 } as const
+export const CORNER_RADIUS = { min: 0, max: 28, step: 1 } as const
+export const ANIMATION_SPEED = { min: 50, max: 200, step: 10 } as const
+export const PANEL_SCALE = { min: 85, max: 115, step: 5 } as const
+export const COLLAPSE_DELAY = { min: 100, max: 2000, step: 50 } as const
 
 /**
  * The settings window's state. Rust owns the file and the window flags; this only
@@ -358,6 +422,59 @@ export function useSettings() {
     [write],
   )
 
+  // The six sliders. All of them go through the same Rust macro, which is why they
+  // all name their argument `value` — there is nothing preference-specific left in
+  // any of them by the time it reaches Rust except which field to store it in.
+  const setNotchWidth = useCallback(
+    (value: number) => write('set_notch_width', 'notchWidth', value, { value }),
+    [write],
+  )
+
+  const setNotchHeight = useCallback(
+    (value: number) => write('set_notch_height', 'notchHeight', value, { value }),
+    [write],
+  )
+
+  const setCornerRadius = useCallback(
+    (value: number) => write('set_corner_radius', 'cornerRadius', value, { value }),
+    [write],
+  )
+
+  const setAnimationSpeed = useCallback(
+    (value: number) => write('set_animation_speed', 'animationSpeed', value, { value }),
+    [write],
+  )
+
+  const setPanelScale = useCallback(
+    (value: number) => write('set_panel_scale', 'panelScale', value, { value }),
+    [write],
+  )
+
+  const setCollapseDelay = useCallback(
+    (value: number) => write('set_collapse_delay', 'collapseDelay', value, { value }),
+    [write],
+  )
+
+  /**
+   * Bind, rebind or clear the summon shortcut.
+   *
+   * Through `write` like the rest, and the optimistic half is worth a thought:
+   * this is the one preference here that Windows can refuse (another app may
+   * already hold the combination), so the row shows the new shortcut for the
+   * length of the round trip and then snaps back to the old one with `error` set —
+   * which is exactly the behaviour `write`'s reconcile-from-Rust already gives,
+   * and exactly what the switch for muting Windows' banners does.
+   */
+  const setHotkey = useCallback(
+    (accelerator: string | null) => write('set_hotkey', 'hotkey', accelerator, { accelerator }),
+    [write],
+  )
+
+  const setScreenshots = useCallback(
+    (enabled: boolean) => write('set_screenshots', 'screenshots', enabled, { enabled }),
+    [write],
+  )
+
   return {
     settings,
     loaded,
@@ -375,7 +492,42 @@ export function useSettings() {
     setAccentColor,
     setPanels,
     setWeatherPlace,
+    setNotchWidth,
+    setNotchHeight,
+    setCornerRadius,
+    setAnimationSpeed,
+    setPanelScale,
+    setCollapseDelay,
+    setHotkey,
+    setScreenshots,
   }
+}
+
+/**
+ * Turn a stored accelerator into something a person reads.
+ *
+ * The stored form is a `KeyboardEvent.code` name with modifiers
+ * (`"Ctrl+Shift+KeyN"`), which is the right thing to *store* — it names the
+ * physical key, so a shortcut set on a QWERTY layout is the same key on AZERTY,
+ * and it is what Rust's parser accepts without guessing. It is not a thing to show
+ * anyone: nobody has a key labelled `KeyN`.
+ *
+ * `Super` becomes `Win` because that is what is printed on the key.
+ */
+export function formatHotkey(accelerator: string | null): string {
+  if (!accelerator) return ''
+
+  return accelerator
+    .split('+')
+    .map((part) => {
+      if (part === 'Super' || part === 'Meta') return 'Win'
+      if (part.startsWith('Key')) return part.slice(3)
+      if (part.startsWith('Digit')) return part.slice(5)
+      if (part.startsWith('Numpad')) return `Num ${part.slice(6)}`
+      if (part.startsWith('Arrow')) return part.slice(5)
+      return part
+    })
+    .join(' + ')
 }
 
 /**

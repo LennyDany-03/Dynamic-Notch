@@ -5,7 +5,8 @@ import type { BatteryStatus } from '../types/system'
 import { color, radius } from '../tokens'
 
 /**
- * The 264×34 collapsed pill — the notch at rest.
+ * The collapsed pill — the notch at rest. 264×34 by default, and adjustable: see
+ * `columnWidth` below for the one thing that follows from that.
  *
  * Three columns, and the reason it is a grid rather than the design export's row
  * with an absolutely-centred clock: the side columns are the *same fixed width*,
@@ -52,16 +53,51 @@ const CHIP = { height: 22, padding: '0 8px' } as const
  */
 const COLUMN = 80
 
+/** Horizontal padding, and what the clock needs at its longest ("10:08 AM"). */
+const PADDING = 12
+const CLOCK_MIN = 64
+
+/**
+ * The outer columns, at whatever width the pill has been set to.
+ *
+ * The pill is a preference now (`notchWidth`), and the grid above was written for
+ * exactly one width: at the minimum of 240 two fixed 80s plus the padding leave
+ * 16px for the clock, i.e. the pill's one piece of content elided to nothing while
+ * the two decorations around it kept their full size. So the columns give way
+ * first — they hold a chip that is allowed to be snug, and the clock is what the
+ * pill is *for*.
+ *
+ * The floor is the battery chip's own 73 rounded down a little: below that the
+ * charge would clip rather than tighten, and the answer at that point is a wider
+ * pill rather than a badge that lies. It cannot actually be reached from the
+ * slider — 240 gives 76 — which is the point: the bound exists so the arithmetic
+ * is safe rather than because anything is expected to hit it.
+ */
+function columnWidth(pillWidth: number) {
+  return Math.max(72, Math.min(COLUMN, (pillWidth - PADDING * 2 - CLOCK_MIN) / 2))
+}
+
 export default function CollapsedPill({
   session,
   battery,
+  width,
 }: {
   session: MediaSession
   battery: BatteryStatus | null
+  /**
+   * The pill's own width, from `layout.cardSize`.
+   *
+   * Passed in rather than measured, because this component lays out inside a card
+   * that is *springing* to that width — `getBoundingClientRect` during the
+   * animation would report whatever the spring had reached this frame and reflow
+   * the columns on every one of them.
+   */
+  width: number
 }) {
   const { media } = session
   const isPlaying = media?.isPlaying ?? false
   const now = useClock()
+  const column = columnWidth(width)
 
   return (
     <div
@@ -69,9 +105,9 @@ export default function CollapsedPill({
         width: '100%',
         height: '100%',
         display: 'grid',
-        gridTemplateColumns: `${COLUMN}px 1fr ${COLUMN}px`,
+        gridTemplateColumns: `${column}px 1fr ${column}px`,
         alignItems: 'center',
-        padding: '0 12px',
+        padding: `0 ${PADDING}px`,
       }}
     >
       {/* ── Music ──────────────────────────────────────────────────────────

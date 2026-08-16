@@ -15,6 +15,7 @@ use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::display;
+use crate::hotkey;
 use crate::notifications;
 use crate::tray::hide_menu;
 
@@ -133,6 +134,115 @@ fn background_opacity_default() -> u8 {
 /// write *and* on load, since the file is one a user might hand-edit.
 const OPACITY_MIN: u8 = 60;
 const OPACITY_MAX: u8 = 100;
+
+/// The resting pill's own size, in CSS pixels.
+///
+/// Every bound here has a reason and none of them is taste:
+///
+/// **Width.** The pill is a three-column grid — a music mark, the clock, the
+/// charge — with the outer columns fixed and equal so the time sits on the centre
+/// line (see `CollapsedPill`). Below 240 the middle column stops holding
+/// "10:08 AM" and the clock starts eliding, i.e. the pill loses the one thing it
+/// exists to show. The ceiling is the canvas: the overlay window is a fixed 560
+/// wide and a pill that reached the edges would have no shadow and no room to
+/// spring into.
+///
+/// **Height.** The chips inside are 22 tall, so 26 is the point at which they
+/// touch the pill's own edge. The ceiling is `announce`'s 64 — the banner has to
+/// stay visibly larger than the pill, or the notch *reporting* something looks the
+/// same as the notch merely being there.
+const NOTCH_WIDTH_MIN: u16 = 240;
+const NOTCH_WIDTH_MAX: u16 = 460;
+const NOTCH_HEIGHT_MIN: u16 = 26;
+const NOTCH_HEIGHT_MAX: u16 = 56;
+
+/// Corner radius of every Mica shell, in CSS pixels.
+///
+/// No floor: square corners are a legitimate look and the design still holds at 0.
+/// The ceiling is half the shortest pill — past `NOTCH_HEIGHT_MIN / 2` the radius
+/// is clamped by the browser anyway and the slider would appear to stop working
+/// halfway along, which reads as a bug rather than as a limit.
+const CORNER_RADIUS_MAX: u8 = 28;
+
+/// How fast the notch's own motion runs, as a percentage of the tuned springs.
+///
+/// A range and not a switch, because "too slow" and "too fast" are both real
+/// complaints about the same animation. The bounds are where the motion stops
+/// being motion: at half speed the card takes most of a second to settle, and at
+/// double it arrives before the eye has followed it, which is indistinguishable
+/// from no animation at all — for that there is the bottom of the range on the
+/// *other* preference, `collapse_delay`, which is the one that actually controls
+/// how long the notch is on screen.
+const ANIMATION_MIN: u8 = 50;
+const ANIMATION_MAX: u8 = 200;
+
+/// How wide the expanded cards are drawn, as a percentage of the design's own.
+///
+/// Width only, never height. Heights are the one thing in `tokens.ts` that is
+/// arithmetic rather than judgement — `system` is "26 nav + 16 padding + 16 header
+/// + … = 266", and every box in it is pinned in the component — so scaling them
+/// would put the card and its hit rect out of step and leave the stripe of empty
+/// Mica that `layout.contentRect` exists to warn about. Widths have slack.
+///
+/// The ceiling is generous because `layout.ts` clamps the *result* to what fits
+/// the 560px canvas; the calendar (480 wide) therefore stops growing before the
+/// slider does, and the narrower cards keep going. That is the right way round —
+/// the alternative is a range chosen for the widest card that barely moves the
+/// others.
+const PANEL_SCALE_MIN: u8 = 85;
+const PANEL_SCALE_MAX: u8 = 115;
+
+/// How long the notch waits after the cursor leaves before it steps down, in ms.
+///
+/// The floor is the width of an accidental exit: a cursor that clips the corner of
+/// a card on its way somewhere else is off it for around a tenth of a second, and
+/// below that the notch collapses on gestures the user did not make. The ceiling
+/// is where a notch that will not go away stops being a feature — two seconds of
+/// an expanded card sitting over the work underneath is already a long time to
+/// wait for a surface you have finished with.
+const COLLAPSE_DELAY_MIN: u16 = 100;
+const COLLAPSE_DELAY_MAX: u16 = 2000;
+
+/// The pill at rest. Mirrors `size.peek` in `tokens.ts` and `DEFAULTS` in
+/// `useSettings.ts` — the frontend paints from those before this value is read.
+fn notch_width_default() -> u16 {
+    264
+}
+
+fn notch_height_default() -> u16 {
+    34
+}
+
+/// Mirrors `radius.shell` in the design export, and the `--radius-shell` fallback
+/// in `src/index.css`.
+fn corner_radius_default() -> u8 {
+    16
+}
+
+/// 100 % — the springs exactly as `tokens.ts` tuned them.
+fn animation_speed_default() -> u8 {
+    100
+}
+
+/// 100 % — the card widths exactly as the design export drew them.
+fn panel_scale_default() -> u8 {
+    100
+}
+
+/// Mirrors `timing.graceMs`.
+fn collapse_delay_default() -> u16 {
+    300
+}
+
+/// Whether the notch keeps an eye on the screenshot folders.
+///
+/// On by default, unlike `mute_windows_banners` and like `system_alerts`: it reads
+/// files the user already has, in folders Windows chose, and changes nothing
+/// anywhere. What it gates is a directory listing every couple of seconds and the
+/// banner that follows a capture — see `useScreenshots`.
+fn screenshots_default() -> bool {
+    true
+}
 
 /// Which palette every surface in the app is drawn from.
 ///
@@ -371,6 +481,70 @@ pub struct Settings {
     /// as much and offers the search rather than sitting empty.
     #[serde(default)]
     pub weather_place: Option<WeatherPlace>,
+
+    /// The resting pill's width and height, in CSS pixels.
+    ///
+    /// Frontend-only, like `background_opacity`, and for a reason worth stating
+    /// outright: **this is not the window's size.** The overlay is a fixed 560×420
+    /// transparent canvas that is never resized — spring-resizing a transparent
+    /// always-on-top window on Windows makes `backdrop-filter` re-sample every
+    /// frame and tears — so what moves here is the card drawn *inside* it. The
+    /// notch reads these through the broadcast and hands them to `layout.ts`,
+    /// which is the single source of geometry for both the visible card and the
+    /// rect the cursor is hit-tested against.
+    #[serde(default = "notch_width_default")]
+    pub notch_width: u16,
+
+    #[serde(default = "notch_height_default")]
+    pub notch_height: u16,
+
+    /// Corner radius of every Mica shell — the notch's cards, the tray popup and
+    /// the settings window alike. One CSS variable (`--radius-shell`), written per
+    /// window by `useCornerRadius`, exactly as the accent and the opacity are.
+    #[serde(default = "corner_radius_default")]
+    pub corner_radius: u8,
+
+    /// How fast the notch's own motion runs, as a percentage.
+    ///
+    /// Frontend-only. Applied by scaling the springs rather than by swapping in a
+    /// different set — see `scaleSpring` in `tokens.ts`, which preserves the
+    /// damping ratio so a faster notch is the same motion in less time rather than
+    /// a bouncier one.
+    #[serde(default = "animation_speed_default")]
+    pub animation_speed: u8,
+
+    /// How wide the expanded cards are drawn, as a percentage of the design's own
+    /// widths. Frontend-only; clamped again in `layout.ts` to what fits the canvas.
+    #[serde(default = "panel_scale_default")]
+    pub panel_scale: u8,
+
+    /// How long the notch waits after the cursor leaves before stepping down, in
+    /// milliseconds. Frontend-only — it is `timing.graceMs`, made adjustable.
+    #[serde(default = "collapse_delay_default")]
+    pub collapse_delay: u16,
+
+    /// The shortcut that summons the notch, or `None` for no shortcut.
+    ///
+    /// **The one preference here that `apply` can fail at**, which is why
+    /// `set_hotkey` registers before it stores rather than after. Windows hands a
+    /// global shortcut to exactly one process, so the combination the user picked
+    /// may simply belong to something else — and a preference that saved happily
+    /// while doing nothing would be a shortcut that "does not work" with no
+    /// explanation available anywhere.
+    ///
+    /// Stored as an accelerator string (`"Ctrl+Shift+KeyN"`). See `hotkey.rs` for
+    /// why the key half is a `KeyboardEvent.code` name.
+    #[serde(default)]
+    pub hotkey: Option<String>,
+
+    /// Whether the notch keeps recent screenshots to hand.
+    ///
+    /// Frontend-only: it gates the poll in `useScreenshots` and the banner that
+    /// follows a capture. The card itself is switched on and off in Panels, like
+    /// every other card — this is the watching, not the drawing, which is the same
+    /// split `notifications` has.
+    #[serde(default = "screenshots_default")]
+    pub screenshots: bool,
 }
 
 impl Default for Settings {
@@ -390,6 +564,14 @@ impl Default for Settings {
             panels: Vec::new(),
             autostart_configured: false,
             weather_place: None,
+            notch_width: notch_width_default(),
+            notch_height: notch_height_default(),
+            corner_radius: corner_radius_default(),
+            animation_speed: animation_speed_default(),
+            panel_scale: panel_scale_default(),
+            collapse_delay: collapse_delay_default(),
+            hotkey: None,
+            screenshots: screenshots_default(),
         }
     }
 }
@@ -475,6 +657,38 @@ pub fn load(app: &AppHandle) -> Settings {
     // state painted in whatever the last valid value was, with no way to tell
     // that from the preference having failed to save.
     settings.accent_color = normalise_accent(&settings.accent_color).unwrap_or_else(accent_color_default);
+
+    // The geometry preferences, on the same reasoning as the opacity: every one of
+    // them can be hand-edited into a notch that cannot be used or found, and the
+    // window that would fix it is reached from a tray icon rather than from the
+    // notch — but a 4px-tall pill is not something anyone would recognise as the
+    // thing they broke. Clamping on load is what makes the file safe to edit.
+    settings.notch_width = settings
+        .notch_width
+        .clamp(NOTCH_WIDTH_MIN, NOTCH_WIDTH_MAX);
+    settings.notch_height = settings
+        .notch_height
+        .clamp(NOTCH_HEIGHT_MIN, NOTCH_HEIGHT_MAX);
+    settings.corner_radius = settings.corner_radius.min(CORNER_RADIUS_MAX);
+    settings.animation_speed = settings
+        .animation_speed
+        .clamp(ANIMATION_MIN, ANIMATION_MAX);
+    settings.panel_scale = settings.panel_scale.clamp(PANEL_SCALE_MIN, PANEL_SCALE_MAX);
+    settings.collapse_delay = settings
+        .collapse_delay
+        .clamp(COLLAPSE_DELAY_MIN, COLLAPSE_DELAY_MAX);
+
+    // A stored shortcut that no longer parses is dropped rather than kept. It is
+    // the one preference here with an effect *outside* the process — it takes a
+    // key combination away from every other app — so "we could not understand it"
+    // has to mean "nothing is registered", never "something is registered and we
+    // are not sure what".
+    if let Some(accelerator) = &settings.hotkey {
+        if hotkey::parse(accelerator).is_err() {
+            settings.hotkey = None;
+        }
+    }
+
     settings
 }
 
@@ -643,6 +857,12 @@ pub fn apply(app: &AppHandle, settings: &Settings) {
     display::apply(app, settings);
     let _ = apply_topmost(app, settings.always_on_top);
     let _ = apply_banners(settings);
+    // Ignored here and reported in `set_hotkey`. A shortcut another app has taken
+    // is not a reason to fail an apply that has already moved windows — and this
+    // runs at startup, where the app whose shortcut clashes may not even be
+    // running yet. The next apply picks it up; until then the notch simply has no
+    // shortcut, which is what it looks like from the outside anyway.
+    let _ = hotkey::apply(app, settings.hotkey.as_deref());
 }
 
 /// `apply`, on a thread of its own.
@@ -1182,6 +1402,141 @@ pub fn set_hotzone_hint(
     let _ = app.emit("settings-changed", settings.clone());
 
     Ok(enabled)
+}
+
+/// The four purely-geometric preferences, and the one timing one.
+///
+/// One macro rather than five near-identical functions, because they are five
+/// instances of exactly the same three lines — clamp, store, broadcast — and
+/// written out they would be a hundred lines in which the interesting part is the
+/// pair of bounds. Everything with a decision in it (the accent's refusal, the
+/// banner mute's two guards, the hotkey's registration, anything that touches a
+/// window) is still written by hand below and above.
+///
+/// Clamped rather than refused, for the reason `set_background_opacity` gives:
+/// every caller is a slider, and a slider takes the returned value back as its own
+/// position.
+macro_rules! scalar_setting {
+    ($command:ident, $field:ident, $ty:ty, $min:expr, $max:expr) => {
+        #[tauri::command]
+        pub fn $command(
+            app: AppHandle,
+            current: State<'_, Current>,
+            value: $ty,
+        ) -> Result<$ty, String> {
+            let value = value.clamp($min, $max);
+
+            let mut settings = current.get(&app);
+            settings.$field = value;
+            current.set(settings.clone());
+            save(&app, &settings)?;
+
+            // The broadcast is the whole mechanism, as with every frontend-only
+            // preference: the notch and the tray popup are separate windows that
+            // never rebuild, and the slider lives in neither of them.
+            let _ = app.emit("settings-changed", settings.clone());
+
+            Ok(value)
+        }
+    };
+}
+
+scalar_setting!(
+    set_notch_width,
+    notch_width,
+    u16,
+    NOTCH_WIDTH_MIN,
+    NOTCH_WIDTH_MAX
+);
+scalar_setting!(
+    set_notch_height,
+    notch_height,
+    u16,
+    NOTCH_HEIGHT_MIN,
+    NOTCH_HEIGHT_MAX
+);
+scalar_setting!(set_corner_radius, corner_radius, u8, 0, CORNER_RADIUS_MAX);
+scalar_setting!(
+    set_animation_speed,
+    animation_speed,
+    u8,
+    ANIMATION_MIN,
+    ANIMATION_MAX
+);
+scalar_setting!(
+    set_panel_scale,
+    panel_scale,
+    u8,
+    PANEL_SCALE_MIN,
+    PANEL_SCALE_MAX
+);
+scalar_setting!(
+    set_collapse_delay,
+    collapse_delay,
+    u16,
+    COLLAPSE_DELAY_MIN,
+    COLLAPSE_DELAY_MAX
+);
+
+/// Whether the notch keeps recent screenshots to hand.
+///
+/// Nothing to apply — the notch owns the poll and decides from the broadcast
+/// whether to run it, exactly as it does for `system_alerts`. Unlike the
+/// notification switch there is no Windows permission behind this and nothing to
+/// refuse: the folders it reads are the user's own.
+#[tauri::command]
+pub fn set_screenshots(
+    app: AppHandle,
+    current: State<'_, Current>,
+    enabled: bool,
+) -> Result<bool, String> {
+    let mut settings = current.get(&app);
+    settings.screenshots = enabled;
+    current.set(settings.clone());
+    save(&app, &settings)?;
+
+    let _ = app.emit("settings-changed", settings.clone());
+
+    Ok(enabled)
+}
+
+/// Bind, rebind or clear the shortcut that summons the notch.
+///
+/// **Registered before it is stored**, which is the opposite order to every other
+/// preference in this file and the same order `set_mute_windows_banners` uses, for
+/// the same reason: this one can be refused by something outside the app. Windows
+/// gives a global shortcut to exactly one process, so the combination the user
+/// just pressed may belong to their screen recorder — and storing it anyway would
+/// leave a settings row showing a shortcut that does nothing, with the real reason
+/// discarded.
+///
+/// The failure path puts the *old* shortcut back rather than leaving the app with
+/// none. `hotkey::apply` clears the whole registration before it tries the new
+/// one, so a refused rebind would otherwise cost the user the working shortcut
+/// they already had, as the price of having tried a different one.
+#[tauri::command]
+pub fn set_hotkey(
+    app: AppHandle,
+    current: State<'_, Current>,
+    accelerator: Option<String>,
+) -> Result<Option<String>, String> {
+    let mut settings = current.get(&app);
+
+    if let Err(reason) = hotkey::apply(&app, accelerator.as_deref()) {
+        let _ = hotkey::apply(&app, settings.hotkey.as_deref());
+        return Err(reason);
+    }
+
+    settings.hotkey = accelerator.clone();
+    current.set(settings.clone());
+    save(&app, &settings)?;
+
+    // The notch is what acts on the shortcut — Rust only emits `hotkey-toggle` —
+    // but it reads this preference to draw nothing at all, so the broadcast is
+    // here for consistency and for the settings window's own copy.
+    let _ = app.emit("settings-changed", settings.clone());
+
+    Ok(accelerator)
 }
 
 /// Show the settings window, closing the tray popup that usually opened it so

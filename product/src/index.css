@@ -52,6 +52,14 @@ button {
    ───────────────────────────────────────────────────────────────────────────── */
 :root {
   --mica-alpha: 0.92;
+
+  /* Corner radius of every Mica shell, likewise a preference (`cornerRadius`) and
+     likewise written per window — by `useCornerRadius`. This fallback is the
+     design export's own 16 and has to match `corner_radius_default()` in
+     `settings.rs` and `DEFAULTS` in `useSettings.ts`, for the same reason
+     `--mica-alpha` does: it is what paints for the frame or two before the
+     preference is read, and what the browser fallback uses. */
+  --radius-shell: 16px;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────

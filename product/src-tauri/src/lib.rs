@@ -2,6 +2,7 @@ mod autostart;
 mod audio;
 mod clipboard;
 mod display;
+mod hotkey;
 mod icons;
 mod launcher;
 mod media;
@@ -9,6 +10,7 @@ mod notes;
 mod notifications;
 mod perf;
 mod reminders;
+mod screenshots;
 mod settings;
 mod shelf;
 mod system;
@@ -60,6 +62,10 @@ pub fn run() {
             None,
         ))
         .plugin(tauri_plugin_opener::init())
+        // The summon shortcut. Registered by `settings::apply` from the stored
+        // preference, not here — this only installs the handler that every
+        // registration ends up firing. See `hotkey.rs`.
+        .plugin(hotkey::plugin())
         .invoke_handler(tauri::generate_handler![
             audio::list_audio_devices,
             audio::set_default_audio_device,
@@ -86,6 +92,9 @@ pub fn run() {
             shelf::read_shelf,
             shelf::write_shelf,
             shelf::start_file_drag,
+            screenshots::list_screenshots,
+            screenshots::screenshot_thumbnail,
+            screenshots::reveal_screenshot,
             notifications::get_windows_notifications,
             notifications::notifications_available,
             notifications::notification_logo,
@@ -114,6 +123,14 @@ pub fn run() {
             settings::set_notch_display,
             settings::set_notch_all_displays,
             settings::set_hotzone_hint,
+            settings::set_notch_width,
+            settings::set_notch_height,
+            settings::set_corner_radius,
+            settings::set_animation_speed,
+            settings::set_panel_scale,
+            settings::set_collapse_delay,
+            settings::set_hotkey,
+            settings::set_screenshots,
             display::list_displays,
             settings::notch_raise,
             settings::notch_settle,
