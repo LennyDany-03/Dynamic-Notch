@@ -203,8 +203,11 @@ export const NOTCH_POSITIONS: { id: NotchPosition; label: string }[] = [
  * Bounds for the opacity slider. Mirrors `OPACITY_MIN`/`OPACITY_MAX` in
  * `settings.rs`, which clamps anyway — this is so the control cannot ask for a
  * value it would be handed back a different answer for.
+ *
+ * The floor was 60 and produced no visible change against a dark desktop, which
+ * is most desktops; the reasoning is at the constant in Rust.
  */
-export const OPACITY = { min: 60, max: 100, step: 2 } as const
+export const OPACITY = { min: 25, max: 100, step: 2 } as const
 
 /**
  * Bounds for the geometry and motion sliders.

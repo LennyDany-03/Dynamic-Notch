@@ -926,15 +926,10 @@ function ThemePane({ api }: { api: ReturnType<typeof useSettings> }) {
  */
 function AppearancePane({
   api,
-  opacity,
-  onPreviewOpacity,
   onPreviewCornerRadius,
 }: {
   api: ReturnType<typeof useSettings>
-  /** Stored value, or the position of a drag in progress. */
-  opacity: number
-  onPreviewOpacity: (percent: number | null) => void
-  /** The radius applies to this window too, so its drag is hoisted like the opacity's. */
+  /** The radius applies to this window too, so its drag is hoisted. */
   onPreviewCornerRadius: (px: number | null) => void
 }) {
   const {
@@ -955,10 +950,13 @@ function AppearancePane({
     <>
       <h3 style={{ ...sectionLabel, margin: '0 0 8px' }}>Surface</h3>
 
-      <RangeRow
+      <LiveRange
         title="Background opacity"
-        body="How solid the notch, the tray menu and this window are drawn. Lower lets more of your wallpaper through; higher keeps text readable over a busy desktop."
-        display={`${opacity}%`}
+        body="How solid the notch and the tray menu are drawn. Lower lets more of what is behind them show through. This window always stays solid — it is the one surface here made of text to read."
+        value={settings.backgroundOpacity}
+        bounds={OPACITY}
+        format={(percent) => `${percent}%`}
+        onCommit={setBackgroundOpacity}
         icon={
           <Icon>
             <circle cx="12" cy="12" r="9" />
@@ -966,23 +964,26 @@ function AppearancePane({
             <path d="M12 3a9 9 0 0 1 0 18" fill="currentColor" stroke="none" />
           </Icon>
         }
+      />
+
+      {/* The one thing the slider cannot show you, said once. Crest's surface is
+          near-black and so is a dark editor, so a notch sitting over one changes
+          by a fraction of a shade across the whole range — which reads as a
+          control that does nothing rather than as one that has nothing to work
+          with. */}
+      <p
+        style={{
+          margin: '0 12px',
+          paddingLeft: 42,
+          fontSize: 11.5,
+          lineHeight: 1.5,
+          color: color.text.muted,
+        }}
       >
-        <Slider
-          label="Background opacity"
-          value={opacity}
-          min={OPACITY.min}
-          max={OPACITY.max}
-          step={OPACITY.step}
-          onPreview={onPreviewOpacity}
-          onCommit={(percent) => {
-            // Drop the preview in the same tick as the write. The stored value is
-            // what the window paints from once this lands, and holding a preview
-            // over it would ignore a clamp Rust applied on the way through.
-            onPreviewOpacity(null)
-            setBackgroundOpacity(percent)
-          }}
-        />
-      </RangeRow>
+        Hardest to see over a dark window, where the notch and whatever is behind
+        it are nearly the same shade. Try it over your wallpaper or something
+        bright.
+      </p>
 
       <GroupLabel>Colour</GroupLabel>
 
@@ -1591,13 +1592,28 @@ export default function SettingsWindow() {
   // About. `preview` is the position of a drag in progress, which is what makes
   // the surface follow the knob instead of jumping on release.
   const api = useSettings()
-  const [preview, setPreview] = useState<number | null>(null)
-  const opacity = preview ?? api.settings.backgroundOpacity
-  useSurfaceOpacity(opacity)
-  // The radius applies to this window's own Mica shell, so it is hoisted for the
-  // same reason the opacity is: the pane it is dragged from unmounts when the user
-  // switches to About, and a preview held inside it would take the window's
-  // corners with it mid-drag.
+
+  /**
+   * This window is **always solid**, whatever `backgroundOpacity` says.
+   *
+   * It used to follow the preference like every other surface, and that was wrong
+   * twice over. It is the one window in the app made of body copy — paragraphs,
+   * row descriptions, a sidebar — and reading two hundred words through a
+   * wallpaper is the complaint the preference exists to fix, not a look to offer.
+   * And it made the control lie: the settings window was the only surface visibly
+   * responding to the drag (the notch is a near-black card usually sitting over a
+   * near-black editor), so the slider appeared to adjust *itself* and to do
+   * nothing to the notch it names.
+   *
+   * Written explicitly rather than left to the CSS, because the `--mica-alpha`
+   * fallback is the *default* (0.92) and not 1.
+   */
+  useSurfaceOpacity(100)
+
+  // The radius, unlike the opacity, does apply to this window — it is a shape
+  // rather than a legibility question, and a settings window with different
+  // corners from the notch would look like a different app. Hoisted so the drag
+  // survives the pane unmounting when the user switches to About.
   const [cornerPreview, setCornerPreview] = useState<number | null>(null)
   useCornerRadius(cornerPreview ?? api.settings.cornerRadius)
   // No preview equivalent for either: both are picked, not dragged, so the write
@@ -1805,12 +1821,7 @@ export default function SettingsWindow() {
                   ) : pane === 'theme' ? (
                     <ThemePane api={api} />
                   ) : pane === 'appearance' ? (
-                    <AppearancePane
-                      api={api}
-                      opacity={opacity}
-                      onPreviewOpacity={setPreview}
-                      onPreviewCornerRadius={setCornerPreview}
-                    />
+                    <AppearancePane api={api} onPreviewCornerRadius={setCornerPreview} />
                   ) : pane === 'display' ? (
                     <DisplayPane api={api} />
                   ) : pane === 'weather' ? (

@@ -129,10 +129,26 @@ fn background_opacity_default() -> u8 {
 
 /// Floor and ceiling for `background_opacity`.
 ///
-/// The floor is not politeness — a value near zero is an overlay nobody can see
-/// or find, set from a window that is itself invisible at that point. Clamped on
-/// write *and* on load, since the file is one a user might hand-edit.
-const OPACITY_MIN: u8 = 60;
+/// **The floor was 60 and that made the preference look broken.** Crest's Mica
+/// base is `rgb(32,32,32)` and the thing most often *behind* the notch is a dark
+/// editor or a dark browser at around `rgb(31,31,31)`. Composite one over the
+/// other at 60% and the result is 31.6 against 32 at full — a difference of less
+/// than half a value out of 255, i.e. nothing. The whole 60→100 range was
+/// invisible on exactly the desktops this app is used on, so dragging the slider
+/// genuinely did nothing anyone could see and the only surface that appeared to
+/// respond was the settings window itself, which now deliberately does not (see
+/// `SettingsWindow`).
+///
+/// 25 gives the range something to do. It is still a floor rather than 0 because
+/// the fill is what makes the card a card, but it is a much lower one than the old
+/// reasoning assumed it had to be: `--mica-alpha` governs the *surface fill only*
+/// — the text, the tiles, the hairline and the drop shadow all stay fully opaque —
+/// so a notch at 25% is a legible card on a faint wash, not a notch nobody can
+/// find. The other half of that old reasoning ("set from a window that is itself
+/// invisible at that point") no longer applies at all.
+///
+/// Clamped on write *and* on load, since the file is one a user might hand-edit.
+const OPACITY_MIN: u8 = 25;
 const OPACITY_MAX: u8 = 100;
 
 /// The resting pill's own size, in CSS pixels.
