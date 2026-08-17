@@ -993,7 +993,7 @@ function AppearancePane({
 
       <LiveRange
         title="Notch width"
-        body="How wide the pill is when the notch is resting. It carries the clock with a music mark and the charge either side, so a wider pill gives all three more air — and a narrower one is less to see out of the corner of your eye."
+        body="How wide the pill is when the notch is resting. It carries the clock, with the weather and a music mark on one side of it and the charge on the other, so a wider pill gives all of them more air — and a narrower one is less to see out of the corner of your eye."
         value={settings.notchWidth}
         bounds={NOTCH_WIDTH}
         format={(px) => `${px} px`}

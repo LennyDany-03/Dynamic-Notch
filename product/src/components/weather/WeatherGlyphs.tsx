@@ -24,10 +24,21 @@ import { describeCode, type WeatherGlyph } from '../../types/weather'
 
 const stroke = {
   fill: 'none',
-  strokeWidth: 1.5,
   strokeLinecap: 'round' as const,
   strokeLinejoin: 'round' as const,
 }
+
+/**
+ * Stroke weight, in the 24-unit viewBox rather than in pixels.
+ *
+ * Which means it *scales with `size`*, and that is why it is a prop. 1.5 is the
+ * card's value at the card's 24px, i.e. 1.5px on screen; the same 1.5 on the
+ * pill's 15px glyph strokes 0.94px, against a battery badge beside it drawn at
+ * 1.27 — a weather mark that looked faded next to the charge for no reason a
+ * reader could see. The pill asks for the weight it needs and the card keeps
+ * the one it was drawn with.
+ */
+const STROKE_WIDTH = 1.5
 
 /** The cloud every overcast picture is built on. */
 const CLOUD = 'M7.5 18.5a4 4 0 0 1-.4-8A5.5 5.5 0 0 1 17.8 11a3.75 3.75 0 0 1-.3 7.5z'
@@ -122,11 +133,14 @@ export default function WeatherIcon({
   /** Overrides the accent used for precipitation — the forecast strip dims it. */
   tint = color.accent,
   muted = false,
+  /** In viewBox units, so it scales with `size`. See `STROKE_WIDTH`. */
+  strokeWidth = STROKE_WIDTH,
 }: {
   code: number
   size?: number
   tint?: string
   muted?: boolean
+  strokeWidth?: number
 }) {
   const { glyph } = describeCode(code)
 
@@ -136,6 +150,7 @@ export default function WeatherIcon({
       width={size}
       height={size}
       {...stroke}
+      strokeWidth={strokeWidth}
       stroke={muted ? color.text.icon : color.text.strong}
       style={{ flex: 'none', opacity: muted ? 0.85 : 1 }}
     >
