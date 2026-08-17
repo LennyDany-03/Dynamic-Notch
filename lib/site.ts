@@ -12,7 +12,7 @@ const repo = "https://github.com/LennyDany-03/Dynamic-Notch";
  * what the release tag and the NSIS installer filename are built from, so a
  * mismatch here produces a 404 on the download button.
  */
-const version = "0.6.8";
+const version = "0.6.9";
 
 export const site = {
   name: "Crest",
