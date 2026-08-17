@@ -1,7 +1,9 @@
 import BatteryBadge from './system/BatteryBadge'
+import WeatherBadge from './weather/WeatherBadge'
 import { formatClock, useClock } from '../hooks/useClock'
 import type { MediaSession } from '../hooks/useMediaSession'
 import type { BatteryStatus } from '../types/system'
+import type { Weather } from '../types/weather'
 import { color, radius } from '../tokens'
 
 /**
@@ -26,6 +28,23 @@ import { color, radius } from '../tokens'
  * The music mark used to be two signals, the equalizer here and a matching dot on
  * the right, flanking the clock for symmetry. The dot is gone: it said exactly
  * what the equalizer says, and the symmetry it bought is now the grid's job.
+ *
+ * **The left column holds one mark at a time, and music displaces the weather.**
+ * The temperature is the resting state — a readout opposite the charge is what
+ * makes the pill a status strip rather than a clock with a decoration either
+ * side — and the equalizer takes the slot for as long as something is playing.
+ *
+ * It is a swap rather than a pair for two reasons, and the design one is the
+ * better one. Music is *news*: it changes on its own, it is the only thing on
+ * this pill that does, and putting it beside a temperature that has not moved in
+ * ten minutes makes the eye read the two as one crowded lump instead of noticing
+ * the one that is moving. The weather is still one hover away in its own card,
+ * and it comes back the moment the music stops. The size argument agrees: the eq
+ * chip is ~28 across and the weather chip ~59, which with a gap is over 90
+ * against a column that is 80 — and the outer columns are equal by construction
+ * (see `COLUMN`), so the right one would have to grow to match and the clock
+ * would lose the difference twice over, with nothing left to lose at the minimum
+ * pill width. Either mark alone fits with room.
  */
 
 /**
@@ -72,6 +91,14 @@ const CLOCK_MIN = 64
  * pill rather than a badge that lies. It cannot actually be reached from the
  * slider — 240 gives 76 — which is the point: the bound exists so the arithmetic
  * is safe rather than because anything is expected to hit it.
+ *
+ * It is the *right* column's number, and only the right column's, which is why
+ * the weather went on the left rather than beside the charge: the charge sits at
+ * `justifySelf: end` against the pill's edge, so anything it outgrows is cut
+ * off, while the left chip is anchored at the other end and would merely
+ * overhang into the middle column's own slack. It does not have to — the eq chip
+ * is ~28 and the weather chip ~59, both clear of the 76 this floors to at the
+ * narrowest pill — but that is the side with the room to be wrong on.
  */
 function columnWidth(pillWidth: number) {
   return Math.max(72, Math.min(COLUMN, (pillWidth - PADDING * 2 - CLOCK_MIN) / 2))
@@ -80,10 +107,24 @@ function columnWidth(pillWidth: number) {
 export default function CollapsedPill({
   session,
   battery,
+  weather,
   width,
 }: {
   session: MediaSession
   battery: BatteryStatus | null
+  /**
+   * The current reading, or null when no place is set.
+   *
+   * Null is the default state of the app and stays null until the user names a
+   * place in Settings — Crest does not guess where they are, see `weather.rs` —
+   * so the chip has to be able to carry nothing without leaving a hole. It does:
+   * with no weather and nothing playing there is no chip at all, which is the
+   * pill exactly as it was.
+   *
+   * This costs no network. `useWeather` is already polling for the card whether
+   * or not it is open, so the pill is reading a value the app had anyway.
+   */
+  weather: Weather | null
   /**
    * The pill's own width, from `layout.cardSize`.
    *
@@ -96,6 +137,7 @@ export default function CollapsedPill({
 }) {
   const { media } = session
   const isPlaying = media?.isPlaying ?? false
+  const current = weather?.current ?? null
   const now = useClock()
   const column = columnWidth(width)
 
@@ -110,28 +152,39 @@ export default function CollapsedPill({
         padding: `0 ${PADDING}px`,
       }}
     >
-      {/* ── Music ──────────────────────────────────────────────────────────
-          Wordless on purpose: at rest the notch says *that* something is
-          playing, and the title is one hover away in the card that can hold
-          it. A track name here would be clipped by the third character.
+      {/* ── Music, or the weather ──────────────────────────────────────────
+          One mark at a time. See the note at the top of the file for why music
+          displaces the temperature rather than sitting beside it.
+
+          Wordless on purpose, the music half: at rest the notch says *that*
+          something is playing, and the title is one hover away in the card that
+          can hold it. A track name here would be clipped by the third
+          character.
 
           **Drawn only while audio is actually playing.** It used to be always
           there — dimmed with no session, and frozen low when paused — on the
-          reasoning that a stable pill is a calm one. In use it was the opposite:
-          the pill rests on screen all day for anyone with always-on-top set, so
-          a permanent chip of three grey bars became a thing you stopped seeing,
-          and then the *equalizer moving* stopped being news. An indicator that
-          is present when there is nothing to indicate is decoration.
+          reasoning that a stable pill is a calm one. In use it was the
+          opposite: the pill rests on screen all day for anyone with
+          always-on-top set, so a permanent chip of three grey bars became a
+          thing you stopped seeing, and then the *equalizer moving* stopped
+          being news. An indicator that is present when there is nothing to
+          indicate is decoration. The temperature underneath it is not that —
+          it is a reading, not an indicator, and it is what the slot falls back
+          to rather than something drawn over.
 
-          Nothing takes its place. The column is fixed width, so the clock does
-          not move — which is the reason the pill is a grid (see above) and the
-          reason this can come and go at all. */}
+          With neither — nothing playing and no place set, which is the app's
+          state until the user names one — the column is simply empty. It is
+          fixed width, so the clock does not move either way, which is the
+          reason the pill is a grid (see above) and the reason anything here
+          can come and go at all. */}
       {isPlaying ? (
         <div
           className="tile"
           style={{
             justifySelf: 'start',
             display: 'flex',
+            // Bottom-aligned, which is what the bars' `marginBottom` is
+            // measured from.
             alignItems: 'flex-end',
             gap: 2.5,
             height: CHIP.height,
@@ -140,6 +193,8 @@ export default function CollapsedPill({
             // As in the badge: clips the tile's top hairline to the pill's curve.
             overflow: 'hidden',
           }}
+          aria-label="Playing"
+          role="img"
         >
           {[0, 0.2, 0.4].map((delay) => (
             <span
@@ -158,7 +213,10 @@ export default function CollapsedPill({
           ))}
         </div>
       ) : (
-        <span aria-hidden />
+        // Null on its own when no place is set, and the column stays empty.
+        <div style={{ justifySelf: 'start', display: 'flex' }}>
+          <WeatherBadge current={current} chip={CHIP} />
+        </div>
       )}
 
       {/* ── The clock ──────────────────────────────────────────────────────

@@ -46,7 +46,7 @@ export default function WeatherLocation({
   return (
     <RowShell
       title="Weather location"
-      body="Crest doesn’t guess where you are — every way of doing that would send your whereabouts somewhere before you asked. Type a town or city and pick it from the list; the forecast comes from Open-Meteo, which needs no account."
+      body="Crest doesn’t guess where you are — every way of doing that would send your whereabouts somewhere before you asked. Type a town or city and pick it from the list; the forecast comes from Open-Meteo, which needs no account. Once it’s set, the temperature also sits on the resting pill beside the clock."
       icon={
         <svg viewBox="0 0 24 24" width={18} height={18} fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
           <path d="M12 21s7-5.2 7-11a7 7 0 1 0-14 0c0 5.8 7 11 7 11z" />

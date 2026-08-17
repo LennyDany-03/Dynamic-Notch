@@ -320,6 +320,7 @@ export default function NotchShell({
                       onNext={onNextModule}
                       modules={modules}
                       battery={battery}
+                      weather={weather.weather?.current ?? null}
                     />
                   </div>
                 )}
@@ -358,7 +359,19 @@ export default function NotchShell({
                       ) : isAnnouncing ? (
                         <AnnounceContent announcement={announcement} session={session} />
                       ) : (
-                        <CollapsedPill session={session} battery={battery} width={peek.width} />
+                        <CollapsedPill
+                          session={session}
+                          battery={battery}
+                          // The reading, not the feed: the pill draws the last
+                          // good value and has nothing to say about a fetch
+                          // that failed or is in flight. That is the card's
+                          // job — it is the surface with room to explain
+                          // itself, and a pill that reported a network error
+                          // out of the corner of the eye would be asking for
+                          // attention it cannot then be given.
+                          weather={weather.weather}
+                          width={peek.width}
+                        />
                       )}
                     </motion.div>
                   </AnimatePresence>

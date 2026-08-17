@@ -1,3 +1,36 @@
+## 0.6.8 — 2026-08-18
+
+**The temperature, without opening anything.** The weather panel was always a
+hover and a scroll away, which is more than anyone is going to do to answer "do I
+need a coat". The temperature now sits on the notch itself — on the resting pill
+beside the clock, and in the top strip of every panel you open — in whichever
+accent colour you picked. Set a location once under Settings → Weather and it is
+there; the full week is still on its own panel when you want it.
+
+### New
+
+- **The temperature on the resting pill.** Beside the clock, opposite the
+  battery, with the sky it belongs to drawn next to it — sun, cloud, rain, snow,
+  fog or a thunderstorm. It needs a location, which you set under
+  Settings → Weather; Crest still never guesses where you are, and shows nothing
+  here until you have told it
+- **And on every panel you open.** The same reading in the top strip of the media
+  card, the launcher, the shelf and the rest, so it stays in view once you are
+  inside the notch instead of disappearing the moment you open something
+- **In your accent colour.** The glyph, the number and the wash behind them all
+  follow the accent and theme set in Appearance — with rain and snow a shade
+  brighter than the cloud behind them, so wet still reads differently from dry at
+  a glance
+
+### Improved
+
+- **Music takes the pill's left slot while it is playing.** The equalizer and the
+  temperature share one spot rather than crowding into two: whatever is playing
+  wins it for as long as it plays, and the temperature comes back when it stops.
+  Music is the only thing on that pill that changes by itself, and it is easier
+  to catch out of the corner of your eye with nothing sitting beside it — the
+  weather is one hover away on its own panel in the meantime
+
 ## 0.6.7 — 2026-08-17
 
 **The screenshot you just took, already in your hand.** Take a screenshot and the

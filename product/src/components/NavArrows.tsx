@@ -1,8 +1,26 @@
 import { useState } from 'react'
 import BatteryBadge from './system/BatteryBadge'
+import WeatherBadge from './weather/WeatherBadge'
 import { color, sectionLabel } from '../tokens'
 import { MODULE_LABELS, type NotchModule } from '../types/notch'
 import type { BatteryStatus } from '../types/system'
+import type { CurrentWeather } from '../types/weather'
+
+/**
+ * The chip the temperature is drawn on, and the one deviation in this file from
+ * `BatteryBadge`'s rule that the strip gets a bare mark.
+ *
+ * That rule has a reason and it still holds for the charge: a 22px chip inside a
+ * 26px strip reads as a button squeezed into a title bar. This is 18, which
+ * leaves 4 above and below and reads as a tag rather than a control — and the
+ * weather needs it where the charge does not, because a battery outline is
+ * legible as a mark on any surface while a glyph beside a number is two unlike
+ * things that need something to say they are one. The accent wash is that
+ * something, and it is what the user asked the mark to be coloured with.
+ *
+ * Its height is also what selects the badge's compact size — see `WeatherBadge`.
+ */
+const CHIP = { height: 18, padding: '0 6px' } as const
 
 interface Props {
   active: NotchModule
@@ -19,6 +37,14 @@ interface Props {
   modules: readonly NotchModule[]
   /** The charge, drawn in the corner of the strip. Null on a machine without one. */
   battery: BatteryStatus | null
+  /**
+   * The temperature, drawn in the *other* corner. Null until a place is set.
+   *
+   * The reading rather than the feed, as on the pill: a fetch that failed or is
+   * in flight is the weather card's to explain, and this strip is on screen over
+   * every other card in the ring.
+   */
+  weather: CurrentWeather | null
 }
 
 /*
@@ -94,7 +120,7 @@ function Chevron({
  * were unreachable in practice. Arrows flanking the module name answer both
  * "where am I" and "how do I move".
  */
-export default function NavArrows({ active, onPrev, onNext, modules, battery }: Props) {
+export default function NavArrows({ active, onPrev, onNext, modules, battery, weather }: Props) {
   const badge = battery !== null && battery.percent !== null
   // The arrows say nothing useful with one card in the ring: there is nowhere to
   // go, and a pair of chevrons that return you to where you are is a control that
@@ -124,7 +150,17 @@ export default function NavArrows({ active, onPrev, onNext, modules, battery }: 
         padding: '0 12px',
       }}
     >
-      <span aria-hidden />
+      {/* The temperature, in the corner the grid was already reserving.
+
+          This column existed as an empty spacer whose only job was to be the
+          same width as the badge's opposite it — so the mark costs no layout at
+          all, and the module name stays on the card's centre line whether it is
+          drawn or not. Left rather than right because the charge has the right,
+          and the two readouts flanking the name is the nav strip arriving at the
+          same arrangement as the pill it replaces on screen. */}
+      <span style={{ display: 'flex', justifyContent: 'flex-start', minWidth: 0 }}>
+        <WeatherBadge current={weather} chip={CHIP} />
+      </span>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
         {/* A spacer of the chevron's own size when there is nowhere to go, so the
