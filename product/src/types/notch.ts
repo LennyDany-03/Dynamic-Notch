@@ -2,6 +2,7 @@ import type { UpdatePhase, UpdateProgress } from '../hooks/useAutoUpdate'
 import type { WinNotification } from './notifications'
 import type { PerfAlert } from './perf'
 import type { Reminder } from './reminders'
+import type { Screenshot } from './screenshots'
 import type { SystemEvent } from './system'
 
 /**
@@ -54,6 +55,7 @@ export type NotchModule =
   | 'weather'
   | 'calendar'
   | 'quickAccess'
+  | 'screenshots'
 
 /**
  * The **default** order and the full set of modules that exist.
@@ -78,6 +80,7 @@ export const MODULES: readonly NotchModule[] = [
   'weather',
   'calendar',
   'quickAccess',
+  'screenshots',
 ] as const
 
 /**
@@ -101,6 +104,7 @@ export const MODULE_LABELS: Record<NotchModule, string> = {
   weather: 'Weather',
   calendar: 'Calendar',
   quickAccess: 'Quick Access',
+  screenshots: 'Screenshots',
 }
 
 /**
@@ -195,6 +199,17 @@ export type Announcement =
   | { kind: 'system'; event: SystemEvent }
   | { kind: 'performance'; alert: PerfAlert }
   | { kind: 'reminder'; reminder: Reminder }
+  /**
+   * A screenshot has just been saved. Has a card behind it, so hovering it dwells
+   * through to the grid — which is the whole point of announcing at all: the
+   * moment you have any use for a capture is the moment you took it, and the
+   * banner is what puts it one hover from being dragged somewhere.
+   *
+   * Carries the shot rather than only its path so the banner can draw the name
+   * without a lookup; the picture itself is fetched by the banner, like the
+   * notification logo, so a slow thumbnail costs a thumbnail and never the banner.
+   */
+  | { kind: 'screenshot'; shot: Screenshot }
   /**
    * Crest updating itself. Unlike the other five this is not a report of
    * something that happened — it is a *process*, and it is re-announced on every

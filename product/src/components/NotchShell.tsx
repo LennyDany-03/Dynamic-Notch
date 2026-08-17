@@ -8,22 +8,31 @@ import MediaControls from './media/MediaControls'
 import NotificationAnnounce from './notifications/NotificationAnnounce'
 import PerfAnnounce from './system/PerfAnnounce'
 import ReminderAnnounce from './calendar/ReminderAnnounce'
+import ScreenshotAnnounce from './screenshots/ScreenshotAnnounce'
 import SystemAnnounce from './system/SystemAnnounce'
 import UpdateAnnounce from './updater/UpdateAnnounce'
 import CalendarModule from './modules/CalendarModule'
 import FilesModule from './modules/FilesModule'
 import LauncherModule from './modules/LauncherModule'
 import NotificationsModule from './modules/NotificationsModule'
+import ScreenshotsModule from './modules/ScreenshotsModule'
 import SystemModule from './modules/SystemModule'
 import WeatherModule from './modules/WeatherModule'
 import QuickAccessModule from './modules/QuickAccessModule'
 import type { MediaSession } from '../hooks/useMediaSession'
 import type { FileShelfState } from '../hooks/useFileShelf'
 import type { ReminderFeed } from '../hooks/useReminders'
+import type { ScreenshotFeed } from '../hooks/useScreenshots'
 import type { WeatherFeed } from '../hooks/useWeather'
 import type { NotificationFeed } from '../hooks/useWindowsNotifications'
-import { CARD_TOP, NAV_STRIP_HEIGHT, cardSize, type NotificationsFit } from '../layout'
-import { radius, spring } from '../tokens'
+import {
+  CARD_TOP,
+  NAV_STRIP_HEIGHT,
+  cardSize,
+  type NotchMetrics,
+  type NotificationsFit,
+} from '../layout'
+import { radius, scaleDuration, scaleSpring, spring } from '../tokens'
 import type { Announcement, NotchModule, NotchState } from '../types/notch'
 import type { Performance } from '../types/perf'
 import type { BatteryStatus } from '../types/system'
@@ -58,10 +67,25 @@ interface Props {
   weather: WeatherFeed
   /** The reminder list. Owned by `App` because the banner needs it card or no card. */
   reminders: ReminderFeed
+  /** Recent captures, and the two things that can be done with one. */
+  screenshots: ScreenshotFeed
+  /** The "screenshots in the notch" preference, for the module's empty state. */
+  screenshotsEnabled: boolean
   /** The cards in the ring, in order — the resolved `panels` preference. */
   modules: readonly NotchModule[]
   /** The "show me where the notch is" preference. See `HotzoneHint`. */
   hotzoneHint: boolean
+  /**
+   * The adjustable geometry — pill size and card width scale.
+   *
+   * The *same value* the state machine was handed. That is the whole contract of
+   * `layout.ts` restated one level up: the card drawn here and the rect hit-tested
+   * there are one function of one input, and a component that read the preference
+   * for itself would be a second input that could disagree for a frame.
+   */
+  metrics: NotchMetrics
+  /** How fast the notch's own motion runs, as a percentage. */
+  animationSpeed: number
 }
 
 function ModuleContent({
@@ -75,6 +99,8 @@ function ModuleContent({
   performance,
   weather,
   reminders,
+  screenshots,
+  screenshotsEnabled,
 }: {
   module: NotchModule
   session: MediaSession
@@ -86,6 +112,8 @@ function ModuleContent({
   performance: Performance | null
   weather: WeatherFeed
   reminders: ReminderFeed
+  screenshots: ScreenshotFeed
+  screenshotsEnabled: boolean
 }) {
   switch (module) {
     case 'media':
@@ -111,6 +139,8 @@ function ModuleContent({
       return <CalendarModule feed={reminders} />
     case 'quickAccess':
       return <QuickAccessModule />
+    case 'screenshots':
+      return <ScreenshotsModule feed={screenshots} enabled={screenshotsEnabled} />
     default:
       return <ModulePlaceholder module={module} />
   }
@@ -135,6 +165,8 @@ function announceKey(announcement: Announcement | null): string {
       return `perf:${announcement.alert.id}`
     case 'reminder':
       return `reminder:${announcement.reminder.id}`
+    case 'screenshot':
+      return `screenshot:${announcement.shot.path}`
     case 'update':
       // Constant on purpose, unlike every other kind. The updater re-announces
       // on each progress tick to hold the banner up; a key that moved with the
@@ -162,6 +194,8 @@ function AnnounceContent({
       return <PerfAnnounce alert={announcement.alert} />
     case 'reminder':
       return <ReminderAnnounce reminder={announcement.reminder} />
+    case 'screenshot':
+      return <ScreenshotAnnounce shot={announcement.shot} />
     case 'update':
       return (
         <UpdateAnnounce
@@ -203,15 +237,29 @@ export default function NotchShell({
   performance,
   weather,
   reminders,
+  screenshots,
+  screenshotsEnabled,
   modules,
   hotzoneHint,
+  metrics,
+  animationSpeed,
 }: Props) {
-  // The same call the state machine makes, with the same fit — the card that is
-  // drawn and the rect that is hit-tested are one function of one input.
-  const { width, height } = cardSize(state, activeModule, notificationsFit)
+  // The same call the state machine makes, with the same metrics and the same fit
+  // — the card that is drawn and the rect that is hit-tested are one function of
+  // one input.
+  const { width, height } = cardSize(state, activeModule, metrics, notificationsFit)
   const isExpanded = state === 'expanded'
   const isAnnouncing = state === 'announce'
-  const peek = cardSize('peek', activeModule)
+  const peek = cardSize('peek', activeModule, metrics)
+
+  // The user's speed, applied to the notch's whole motion vocabulary: the card's
+  // own spring and the cross-fade between what is inside it. Deliberately not
+  // applied app-wide — a hover wash that took 200ms to appear is not what anyone
+  // is asking for when they slow the notch down, and the row transitions in the
+  // settings window belong to Windows' own motion language rather than to this
+  // preference.
+  const cardSpring = scaleSpring(isExpanded ? spring.expand : spring.peek, animationSpeed)
+  const fadeDuration = scaleDuration(0.12, animationSpeed)
 
   // What is drawn inside the card, and the key the cross-fade runs on: a change
   // here fades one surface out and the next in without touching the card itself.
@@ -242,7 +290,7 @@ export default function NotchShell({
               initial={{ width: peek.width, height: peek.height, opacity: 0, y: -8 }}
               animate={{ width, height, opacity: 1, y: 0 }}
               exit={{ width: peek.width, height: peek.height, opacity: 0, y: -8 }}
-              transition={isExpanded ? spring.expand : spring.peek}
+              transition={cardSpring}
               style={{ borderRadius: radius.shell, pointerEvents: 'auto' }}
             >
               {/* Sits above .mica::before (noise) and .mica::after (hairline). */}
@@ -289,7 +337,7 @@ export default function NotchShell({
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
-                      transition={{ duration: 0.12 }}
+                      transition={{ duration: fadeDuration }}
                       style={{ position: 'absolute', inset: 0 }}
                     >
                       {isExpanded ? (
@@ -304,11 +352,13 @@ export default function NotchShell({
                           performance={performance}
                           weather={weather}
                           reminders={reminders}
+                          screenshots={screenshots}
+                          screenshotsEnabled={screenshotsEnabled}
                         />
                       ) : isAnnouncing ? (
                         <AnnounceContent announcement={announcement} session={session} />
                       ) : (
-                        <CollapsedPill session={session} battery={battery} />
+                        <CollapsedPill session={session} battery={battery} width={peek.width} />
                       )}
                     </motion.div>
                   </AnimatePresence>

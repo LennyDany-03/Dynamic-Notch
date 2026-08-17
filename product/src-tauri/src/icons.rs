@@ -50,12 +50,45 @@ pub async fn app_icon(path: String) -> Result<Option<String>, String> {
 
 #[cfg(windows)]
 pub(crate) fn extract(path: &str) -> Option<String> {
+    use windows::Win32::UI::Shell::{SIIGBF_BIGGERSIZEOK, SIIGBF_ICONONLY};
+
+    // BIGGERSIZEOK takes the next size up rather than upscaling a smaller one, so
+    // a tile never shows a blurred 32px icon stretched to 64.
+    shell_image(path, ICON_PX, SIIGBF_ICONONLY | SIIGBF_BIGGERSIZEOK)
+}
+
+/// A thumbnail of the file's *contents*, at `px` on its longest side.
+///
+/// The same shell call as `extract` with the icon flag dropped, which is the whole
+/// difference: without `SIIGBF_ICONONLY` the imaging pipeline renders the picture
+/// rather than the file type's glyph. That is what makes a grid of screenshots
+/// readable, and it costs no decoder — the shell already owns handlers for PNG,
+/// JPEG, HEIC and everything else Windows can preview, so `screenshots.rs` needs
+/// no image crate of its own to show a 4K PNG at 96px.
+///
+/// `SIIGBF_RESIZETOFIT` keeps the aspect ratio inside the box asked for, so the
+/// caller gets a picture it can letterbox rather than a squashed square.
+#[cfg(windows)]
+pub(crate) fn thumbnail(path: &str, px: i32) -> Option<String> {
+    use windows::Win32::UI::Shell::SIIGBF_RESIZETOFIT;
+
+    shell_image(path, px, SIIGBF_RESIZETOFIT)
+}
+
+/// Ask the shell to draw `path` at `px` and hand the result back as a PNG data URI.
+///
+/// Icons come back as 32bpp premultiplied BGRA DIB sections whatever was asked
+/// for, which is why one encoder serves both callers.
+#[cfg(windows)]
+fn shell_image(
+    path: &str,
+    px: i32,
+    flags: windows::Win32::UI::Shell::SIIGBF,
+) -> Option<String> {
     use windows::core::PCWSTR;
     use windows::Win32::Foundation::SIZE;
     use windows::Win32::Graphics::Gdi::{DeleteObject, HGDIOBJ};
-    use windows::Win32::UI::Shell::{
-        IShellItemImageFactory, SHCreateItemFromParsingName, SIIGBF_BIGGERSIZEOK, SIIGBF_ICONONLY,
-    };
+    use windows::Win32::UI::Shell::{IShellItemImageFactory, SHCreateItemFromParsingName};
 
     unsafe {
         init_com_for_thread();
@@ -65,17 +98,7 @@ pub(crate) fn extract(path: &str) -> Option<String> {
             let factory: IShellItemImageFactory =
                 SHCreateItemFromParsingName(PCWSTR(wide.as_ptr()), None).ok()?;
 
-            // BIGGERSIZEOK takes the next size up rather than upscaling a smaller
-            // one, so a tile never shows a blurred 32px icon stretched to 64.
-            let bitmap = factory
-                .GetImage(
-                    SIZE {
-                        cx: ICON_PX,
-                        cy: ICON_PX,
-                    },
-                    SIIGBF_ICONONLY | SIIGBF_BIGGERSIZEOK,
-                )
-                .ok()?;
+            let bitmap = factory.GetImage(SIZE { cx: px, cy: px }, flags).ok()?;
 
             let png = encode_png(bitmap);
             let _ = DeleteObject(HGDIOBJ(bitmap.0));
@@ -193,6 +216,11 @@ unsafe fn encode_png(bitmap: windows::Win32::Graphics::Gdi::HBITMAP) -> Option<S
 
 #[cfg(not(windows))]
 fn extract(_path: &str) -> Option<String> {
+    None
+}
+
+#[cfg(not(windows))]
+pub(crate) fn thumbnail(_path: &str, _px: i32) -> Option<String> {
     None
 }
 

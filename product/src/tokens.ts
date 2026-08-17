@@ -155,8 +155,24 @@ export const color = {
 } as const
 
 export const radius = {
-  /** Outer shell and the collapsed pill. */
-  shell: 16,
+  /**
+   * Outer shell and the collapsed pill.
+   *
+   * A `var()` rather than the export's 16 for exactly the reason every colour is:
+   * it became a preference (`cornerRadius`), and it is one declaration read by
+   * four windows' worth of Mica shells — the notch's cards, the tray popup, the
+   * settings window and the notes sheet. Threading a number through all of them
+   * would put a preference in every component that happens to draw a surface.
+   * `useCornerRadius` writes it per window; `index.css` carries the export's own
+   * 16 as the fallback.
+   *
+   * The inner radii below are deliberately *not* reachable from the preference.
+   * They are the radius of a tile inside a card, and scaling them with the shell
+   * would make a square-cornered notch square-corner its own list rows — which is
+   * not what "corner radius" means to anyone, and which the design has opinions
+   * about that a slider should not overrule.
+   */
+  shell: 'var(--radius-shell)',
   /** Inner tiles, buttons, search field. */
   tile: 8,
   /** Small chips, file-type icons. */
@@ -313,6 +329,32 @@ export const size = {
    * to shorten.
    */
   quickAccess: { width: 420, height: 186 },
+  /**
+   * NOT from the design export either — it predates the screenshot shelf.
+   *
+   * Sized *to* its contents like `system` and `quickAccess`, and every box in the
+   * arithmetic is pinned in `ScreenshotsModule`: 26 nav + 12 padding + 101 tile row
+   * + 8 gap + 101 tile row + 12 padding = 260.
+   *
+   * There is no header in that sum, and the card is the same 260 it was with one:
+   * the section label said "Screenshots" directly under a nav strip already
+   * reading `‹ SCREENSHOTS ›`, so it went and its 26px went to the tiles instead of
+   * shrinking the card. See `ScreenshotsModule`.
+   *
+   * Two rows of three and then it scrolls, which is the same trade the file shelf
+   * makes and for the same reason — this is the capture you took a minute ago, and
+   * a wall of forty thumbnails is Explorer's job. A fixed two rows rather than a
+   * height that follows the count (which is what `notifications` does) because a
+   * grid that is *always* full is the normal case here: the folder has whatever
+   * has accumulated in it, so the card would sit at its ceiling almost always and
+   * the arithmetic would buy nothing.
+   *
+   * 420 matches the notifications and Quick Access cards. Three columns rather than
+   * four because a screenshot is 16:9: at four the tile is squarer than the picture
+   * in it and every capture is letterboxed into two-thirds of its own tile, which
+   * is the difference between recognising a window and squinting at one.
+   */
+  screenshots: { width: 420, height: 260 },
 } as const
 
 /** Springs — NOT from the design export (it is static). Tuned for Fluent motion. */
@@ -324,6 +366,58 @@ export const spring = {
   /** Content cross-fade inside an expanded card. */
   content: { type: 'spring' as const, stiffness: 460, damping: 34, mass: 0.8 },
 } as const
+
+/**
+ * A spring, widened.
+ *
+ * Written out rather than derived from `spring` above, because `as const` makes
+ * every number in that object its own literal type — so a derived type would say
+ * a stiffness is `520 | 360 | 460`, and `scaleSpring` exists precisely to return
+ * one that is none of those.
+ */
+export interface Spring {
+  type: 'spring'
+  stiffness: number
+  damping: number
+  mass: number
+}
+
+/**
+ * Run one of the springs above at a different speed, as a percentage.
+ *
+ * **Stiffness by the square, damping by the factor**, and that pair is the whole
+ * point of this function existing rather than callers multiplying a number. A
+ * spring's character is its damping ratio, ζ = c / 2√(km): scale the stiffness
+ * alone and ζ falls, so a "faster" notch would also start overshooting and
+ * wobbling, which is a different animation rather than the same one in less time.
+ * Scaling k by s² and c by s leaves ζ exactly where it was and moves only the
+ * frequency — so at 150% the card settles in two-thirds the time with precisely
+ * the design's own overshoot, and at 50% it is the same motion, slowly.
+ *
+ * Mass is untouched, being the third term the ratio is already balanced against.
+ */
+export function scaleSpring(base: Spring, percent: number): Spring {
+  if (percent === 100) return base
+  const factor = percent / 100
+  return {
+    ...base,
+    stiffness: base.stiffness * factor * factor,
+    damping: base.damping * factor,
+  }
+}
+
+/**
+ * The same scaling for the plain duration transitions — the panel cross-fade.
+ *
+ * Divided rather than multiplied: `percent` is a speed and this is a time, so
+ * 200% is half as long. Floored well below anything perceptible rather than
+ * allowed to reach zero, because a cross-fade of exactly 0 is a cut, and a card
+ * swapping instantly under a stationary cursor reads as a glitch rather than as a
+ * fast transition.
+ */
+export function scaleDuration(seconds: number, percent: number): number {
+  return Math.max(0.02, seconds / (percent / 100))
+}
 
 /** Interaction timings from the master spec. */
 export const timing = {

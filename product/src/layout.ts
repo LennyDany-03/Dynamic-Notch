@@ -79,15 +79,89 @@ export function notificationsCardHeight({ rows, detail }: NotificationsFit) {
   return Math.min(wanted, size.notifications.height)
 }
 
-export function cardSize(state: NotchState, module: NotchModule, fit?: NotificationsFit) {
+/**
+ * The parts of the geometry the user gets to move.
+ *
+ * Threaded through as a value rather than read from a hook, because both readers
+ * of this module are already downstream of one — `useNotchState` hit-tests with it
+ * and `NotchShell` renders with it — and the single rule this file exists to
+ * enforce is that those two never disagree. A preference either of them could read
+ * *separately* is a preference they can be out of step about for a frame, and a
+ * frame is exactly long enough for a click to land on a card that has moved.
+ *
+ * Everything here is a number the design already had; the preference changes what
+ * it is, not what it means.
+ */
+export interface NotchMetrics {
+  /** The resting pill, in CSS px. `size.peek` at the default. */
+  pillWidth: number
+  pillHeight: number
+  /** Expanded card widths, as a percentage of the design's own. 100 = as drawn. */
+  panelScale: number
+}
+
+/** The design export's own geometry — what the notch draws before any preference lands. */
+export const DEFAULT_METRICS: NotchMetrics = {
+  pillWidth: size.peek.width,
+  pillHeight: size.peek.height,
+  panelScale: 100,
+}
+
+/**
+ * The overlay window, which is fixed at 560×420 in `tauri.conf.json` and never
+ * resized (see the note at the top of this file).
+ *
+ * `CARD_MAX_WIDTH` is the ceiling every scaled width is clamped to, and the 20px
+ * it leaves either side is not decoration: the Mica shell draws a hairline on its
+ * top edge and the card springs *past* its target on the way in, so a card sized
+ * to the canvas exactly would be clipped by the window during the overshoot.
+ */
+const CANVAS_WIDTH = 560
+const CARD_MAX_WIDTH = CANVAS_WIDTH - 40
+
+/**
+ * A design width, scaled by the preference and clamped to the canvas.
+ *
+ * The clamp is why `panelScale`'s range can be generous: the calendar is 480 and
+ * stops growing at 108%, while the media card at 380 keeps going to the top of the
+ * range. A range picked so that the *widest* card could use all of it would barely
+ * move any of the others.
+ */
+function panelWidth(base: number, metrics: NotchMetrics) {
+  return Math.round(Math.min((base * metrics.panelScale) / 100, CARD_MAX_WIDTH))
+}
+
+export function cardSize(
+  state: NotchState,
+  module: NotchModule,
+  metrics: NotchMetrics = DEFAULT_METRICS,
+  fit?: NotificationsFit,
+) {
   if (state === 'expanded') {
     if (module === 'notifications' && fit) {
-      return { width: size.notifications.width, height: notificationsCardHeight(fit) }
+      return {
+        width: panelWidth(size.notifications.width, metrics),
+        height: notificationsCardHeight(fit),
+      }
     }
-    return size[module]
+    return { width: panelWidth(size[module].width, metrics), height: size[module].height }
   }
-  if (state === 'announce') return size.announce
-  return size.peek
+
+  if (state === 'announce') {
+    // The banner has to stay visibly wider than the pill it drops out of, or the
+    // notch reporting something looks the same as the notch simply being there —
+    // which `tokens.ts` states as the ceiling on the pill and which becomes a
+    // floor on the banner the moment the pill is adjustable past it.
+    return {
+      width: Math.min(
+        Math.max(panelWidth(size.announce.width, metrics), metrics.pillWidth + 36),
+        CARD_MAX_WIDTH,
+      ),
+      height: size.announce.height,
+    }
+  }
+
+  return { width: metrics.pillWidth, height: metrics.pillHeight }
 }
 
 /**
@@ -111,11 +185,12 @@ export function contentRect(
   state: NotchState,
   module: NotchModule,
   windowWidth: number,
+  metrics: NotchMetrics = DEFAULT_METRICS,
   fit?: NotificationsFit,
 ): Rect | null {
   if (state === 'hidden') return null
 
-  const card = cardSize(state, module, fit)
+  const card = cardSize(state, module, metrics, fit)
   return {
     x: windowWidth / 2 - card.width / 2,
     y: CARD_TOP,

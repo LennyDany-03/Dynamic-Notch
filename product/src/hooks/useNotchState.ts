@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { useHotzone } from './useHotzone'
-import { contentRect, type NotificationsFit } from '../layout'
+import { DEFAULT_METRICS, contentRect, type NotchMetrics, type NotificationsFit } from '../layout'
 import { timing } from '../tokens'
 import {
   MODULES,
@@ -49,6 +49,8 @@ export function useNotchState({
   alwaysVisible = false,
   notificationsFit,
   modules = MODULES,
+  metrics = DEFAULT_METRICS,
+  graceMs = timing.graceMs,
 }: {
   alwaysVisible?: boolean
   /**
@@ -65,6 +67,28 @@ export function useNotchState({
    * is what lets `cycleModule` index into it without a guard.
    */
   modules?: readonly NotchModule[]
+  /**
+   * The adjustable half of the geometry — the pill's size and the card width
+   * scale. Passed straight to `layout.contentRect`, which is the only thing here
+   * that reads it.
+   *
+   * It reaches this hook rather than only `NotchShell` because the two have to
+   * agree: this is the half that hit-tests, and a rect derived from the design's
+   * geometry while the card is drawn at the user's would be a card you could see
+   * and not click.
+   */
+  metrics?: NotchMetrics
+  /**
+   * How long the cursor has to be away before the notch steps down — the
+   * `collapseDelay` preference, defaulting to the design's own `timing.graceMs`.
+   *
+   * Only the *grace* window is adjustable, not the dwell. They read like a pair
+   * and are not one: the dwell is how long you have to mean it before the notch
+   * opens, which is a guard against opening by accident and has a right answer;
+   * this is how long the notch stays after you have finished with it, which is
+   * taste, and is the one users actually complain about in both directions.
+   */
+  graceMs?: number
 } = {}) {
   const [state, setState] = useState<NotchState>('hidden')
   const [activeModule, setActiveModule] = useState<NotchModule>(() => modules[0] ?? 'media')
@@ -86,6 +110,8 @@ export function useNotchState({
   moduleRef.current = activeModule
   const fitRef = useRef(notificationsFit)
   fitRef.current = notificationsFit
+  const metricsRef = useRef(metrics)
+  metricsRef.current = metrics
   // Read by the banner's retract timer, which is armed before the preference it
   // has to respect can be known to have changed.
   const restingRef = useRef(resting)
@@ -115,6 +141,7 @@ export function useNotchState({
       stateRef.current,
       moduleRef.current,
       window.innerWidth,
+      metricsRef.current,
       fitRef.current,
     )
     const held = heldRectRef.current
@@ -245,15 +272,20 @@ export function useNotchState({
       // reaching for something that reported a track is a request to see the
       // rest of it. An overload banner does the same, and more sharply — it has
       // just said the machine is struggling, and the card behind it is where the
-      // other three meters and the power row are. A notification or a charger has
-      // no card behind it, so hovering those only holds them up to be read — the
-      // cancelled retract above is the whole behaviour, and they collapse on the
-      // ordinary grace once the cursor leaves.
+      // other three meters and the power row are. A screenshot banner is the most
+      // pointed of the lot: the reason to look at a capture is to put it
+      // somewhere, and the card behind it is where it can be dragged from. A
+      // notification or a charger has no card behind it, so hovering those only
+      // holds them up to be read — the cancelled retract above is the whole
+      // behaviour, and they collapse on the ordinary grace once the cursor leaves.
       const kind = announcementRef.current?.kind
       const dwells =
         state === 'peek' ||
         (state === 'announce' &&
-          (kind === 'media' || kind === 'performance' || kind === 'reminder'))
+          (kind === 'media' ||
+            kind === 'performance' ||
+            kind === 'reminder' ||
+            kind === 'screenshot'))
       if (dwells) {
         // Guarded so a re-render mid-dwell does not restart the countdown.
         if (!dwellRef.current) {
@@ -280,12 +312,15 @@ export function useNotchState({
       // cursor is still away, schedules the next step down — until it reaches the
       // floor, where the guard above stops scheduling.
       setState((current) => (current === 'expanded' ? 'peek' : resting))
-    }, timing.graceMs)
+    }, graceMs)
     // `resting` is a dependency so that switching the preference off re-runs this
     // and lets a pill that was resting on screen collapse on the normal schedule.
     // `pinned` is one so that a lease running out does the same for a card the
-    // tray opened and nobody came for.
-  }, [inside, state, resting, pinned, unpin])
+    // tray opened and nobody came for. `graceMs` is one so that a new delay takes
+    // effect on the next step down rather than on the next relaunch — it is
+    // adjusted from a slider, and a preference you have to restart for is one the
+    // user cannot feel themselves choosing.
+  }, [inside, state, resting, pinned, unpin, graceMs])
 
   // Switching the preference on should put the pill up straight away rather than
   // wait for the next hover. The opposite direction needs nothing: the effect
@@ -383,13 +418,14 @@ export function useNotchState({
     clearAnnounce()
     pin()
     setAnnouncement(next)
-    // The two announcements with a card behind them point the dwell at it, so
+    // The announcements with a card behind them point the dwell at it, so
     // reaching for the banner lands on the thing it was about rather than on
-    // wherever the notch was last left. The other two have nothing to open into
-    // and leave the selection alone.
+    // wherever the notch was last left. The rest have nothing to open into and
+    // leave the selection alone.
     if (next.kind === 'media') setActiveModule('media')
     if (next.kind === 'performance') setActiveModule('system')
     if (next.kind === 'reminder') setActiveModule('calendar')
+    if (next.kind === 'screenshot') setActiveModule('screenshots')
     setState('announce')
 
     announceRef.current = setTimeout(() => {
@@ -417,6 +453,40 @@ export function useNotchState({
   const expand = useCallback((options?: { pin?: boolean }) => {
     showModule(moduleRef.current, options)
   }, [showModule])
+
+  /**
+   * Open the notch, or put it away if it is already open. The summon shortcut.
+   *
+   * A toggle rather than a plain "show", because the shortcut is the one way in
+   * that does not involve the cursor — and so it is the only one with no way *out*.
+   * Every other opening is dismissed by moving the mouse, which the user is doing
+   * anyway; someone who summoned a card from the keyboard and wants it gone would
+   * otherwise have to reach for the mouse to dismiss a feature whose whole point
+   * was not having to.
+   *
+   * Pinned on the way in for the same reason the tray's openings are: the cursor is
+   * wherever the user was working, so the ordinary rules would count it as
+   * "outside" and collapse the card inside the grace window. On the way out it
+   * goes straight to the floor rather than stepping down through `peek`, because a
+   * dismissal is not a collapse — the intermediate pill would read as the notch
+   * having half-ignored the keystroke.
+   */
+  const toggle = useCallback(() => {
+    clearGrace()
+    clearDwell()
+    clearAnnounce()
+
+    if (stateRef.current === 'expanded') {
+      unpin()
+      setState(restingRef.current)
+      return
+    }
+
+    showModule(moduleRef.current, { pin: true })
+    // `clearAnnounce` and `unpin` are stable, and `restingRef` is read through a
+    // ref precisely so this callback does not change identity when the
+    // always-on-top preference does — it is handed to an event listener.
+  }, [showModule, unpin])
 
   /**
    * Step through the modules, wrapping at both ends.
@@ -471,6 +541,7 @@ export function useNotchState({
     announcement,
     showModule,
     expand,
+    toggle,
     announce,
     nextModule,
     previousModule,
