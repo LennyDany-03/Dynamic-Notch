@@ -1,3 +1,52 @@
+## 0.6.7 — 2026-08-17
+
+**The screenshot you just took, already in your hand.** Take a screenshot and the
+usual next move is to go and find it — open the folder, sort by date, hope it is
+the top one. Crest watches the folders Windows saves them to, drops the
+thumbnail down the moment one lands, and keeps the last two dozen on a card you
+can drag straight into whatever you needed it for. There is a keyboard shortcut
+to summon the notch now, too, and a set of controls for how big it is, how round
+its corners are and how fast it moves — the notch can be your size rather than
+the one it shipped at.
+
+### New
+
+- **A Screenshots panel.** The last two dozen captures, newest first, from the
+  folders Windows already puts them in — `Pictures\Screenshots` and
+  `Videos\Captures`, wherever OneDrive has moved them to. Drag one into another
+  app, click to open it, right-click to show it in its folder. Crest only reads
+  them: nothing is copied, moved or deleted, so the panel simply rolls forward as
+  you take more
+- **The capture drops down as you take it.** A thumbnail on the banner, so you
+  know it worked without leaving what you were doing — and hovering it opens the
+  panel, which is usually one drag away from being finished with it
+- **A keyboard shortcut that summons the notch.** Set it in Appearance: click the
+  box, press the keys. It opens the notch wherever you are and closes it again if
+  it is already open — the one way in that does not involve the mouse. It needs
+  Ctrl, Alt, Shift or Win with it, because a shortcut without one would take that
+  key away from every text field on your PC
+- **The notch can be your size.** Four new sliders under Appearance → Shape: the
+  resting pill's width and height, the corner radius of every surface Crest
+  draws, and the width of the expanded panels. Nothing here resizes a window or
+  moves a panel's contents around — it is the same notch, drawn at the size you
+  want it
+- **And your speed.** Animation speed, from half to double, and how long the
+  notch waits after your cursor leaves before it collapses — the one number
+  people ask for in both directions
+
+### Improved
+
+- **The background opacity slider does something now.** It stopped at 60%, and
+  60% over a dark desktop is a change of less than half a shade out of 255 — the
+  control had no visible range at all on the machines this app actually runs on.
+  It goes down to 25% now, where the notch is still a legible card (the text,
+  tiles and edges never fade) on a much fainter wash
+- **The settings window itself is always solid.** It was the only surface visibly
+  responding to that slider, so dragging it appeared to adjust the window you
+  were looking at rather than the notch it names — and it is the one window in
+  Crest made of paragraphs, which is the exact thing a wallpaper showing through
+  makes harder to read
+
 ## 0.6.6 — 2026-08-17
 
 **Where your sound goes, without going looking for it.** Moving from your
