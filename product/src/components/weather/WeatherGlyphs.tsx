@@ -135,12 +135,24 @@ export default function WeatherIcon({
   muted = false,
   /** In viewBox units, so it scales with `size`. See `STROKE_WIDTH`. */
   strokeWidth = STROKE_WIDTH,
+  /**
+   * The colour of everything that is not precipitation — the cloud, the sun,
+   * the fog bars.
+   *
+   * The card leaves this alone: on a surface that also carries text and a
+   * forecast strip, a glyph drawn entirely in the accent would be the loudest
+   * thing on it, and the rule there is that only the rain is accented. The
+   * badges override it because they are the opposite case — one mark, alone in
+   * a corner, which the user has asked to be their accent colour throughout.
+   */
+  tone = color.text.strong,
 }: {
   code: number
   size?: number
   tint?: string
   muted?: boolean
   strokeWidth?: number
+  tone?: string
 }) {
   const { glyph } = describeCode(code)
 
@@ -151,7 +163,7 @@ export default function WeatherIcon({
       height={size}
       {...stroke}
       strokeWidth={strokeWidth}
-      stroke={muted ? color.text.icon : color.text.strong}
+      stroke={muted ? color.text.icon : tone}
       style={{ flex: 'none', opacity: muted ? 0.85 : 1 }}
     >
       {paths(glyph, muted ? color.text.icon : tint)}

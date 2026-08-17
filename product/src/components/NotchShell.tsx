@@ -320,6 +320,7 @@ export default function NotchShell({
                       onNext={onNextModule}
                       modules={modules}
                       battery={battery}
+                      weather={weather.weather?.current ?? null}
                     />
                   </div>
                 )}
