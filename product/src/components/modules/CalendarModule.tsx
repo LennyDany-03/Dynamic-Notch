@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import TimePicker from '../calendar/TimePicker'
 import type { ReminderFeed } from '../../hooks/useReminders'
+import { useStickyState } from '../../hooks/useStickyState'
 import { color, radius, sectionLabel } from '../../tokens'
 import {
   dayKey,
@@ -325,8 +326,23 @@ function Task({
 export default function CalendarModule({ feed }: { feed: ReminderFeed }) {
   const { reminders, loaded, add, remove, toggleDone } = feed
 
-  const [draft, setDraft] = useState('')
-  const [time, setTime] = useState('18:00')
+  /**
+   * The half-written task, and the three things that decide where it lands.
+   *
+   * All four are sticky rather than plain `useState` because this card is
+   * unmounted every time the notch collapses, which happens on a hover-out —
+   * i.e. on the mouse drifting off the card's edge while someone is typing into
+   * it. See `useStickyState` for why the module is not simply kept mounted.
+   *
+   * They have to be sticky *together*, and that is the load-bearing part. A task
+   * is the text plus the day plus the time; restoring "Dentist" onto a `selected`
+   * that had snapped back to today would file it on the wrong day, silently,
+   * which is a worse outcome than losing the text was. `cursor` follows for the
+   * same reason from the other end — the grid it was picked on has to still be
+   * the grid on screen.
+   */
+  const [draft, setDraft] = useStickyState('calendar.draft', '')
+  const [time, setTime] = useStickyState('calendar.time', '18:00')
   const inputRef = useRef<HTMLInputElement>(null)
 
   /**
@@ -347,8 +363,8 @@ export default function CalendarModule({ feed }: { feed: ReminderFeed }) {
   const today = useMemo(() => new Date(now), [now])
   const todayKey = dayKey(today)
 
-  const [selected, setSelected] = useState(() => dayKey(new Date()))
-  const [cursor, setCursor] = useState(() => {
+  const [selected, setSelected] = useStickyState('calendar.selected', () => dayKey(new Date()))
+  const [cursor, setCursor] = useStickyState('calendar.cursor', () => {
     const start = new Date()
     return { year: start.getFullYear(), month: start.getMonth() }
   })
