@@ -98,8 +98,16 @@ export default function QuickNotes({
     previousId.current = activeId
   }, [activeId])
 
+  // On the *transition*, not on mount. `expanded` is sticky now (see
+  // `FilesModule`), so the card can mount already expanded — and a card that
+  // grabbed the caret merely by being reopened would arm the state machine's
+  // typing hold on a user who was only cycling past it, keeping the notch on
+  // screen for the length of that lease. Expanding is a request to write;
+  // arriving on a card that was left expanded is not.
+  const wasExpanded = useRef(expanded)
   useEffect(() => {
-    if (expanded) inputRef.current?.focus()
+    if (expanded && !wasExpanded.current) inputRef.current?.focus()
+    wasExpanded.current = expanded
   }, [expanded])
 
   const editor = (

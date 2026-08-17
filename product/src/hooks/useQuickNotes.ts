@@ -19,6 +19,25 @@ const newNote = (): Note => ({
 })
 
 /**
+ * The note that was open when the pane was last taken off screen.
+ *
+ * The pane is unmounted every time the notch collapses, so without this the
+ * selection resets to `notes[0]` on the next hover — and the *body* is safe (it
+ * is flushed to disk on unmount and read back on mount), which is what made this
+ * read as text loss rather than as a reset. Someone typing into their third note,
+ * drifting the cursor off the card and hovering back got the first note's
+ * contents in the editor, with no obvious way to tell that their own words were
+ * still there under a different chip.
+ *
+ * Module scope rather than `useStickyState`, because it belongs to the notes
+ * rather than to any one component that renders them: `QuickNotes` mounts this
+ * hook from two different layouts, and the selection has to be the same one
+ * either way. In memory and not in the file for the reason a draft is not a
+ * preference — which note you had open is where you were, not a setting.
+ */
+let lastActiveId: string | null = null
+
+/**
  * Quick Notes state, backed by a JSON file in the app-data dir.
  *
  * Autosave is debounced so a burst of keystrokes is one disk write, and a final
@@ -68,7 +87,11 @@ export function useQuickNotes() {
       // Always have something to type into.
       const initial = stored.length > 0 ? stored : [newNote()]
       setNotes(initial)
-      setActiveId(initial[0].id)
+      // Back to whichever note was open last, falling back to the first — which
+      // covers the first mount of the session and a note deleted from the
+      // settings window's viewer since.
+      const restored = initial.find((note) => note.id === lastActiveId)
+      setActiveId((restored ?? initial[0]).id)
       setLoaded(true)
     }
 
@@ -77,6 +100,13 @@ export function useQuickNotes() {
       cancelled = true
     }
   }, [])
+
+  // Remembered on every change rather than written on unmount: the flush there
+  // is a cleanup that runs after the state is gone, and this is the value the
+  // *next* mount reads.
+  useEffect(() => {
+    if (activeId) lastActiveId = activeId
+  }, [activeId])
 
   // Debounced autosave. Skipped until the initial load lands, so an empty
   // starting state can never overwrite what is on disk.

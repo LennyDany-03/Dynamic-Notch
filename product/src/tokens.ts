@@ -447,6 +447,27 @@ export const timing = {
    */
   pinMs: 4000,
   /**
+   * How long the notch stays open after the last keystroke, once the cursor has
+   * left the card.
+   *
+   * Typing is the one thing the user does on the notch that the cursor stops
+   * reporting: the caret is in a field, the mouse has been let go of, and the
+   * ordinary grace window would collapse the card out from under a half-typed
+   * task. So a focused text field holds the notch open — and, exactly like the
+   * pin, that hold is leased rather than open-ended, because a hold with no
+   * expiry is how a card ends up on screen for the life of the process (see
+   * `pinMs`). The other two releases need something to happen: the field losing
+   * focus, or the window blurring, which only fires for a window that had focus
+   * in the first place.
+   *
+   * Fifteen seconds is a pause for thought mid-sentence several times over,
+   * while still being a short wait for a card someone typed into and walked away
+   * from. Nothing is lost when it does expire — the draft is kept across the
+   * collapse (see `useStickyState`), so this decides how long the card *stays*,
+   * not whether the text survives.
+   */
+  typingMs: 15000,
+  /**
    * How long a snoozed notification stays out of the list before it is announced
    * again.
    *

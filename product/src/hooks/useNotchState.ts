@@ -43,7 +43,14 @@ import {
  * for a moment to report something (a track starting) and then taken away again.
  * It borrows the pin the tray uses and adds a timer, so it is still this machine
  * deciding what happens next — the cursor reaching the banner cancels the timer
- * and dwells through to a full card, exactly as it would on the pill.
+ * and dwells through to a full card, exactly as it would on the pill. It borrows
+ * the *selection* too, for the kinds with a card behind them, and gives it back
+ * when it retracts untouched.
+ *
+ * Two things hold the step down off, and neither is the cursor: `pinned`, for an
+ * opening the cursor did not cause, and `typing`, for a caret in a field on the
+ * card. Both are leased, because a hold with no expiry is how a card ends up on
+ * screen for the life of the process.
  */
 export function useNotchState({
   alwaysVisible = false,
@@ -213,6 +220,92 @@ export function useNotchState({
     setPinned(false)
   }, [])
 
+  /**
+   * Set while the user is typing into the card — a task in the calendar, a note
+   * in the shelf.
+   *
+   * Typing is the one use of the notch the cursor stops reporting. The hand is
+   * off the mouse, so the pointer sits wherever it was left, and if that is a few
+   * pixels past the card's edge the ordinary grace window collapses the card
+   * mid-sentence. It is the same problem the pin solves for the tray — something
+   * other than the cursor is keeping the notch in use — so it takes the same
+   * shape, including the lease: a hold that only ended when the field lost focus
+   * would keep a card on screen for the life of the process for anyone who
+   * clicked into a note and then went to lunch, which is the bug `pinMs` exists
+   * to have already fixed once.
+   *
+   * Three releases, exactly as there: the field losing focus, the window
+   * blurring, and `timing.typingMs` since the last keystroke — and the lease is
+   * again the only one that always fires.
+   *
+   * State rather than a ref, for the same reason `pinned` is: the step-down
+   * effect is guarded on it, so releasing the hold has to re-render for the
+   * ordinary collapse to be scheduled.
+   */
+  const [typing, setTyping] = useState(false)
+  const typingLeaseRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const stopTyping = useCallback(() => {
+    if (typingLeaseRef.current) {
+      clearTimeout(typingLeaseRef.current)
+      typingLeaseRef.current = null
+    }
+    setTyping(false)
+  }, [])
+
+  const keepTyping = useCallback(() => {
+    if (typingLeaseRef.current) clearTimeout(typingLeaseRef.current)
+    // A no-op re-render-wise once it is already true, which is what makes this
+    // safe to call on every keystroke.
+    setTyping(true)
+    typingLeaseRef.current = setTimeout(() => {
+      typingLeaseRef.current = null
+      setTyping(false)
+    }, timing.typingMs)
+  }, [])
+
+  /**
+   * What counts as typing: a caret in a field somewhere on the card.
+   *
+   * Read off the events rather than tracked per component. The alternative is
+   * every text field in the app reporting itself to the state machine, which is
+   * four call sites today and one forgotten one per card added — and the thing
+   * being asked about ("does the document have a caret in it") is precisely what
+   * the DOM already answers.
+   */
+  useEffect(() => {
+    const editable = (node: EventTarget | null): boolean => {
+      const element = node as HTMLElement | null
+      if (!element || typeof element.tagName !== 'string') return false
+      return (
+        element.tagName === 'INPUT' ||
+        element.tagName === 'TEXTAREA' ||
+        element.isContentEditable
+      )
+    }
+
+    const onFocusIn = (event: FocusEvent) => {
+      if (editable(event.target)) keepTyping()
+    }
+    const onFocusOut = (event: FocusEvent) => {
+      if (editable(event.target)) stopTyping()
+    }
+    // Re-arms the lease. `focusin` alone would start the clock at the click and
+    // let it run out under someone who is still typing.
+    const onKeyDown = () => {
+      if (editable(document.activeElement)) keepTyping()
+    }
+
+    document.addEventListener('focusin', onFocusIn)
+    document.addEventListener('focusout', onFocusOut)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('focusin', onFocusIn)
+      document.removeEventListener('focusout', onFocusOut)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [keepTyping, stopTyping])
+
   const pin = useCallback(() => {
     if (pinLeaseRef.current) clearTimeout(pinLeaseRef.current)
     pinnedRef.current = true
@@ -241,12 +334,25 @@ export function useNotchState({
   }
 
   /**
+   * The card the user themselves last chose, held while a banner borrows the
+   * selection — see `announce`, which points the dwell at the card behind the
+   * thing it is reporting.
+   */
+  const restoreModuleRef = useRef<NotchModule | null>(null)
+
+  /**
    * Abandon a pending auto-retract. Called whenever the user takes the banner
    * over — hovering it, or picking a module — after which what is on screen is
    * theirs to close on the normal schedule, not something that snaps shut
    * mid-read.
+   *
+   * That is also the moment the borrowed selection stops being borrowed: a user
+   * who reached for a music banner is on the media card because they asked to be,
+   * and putting them back on the calendar afterwards would be the same silent
+   * swap in the other direction.
    */
   const clearAnnounce = () => {
+    restoreModuleRef.current = null
     if (announceRef.current) {
       clearTimeout(announceRef.current)
       announceRef.current = null
@@ -304,7 +410,11 @@ export function useNotchState({
     // Cursor is out: dwell can never complete from here.
     clearDwell()
 
-    if (state === resting || graceRef.current || pinned) return
+    // `typing` joins the pin as a reason not to schedule a step down, and for the
+    // same reason: something other than the cursor says the notch is in use. When
+    // it releases, this effect re-runs on the new value and the ordinary grace
+    // window takes over from wherever the card had got to.
+    if (state === resting || graceRef.current || pinned || typing) return
 
     graceRef.current = setTimeout(() => {
       graceRef.current = null
@@ -316,11 +426,13 @@ export function useNotchState({
     // `resting` is a dependency so that switching the preference off re-runs this
     // and lets a pill that was resting on screen collapse on the normal schedule.
     // `pinned` is one so that a lease running out does the same for a card the
-    // tray opened and nobody came for. `graceMs` is one so that a new delay takes
-    // effect on the next step down rather than on the next relaunch — it is
-    // adjusted from a slider, and a preference you have to restart for is one the
-    // user cannot feel themselves choosing.
-  }, [inside, state, resting, pinned, unpin, graceMs])
+    // tray opened and nobody came for, and `typing` for the same reason — a field
+    // that has gone quiet or lost focus has to hand the card back to the ordinary
+    // rules. `graceMs` is one so that a new delay takes effect on the next step
+    // down rather than on the next relaunch — it is adjusted from a slider, and a
+    // preference you have to restart for is one the user cannot feel themselves
+    // choosing.
+  }, [inside, state, resting, pinned, typing, unpin, graceMs])
 
   // Switching the preference on should put the pill up straight away rather than
   // wait for the next hover. The opposite direction needs nothing: the effect
@@ -329,14 +441,16 @@ export function useNotchState({
     if (alwaysVisible) setState((current) => (current === 'hidden' ? 'peek' : current))
   }, [alwaysVisible])
 
-  // Timers must not outlive the hook. `unpin` covers the pin lease, which is the
-  // one that would otherwise still be holding a reference after unmount.
+  // Timers must not outlive the hook. `unpin` and `stopTyping` cover the two
+  // leases, which are the ones that would otherwise still be holding a reference
+  // after unmount.
   useEffect(() => {
     return () => {
       clearDwell()
       clearGrace()
       clearAnnounce()
       unpin()
+      stopTyping()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -384,14 +498,23 @@ export function useNotchState({
     else if (gone) void invoke('notch_settle').catch(() => {})
   }, [state, inside])
 
-  // Clicking away is the user moving on, so a pinned card should give up its hold
-  // and collapse on the normal schedule. Only fires for an overlay that had focus
-  // in the first place, i.e. one whose card was clicked — which is why the lease
-  // exists and this is not the release anything relies on.
+  // Clicking away is the user moving on, so a card holding itself open should give
+  // up that hold and collapse on the normal schedule — the tray's pin and the
+  // caret in a text field alike. Only fires for an overlay that had focus in the
+  // first place, i.e. one whose card was clicked — which is why both have a lease
+  // and this is not the release either of them relies on.
+  //
+  // It matters more for typing than for the pin, because typing *is* how the
+  // overlay gets focus: the field asks for it on pointer-down, so clicking into
+  // another app is the one gesture guaranteed to blur this window.
   useEffect(() => {
-    window.addEventListener('blur', unpin)
-    return () => window.removeEventListener('blur', unpin)
-  }, [unpin])
+    const onBlur = () => {
+      unpin()
+      stopTyping()
+    }
+    window.addEventListener('blur', onBlur)
+    return () => window.removeEventListener('blur', onBlur)
+  }, [unpin, stopTyping])
 
   /**
    * Drop the banner in for `durationMs` and then take it away again: something
@@ -413,6 +536,11 @@ export function useNotchState({
     // staying quiet — the notch is already up, so nothing is being missed.
     if (insideRef.current || stateRef.current === 'expanded') return
 
+    // Read before `clearAnnounce` drops it, so a second banner landing on top of
+    // the first still restores the card the *user* left open rather than the one
+    // the first banner borrowed.
+    const held = restoreModuleRef.current
+
     clearGrace()
     clearDwell()
     clearAnnounce()
@@ -422,6 +550,13 @@ export function useNotchState({
     // reaching for the banner lands on the thing it was about rather than on
     // wherever the notch was last left. The rest have nothing to open into and
     // leave the selection alone.
+    //
+    // Which makes this a *borrow*: the banner moves a selection the user made,
+    // for a report they never asked for. Left there, a track changing while the
+    // notch was collapsed would silently take someone off the card they had been
+    // reading and the next hover would land somewhere they did not choose. So the
+    // old selection is kept and put back by the retract below.
+    restoreModuleRef.current = held ?? moduleRef.current
     if (next.kind === 'media') setActiveModule('media')
     if (next.kind === 'performance') setActiveModule('system')
     if (next.kind === 'reminder') setActiveModule('calendar')
@@ -432,8 +567,15 @@ export function useNotchState({
       announceRef.current = null
       unpin()
       // Only from the banner itself: a dwell may have carried it to `expanded`
-      // in the meantime, which is the user's card now and closes on their terms.
-      setState((current) => (current === 'announce' ? restingRef.current : current))
+      // in the meantime, which is the user's card now and closes on their terms —
+      // and `clearAnnounce` has already dropped the restore on the way there.
+      if (stateRef.current !== 'announce') return
+      const restore = restoreModuleRef.current
+      restoreModuleRef.current = null
+      // A no-op for the kinds that never moved the selection; React bails out on
+      // a set to the value already held.
+      if (restore) setActiveModule(restore)
+      setState(restingRef.current)
     }, durationMs)
   }, [pin, unpin])
 

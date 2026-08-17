@@ -1,3 +1,59 @@
+## 0.6.9 — 2026-08-18
+
+**The notch stops taking your work away.** Writing a task into the calendar or a
+note into the shelf meant holding the mouse perfectly still: drift a few pixels
+off the card and the notch collapsed, taking the half-written sentence with it.
+It stays open while there is a caret in it now, and if it does close — you clicked
+into something else, you walked away — whatever you had typed is still there when
+you come back. Dragging a screenshot out no longer leaves the notch sitting on a
+panel you never asked for, and the temperature and the battery have been redrawn
+so they finally look like two of the same thing.
+
+### Fixed
+
+- **Typing no longer collapses the notch.** A caret in a field holds it open for
+  as long as you are typing, plus fifteen seconds after the last keystroke, so
+  the pointer can sit wherever you left it. Moving the mouse back, clicking into
+  another app or simply stopping all hand it back to the usual collapse
+- **Your half-written task survives a collapse anyway.** If the notch does close
+  under a draft, the text is waiting in the field the next time you open it — and
+  so are the day and the time it was for, which matters more than the words: a
+  task restored onto a calendar that had snapped back to today would have been
+  filed on the wrong day without saying so
+- **Notes reopen on the note you were writing in.** They always reopened on the
+  first one, so anyone typing into their third note came back to a different
+  note's contents and read their own words as gone. They were never gone — they
+  were simply not the note on screen
+- **Dragging a screenshot out no longer sends the notch to the File Shelf.** The
+  notch is the first thing your cursor crosses on the way out of it, which Crest
+  was reading as a file arriving rather than as one leaving — so a moment after
+  you dropped the image into another app, the panel changed under you
+- **And the shelf stops inviting a drop that already finished.** "Drop files
+  here" lit up at the start of that drag and had nothing to switch it off again,
+  because the file was released in another application entirely. It stayed lit
+  for the rest of the session
+- **A banner no longer moves you off the panel you had open.** Music starting or
+  a screenshot landing points its banner at the panel behind it, so hovering the
+  banner opens the right thing — but when the banner retracted untouched it left
+  your selection where it had put it. It puts it back now
+
+### Improved
+
+- **The battery and the temperature are one design.** They sit opposite each
+  other on the resting pill and in the top strip of every panel, and in the strip
+  they were a filled tag on one side and a bare outline on the other. Both are
+  tags now, in both places, and the battery is drawn as line work to match the
+  weather beside it — an outlined shell with a slim bar of colour inside rather
+  than a solid block. It still reads at a glance, still turns red when you are
+  low, and still carries the bolt when it is charging
+- **The panel name reads as a title, not a heading.** `MEDIA CONTROLS` in wide
+  tracked capitals was the loudest thing on the strip, shouting the name of the
+  panel you were already looking at over the panel itself. It is sentence case
+  now, which is quieter and fits more of a long name before it has to trim
+- **The clock leads the resting pill.** It was set at nearly the same size as the
+  two readouts flanking it, so the pill was three things of equal weight with
+  nothing saying which one you came for
+
 ## 0.6.8 — 2026-08-18
 
 **The temperature, without opening anything.** The weather panel was always a
