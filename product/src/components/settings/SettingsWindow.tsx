@@ -1417,6 +1417,7 @@ function SettingsPane({ api }: { api: ReturnType<typeof useSettings> }) {
     setNotchPosition,
     setHotzoneHint,
     setScreenshots,
+    setTimerSound,
   } = api
   const notificationAccess = useNotificationAccess()
 
@@ -1570,6 +1571,25 @@ function SettingsPane({ api }: { api: ReturnType<typeof useSettings> }) {
             <rect x="3" y="5" width="18" height="14" rx="2" />
             <circle cx="8.5" cy="10" r="1.5" />
             <path d="M4 17l4.5-4.5 3.5 3.5 3-3L20 17" />
+          </Icon>
+        }
+      />
+
+      {/* Its own group, and the shortest one in the window on purpose: this is
+          the only preference in Crest that governs a *sound*, and filing it under
+          a heading about something else would bury the one switch a user who has
+          just been beeped at will come looking for. */}
+      <GroupLabel>Timer</GroupLabel>
+
+      <SettingRow
+        title="Play a chime when a timer finishes"
+        body="A short two-note tone the moment a countdown lands — the only sound Crest makes. The notch still drops its banner and flashes the card either way, so turning this off leaves you told, just not out loud."
+        on={settings.timerSound}
+        onToggle={() => setTimerSound(!settings.timerSound)}
+        icon={
+          <Icon>
+            <circle cx="12" cy="13.5" r="7.5" />
+            <path d="M12 9.5v4l2.5 1.5M9.5 2.5h5" />
           </Icon>
         }
       />

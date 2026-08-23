@@ -14,8 +14,28 @@ import "./index.css";
 // full instances of the notch and differ from the original only in that `App`
 // leaves the auto-updater to the lead window. Naming the label here would mean
 // remembering to widen it every time a second screen was involved.
+/**
+ * This window's label, or `null` where there is no Tauri to ask.
+ *
+ * `getCurrentWindow()` reads `window.__TAURI_INTERNALS__.metadata`, which does
+ * not exist in a plain browser — so the unguarded call threw before `Surface`
+ * rendered anything at all, and `npm run dev` mounted an empty root with one
+ * console error. That is the browser fallback the architecture notes describe as
+ * the way to work on layout and animation without a Rust rebuild, so it is worth
+ * a try/catch. `App` already guards the identical call for `isLeadNotch`.
+ *
+ * Read once at module scope: the label cannot change under a running window.
+ */
+const windowLabel = (() => {
+  try {
+    return getCurrentWindow().label
+  } catch {
+    return null
+  }
+})()
+
 function Surface() {
-  switch (getCurrentWindow().label) {
+  switch (windowLabel) {
     case "tray-menu":
       return <TrayMenu />;
     case "settings":

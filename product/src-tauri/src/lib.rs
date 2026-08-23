@@ -14,6 +14,7 @@ mod screenshots;
 mod settings;
 mod shelf;
 mod system;
+mod timer;
 mod tray;
 mod updater;
 mod weather;
@@ -79,6 +80,8 @@ pub fn run() {
             notes::notes_location,
             reminders::read_reminders,
             reminders::write_reminders,
+            timer::read_timer,
+            timer::write_timer,
             weather::get_weather,
             weather::search_places,
             launcher::list_installed_apps,
@@ -131,6 +134,7 @@ pub fn run() {
             settings::set_collapse_delay,
             settings::set_hotkey,
             settings::set_screenshots,
+            settings::set_timer_sound,
             display::list_displays,
             settings::notch_raise,
             settings::notch_settle,
@@ -138,6 +142,7 @@ pub fn run() {
             settings::settings_close,
             updater::updater_check,
             updater::updater_install,
+            updater::updater_auto_allowed,
         ])
         .on_window_event(|window, event| {
             // A popup menu must close when it loses focus, the same as the native

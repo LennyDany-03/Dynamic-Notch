@@ -31,6 +31,27 @@ const toItem = (path: string): ShelfItem => ({
  *
  * This must stay mounted for the whole session, not just while the shelf is
  * visible, or a drag would have nothing listening when it arrives.
+ *
+ * **A drag Crest started is not a drag into Crest**, and `selfDragRef` is the
+ * whole of that distinction. `start_file_drag` runs `SHDoDragDrop`, which is a
+ * *real* Windows shell drag of a real file — so when the user drags a screenshot
+ * or a shelf item out, the cursor is still over this window and the webview
+ * receives perfectly genuine drag events carrying a file. Nothing about the
+ * payload distinguishes them from someone dragging a download in from Explorer;
+ * the only thing that does is that we know we started it.
+ *
+ * Without that, dragging a screenshot out did two visible wrong things. The card
+ * switched to the shelf under the cursor mid-drag, because `onDragOver` treats
+ * an arriving file as an unambiguous request for it. And the shelf's "Drop files
+ * here" zone lit up and *stayed* lit, because a drag that ends in another app
+ * delivers no `drop` or `leave` here to turn it off again — so the next time the
+ * shelf was opened it was still asking for a file nobody was dragging.
+ *
+ * That second half is why `file-drag-ended` clears `dragging` as well as the
+ * flag. It is the one signal that always arrives: it is emitted from Rust when
+ * `SHDoDragDrop`'s modal loop returns, whatever the drag did or where it ended,
+ * whereas every webview-side end-of-drag event is conditional on the drag having
+ * finished over this window.
  */
 export function useFileShelf(onDragOver: () => void) {
   const [items, setItems] = useState<ShelfItem[]>([])
@@ -40,6 +61,9 @@ export function useFileShelf(onDragOver: () => void) {
 
   const onDragOverRef = useRef(onDragOver)
   onDragOverRef.current = onDragOver
+
+  /** True for as long as a drag *this app* began is in flight. */
+  const selfDragRef = useRef(false)
 
   const persist = useCallback(async (next: ShelfItem[]) => {
     if (!isTauri()) return
@@ -137,6 +161,30 @@ export function useFileShelf(onDragOver: () => void) {
     }
   }, [])
 
+  /**
+   * Which drags are ours.
+   *
+   * Both drag sources — this hook's `startDrag` and `useScreenshots`' — already
+   * announce themselves on this event, because `useHotzone` has to keep the
+   * window interactive for the length of a shell drag. It is dispatched
+   * synchronously *before* `start_file_drag` is invoked and again when the drag
+   * ends or fails to start, which is exactly the window in which webview drag
+   * events have to be disowned. Listening to it rather than adding a second
+   * mechanism keeps one answer to "is a drag of ours in flight".
+   *
+   * The `false` edge clears `dragging` as well: see the note at the top of the
+   * file for why this is the only end-of-drag signal that can be relied on.
+   */
+  useEffect(() => {
+    const onNativeFileDrag = (event: Event) => {
+      const active = (event as CustomEvent<boolean>).detail
+      selfDragRef.current = active
+      if (!active) setDragging(false)
+    }
+    window.addEventListener('native-file-drag', onNativeFileDrag)
+    return () => window.removeEventListener('native-file-drag', onNativeFileDrag)
+  }, [])
+
   useEffect(() => {
     if (!isTauri()) return
     let unlisten: (() => void) | undefined
@@ -145,6 +193,12 @@ export function useFileShelf(onDragOver: () => void) {
     getCurrentWebview()
       .onDragDropEvent((event) => {
         const payload = event.payload
+        // A drag of our own, passing back over the window it came from. Every
+        // one of these is ignored rather than only the `enter`/`over` pair: a
+        // drop *here* would be the shelf accepting a file it is at that moment
+        // handing to something else, and a `leave` would clear a `dragging` this
+        // branch never set.
+        if (selfDragRef.current) return
         if (payload.type === 'enter' || payload.type === 'over') {
           setDragging(true)
           onDragOverRef.current()

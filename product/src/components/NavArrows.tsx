@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import BatteryBadge from './system/BatteryBadge'
+import TimerBadge from './timer/TimerBadge'
 import WeatherBadge from './weather/WeatherBadge'
 import { color, sectionLabel } from '../tokens'
 import { MODULE_LABELS, type NotchModule } from '../types/notch'
 import type { BatteryStatus } from '../types/system'
+import { phaseOf, type TimerState } from '../types/timer'
 import type { CurrentWeather } from '../types/weather'
 
 /**
@@ -45,6 +47,22 @@ interface Props {
    * every other card in the ring.
    */
   weather: CurrentWeather | null
+  /**
+   * The countdown, which takes that same corner when there is one.
+   *
+   * The strip and the pill are the notch's two resting surfaces and they answer
+   * the same questions, so they take the same priority — timer › music ›
+   * weather, minus the music, which has a card of its own one arrow away and no
+   * business in a 26px strip. One rule applied twice rather than a strip that
+   * keeps showing the temperature while the pill has moved on.
+   *
+   * It matters more here than the arithmetic suggests: a card being open is
+   * exactly when the pill is *not* on screen, so without this the countdown
+   * would disappear for as long as the user was reading anything else.
+   */
+  timer: TimerState
+  /** The clock, from `useTimer`. See `TimerFeed.now`. */
+  now: number
 }
 
 /*
@@ -120,8 +138,18 @@ function Chevron({
  * were unreachable in practice. Arrows flanking the module name answer both
  * "where am I" and "how do I move".
  */
-export default function NavArrows({ active, onPrev, onNext, modules, battery, weather }: Props) {
+export default function NavArrows({
+  active,
+  onPrev,
+  onNext,
+  modules,
+  battery,
+  weather,
+  timer,
+  now,
+}: Props) {
   const badge = battery !== null && battery.percent !== null
+  const hasTimer = phaseOf(timer) !== 'idle'
   // The arrows say nothing useful with one card in the ring: there is nowhere to
   // go, and a pair of chevrons that return you to where you are is a control that
   // lies. The label keeps the centre either way, because the strip is a grid.
@@ -159,7 +187,11 @@ export default function NavArrows({ active, onPrev, onNext, modules, battery, we
           and the two readouts flanking the name is the nav strip arriving at the
           same arrangement as the pill it replaces on screen. */}
       <span style={{ display: 'flex', justifyContent: 'flex-start', minWidth: 0 }}>
-        <WeatherBadge current={weather} chip={CHIP} />
+        {hasTimer ? (
+          <TimerBadge timer={timer} now={now} chip={CHIP} />
+        ) : (
+          <WeatherBadge current={weather} chip={CHIP} />
+        )}
       </span>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
