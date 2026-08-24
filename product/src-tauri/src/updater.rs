@@ -61,6 +61,33 @@ pub struct UpdateInfo {
     pub notes: Option<String>,
 }
 
+/// Whether this build may update *itself, without being asked*.
+///
+/// Only an installed Crest may, which is `autostart`'s rule reused rather than
+/// restated — see `autostart::running_installed_build`. There it stops a source-tree
+/// binary from enrolling itself in startup; here it stops one from enrolling itself
+/// in silent replacement, and the second is the worse of the two by some distance.
+///
+/// The failure it exists to prevent is not hypothetical and it does not look like a
+/// bug. `installMode` is `"quiet"`, so NSIS draws nothing at all: a `npm run tauri dev`
+/// session whose version is behind the published release checks 25s after launch,
+/// downloads that release, installs it over the top and restarts — into the *installed*
+/// build. The dev process is gone with no dialog, no error and exit code 0, and the
+/// feature being worked on has vanished with it, because the binary now running is
+/// whatever shipped last. Every `tauri dev` afterwards then exits instantly, since the
+/// relaunched release holds the single-instance mutex from `lib.rs`. The whole thing
+/// reads as "the app crashes when I run it", which is the one description that points
+/// nowhere near an updater.
+///
+/// This gates the **automatic** path only. `updater_check` and `updater_install` stay
+/// callable, because the tray row is someone explicitly asking and reports the version
+/// before spending it — the objection is to a build replacing itself unprompted, not
+/// to the update mechanism being reachable while developing it.
+#[tauri::command]
+pub fn updater_auto_allowed() -> bool {
+    crate::autostart::running_installed_build()
+}
+
 /// Ask the endpoint what the latest release is.
 ///
 /// `Ok(None)` means this build is current. The signature is verified against the

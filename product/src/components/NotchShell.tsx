@@ -10,6 +10,7 @@ import PerfAnnounce from './system/PerfAnnounce'
 import ReminderAnnounce from './calendar/ReminderAnnounce'
 import ScreenshotAnnounce from './screenshots/ScreenshotAnnounce'
 import SystemAnnounce from './system/SystemAnnounce'
+import TimerAnnounce from './timer/TimerAnnounce'
 import UpdateAnnounce from './updater/UpdateAnnounce'
 import CalendarModule from './modules/CalendarModule'
 import FilesModule from './modules/FilesModule'
@@ -17,12 +18,14 @@ import LauncherModule from './modules/LauncherModule'
 import NotificationsModule from './modules/NotificationsModule'
 import ScreenshotsModule from './modules/ScreenshotsModule'
 import SystemModule from './modules/SystemModule'
+import TimerModule from './modules/TimerModule'
 import WeatherModule from './modules/WeatherModule'
 import QuickAccessModule from './modules/QuickAccessModule'
 import type { MediaSession } from '../hooks/useMediaSession'
 import type { FileShelfState } from '../hooks/useFileShelf'
 import type { ReminderFeed } from '../hooks/useReminders'
 import type { ScreenshotFeed } from '../hooks/useScreenshots'
+import type { TimerFeed } from '../hooks/useTimer'
 import type { WeatherFeed } from '../hooks/useWeather'
 import type { NotificationFeed } from '../hooks/useWindowsNotifications'
 import {
@@ -71,6 +74,23 @@ interface Props {
   screenshots: ScreenshotFeed
   /** The "screenshots in the notch" preference, for the module's empty state. */
   screenshotsEnabled: boolean
+  /**
+   * The countdown — the card, and the chip on both resting surfaces.
+   *
+   * Owned by `App` like the reminder and screenshot feeds, and for the same
+   * reason: the pill has to draw a running timer whether or not the card has
+   * ever been opened, which is almost all of the time.
+   */
+  timer: TimerFeed
+  /**
+   * When the last timer landed, or null.
+   *
+   * Drives the flash — a brief accent pulse on the card's own surface — which
+   * exists because `announce` declines while a card is already open or the
+   * cursor is on the notch. Without it, finishing a timer while reading another
+   * card would be silent as well as invisible.
+   */
+  timerLandedAt: number | null
   /** The cards in the ring, in order — the resolved `panels` preference. */
   modules: readonly NotchModule[]
   /** The "show me where the notch is" preference. See `HotzoneHint`. */
@@ -101,6 +121,8 @@ function ModuleContent({
   reminders,
   screenshots,
   screenshotsEnabled,
+  timer,
+  animationSpeed,
 }: {
   module: NotchModule
   session: MediaSession
@@ -114,6 +136,8 @@ function ModuleContent({
   reminders: ReminderFeed
   screenshots: ScreenshotFeed
   screenshotsEnabled: boolean
+  timer: TimerFeed
+  animationSpeed: number
 }) {
   switch (module) {
     case 'media':
@@ -141,6 +165,8 @@ function ModuleContent({
       return <QuickAccessModule />
     case 'screenshots':
       return <ScreenshotsModule feed={screenshots} enabled={screenshotsEnabled} />
+    case 'timer':
+      return <TimerModule feed={timer} animationSpeed={animationSpeed} />
     default:
       return <ModulePlaceholder module={module} />
   }
@@ -167,6 +193,11 @@ function announceKey(announcement: Announcement | null): string {
       return `reminder:${announcement.reminder.id}`
     case 'screenshot':
       return `screenshot:${announcement.shot.path}`
+    case 'timer':
+      // The instant it landed, not the duration: two one-minute timers run back
+      // to back are the same duration, and a shared key would swap the text
+      // under a fixed surface and read as the first banner having been wrong.
+      return `timer:${announcement.landedAt}`
     case 'update':
       // Constant on purpose, unlike every other kind. The updater re-announces
       // on each progress tick to hold the banner up; a key that moved with the
@@ -196,6 +227,8 @@ function AnnounceContent({
       return <ReminderAnnounce reminder={announcement.reminder} />
     case 'screenshot':
       return <ScreenshotAnnounce shot={announcement.shot} />
+    case 'timer':
+      return <TimerAnnounce durationMs={announcement.durationMs} />
     case 'update':
       return (
         <UpdateAnnounce
@@ -239,6 +272,8 @@ export default function NotchShell({
   reminders,
   screenshots,
   screenshotsEnabled,
+  timer,
+  timerLandedAt,
   modules,
   hotzoneHint,
   metrics,
@@ -264,6 +299,19 @@ export default function NotchShell({
   // What is drawn inside the card, and the key the cross-fade runs on: a change
   // here fades one surface out and the next in without touching the card itself.
   const surface = isExpanded ? activeModule : isAnnouncing ? announceKey(announcement) : 'peek'
+
+  // The timer's flash: a brief accent pulse on the card's own surface, keyed on
+  // the instant the timer landed so a second timer re-runs it.
+  //
+  // Deliberately a *class* rather than an animated style. Whatever it does must
+  // not touch the card's width or height — those are the geometry the state
+  // machine hit-tests against, and a spring on either would put the drawn card
+  // and the hit rect out of step for the length of the pulse. `index.css` keeps
+  // it to background and box-shadow for exactly that reason.
+  //
+  // It coexists with the banner rather than replacing it: the banner is the
+  // report, and this is what is left when `announce` declines because a card is
+  // already open or the cursor is on the notch.
 
   return (
     <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none' }}>
@@ -293,6 +341,12 @@ export default function NotchShell({
               transition={cardSpring}
               style={{ borderRadius: radius.shell, pointerEvents: 'auto' }}
             >
+              {/* Keyed on the landing instant, so React remounts it and the CSS
+                  animation runs again for a second timer rather than being an
+                  already-finished animation on a still-mounted node. */}
+              {timerLandedAt !== null && (
+                <span key={timerLandedAt} aria-hidden className="timer-flash" />
+              )}
               {/* Sits above .mica::before (noise) and .mica::after (hairline). */}
               <div
                 style={{
@@ -321,6 +375,8 @@ export default function NotchShell({
                       modules={modules}
                       battery={battery}
                       weather={weather.weather?.current ?? null}
+                      timer={timer.timer}
+                      now={timer.now}
                     />
                   </div>
                 )}
@@ -355,6 +411,8 @@ export default function NotchShell({
                           reminders={reminders}
                           screenshots={screenshots}
                           screenshotsEnabled={screenshotsEnabled}
+                          timer={timer}
+                          animationSpeed={animationSpeed}
                         />
                       ) : isAnnouncing ? (
                         <AnnounceContent announcement={announcement} session={session} />
@@ -370,6 +428,8 @@ export default function NotchShell({
                           // out of the corner of the eye would be asking for
                           // attention it cannot then be given.
                           weather={weather.weather}
+                          timer={timer.timer}
+                          now={timer.now}
                           width={peek.width}
                         />
                       )}

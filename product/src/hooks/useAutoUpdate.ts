@@ -17,7 +17,15 @@ import { listen } from '@tauri-apps/api/event'
  * that yanked the app out from under someone mid-sentence would be worse than one
  * that waited.
  *
- * Three rules keep it out of the way:
+ * **Only an installed build does any of this.** A binary run out of the source
+ * tree is refused by `updater_auto_allowed`, which is `autostart`'s installed-build
+ * rule applied to the other thing that must not happen unasked. Without it a
+ * `npm run tauri dev` session sitting behind the published release quietly
+ * downloads that release, installs it over itself and restarts — so the app under
+ * development disappears 25 seconds in, with no dialog and exit code 0, and comes
+ * back as whatever shipped last. See the command's own comment.
+ *
+ * Four rules keep it out of the way:
  *
  *  - **It waits `STARTUP_DELAY_MS` before the first check.** Launch is the
  *    busiest moment on the machine, and Crest now starts *early* (see
@@ -104,6 +112,14 @@ export function useAutoUpdate(enabled: boolean): AutoUpdate {
       running.current = true
 
       try {
+        // Asked every time rather than once at mount, and asked *before* the
+        // check rather than around the whole effect: this is the last gate in
+        // front of something that replaces the running process, so it belongs on
+        // the same line as the thing it guards. A source-tree build says no —
+        // see `updater::updater_auto_allowed` for the failure that motivates it.
+        if (!(await invoke<boolean>('updater_auto_allowed'))) return
+        if (cancelled) return
+
         const info = await invoke<UpdateInfo | null>('updater_check')
         if (cancelled || !info) return
 

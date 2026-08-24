@@ -192,6 +192,24 @@ fn is_installed_build(exe: &Path) -> bool {
     !(path.contains(r"\target\debug\") || path.contains(r"\target\release\"))
 }
 
+/// The same question about the binary currently running.
+///
+/// Lives here rather than in the one other module that asks it, because the rule
+/// is one rule: what counts as an *installed* Crest is a property of this file's
+/// argument, and a second copy of the path test somewhere else is a second answer
+/// that can drift. The updater is the other caller — see `updater::auto_update_allowed`
+/// for why enrolling a source-tree build in silent updates is the same mistake as
+/// enrolling one in startup, only louder.
+///
+/// A `current_exe()` that cannot be read answers *not* installed: every use of this
+/// gates something that reaches outside the app, and the safe side of an unknown
+/// path is to leave the machine alone.
+pub fn running_installed_build() -> bool {
+    std::env::current_exe()
+        .map(|exe| is_installed_build(&exe))
+        .unwrap_or(false)
+}
+
 /// Decode `schtasks` output, which is UTF-16 on some machines and the console
 /// codepage on others.
 ///

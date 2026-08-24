@@ -260,6 +260,21 @@ fn screenshots_default() -> bool {
     true
 }
 
+/// Whether a finished countdown makes a noise.
+///
+/// On by default, and the switch matters more here than it does for the others
+/// in this file: Crest has never made a sound in its life, so a chime nobody can
+/// turn off would be the app acquiring a new kind of presence without asking. It
+/// is the *only* sound in the app, which is also why this is its own preference
+/// rather than a corner of `notifications` — that switch answers "does the notch
+/// read my notification centre", and this one answers "may it beep".
+///
+/// Nothing for `apply` to do, exactly like `screenshots`: the frontend owns the
+/// oscillator and reads this from the broadcast.
+fn timer_sound_default() -> bool {
+    true
+}
+
 /// Which palette every surface in the app is drawn from.
 ///
 /// A closed set, unlike `panels` — a theme is a block of custom properties in
@@ -561,6 +576,16 @@ pub struct Settings {
     /// split `notifications` has.
     #[serde(default = "screenshots_default")]
     pub screenshots: bool,
+
+    /// Whether a finished countdown plays a chime.
+    ///
+    /// Frontend-only: the tone is synthesised in the webview (see `chime.ts`), so
+    /// there is nothing here to apply and no Windows permission behind it. The
+    /// timer *card* is switched on and off in Panels like every other card —
+    /// this is only the noise, which is the same split `notifications` and
+    /// `screenshots` both have.
+    #[serde(default = "timer_sound_default")]
+    pub timer_sound: bool,
 }
 
 impl Default for Settings {
@@ -588,6 +613,7 @@ impl Default for Settings {
             collapse_delay: collapse_delay_default(),
             hotkey: None,
             screenshots: screenshots_default(),
+            timer_sound: timer_sound_default(),
         }
     }
 }
@@ -1508,6 +1534,28 @@ pub fn set_screenshots(
 ) -> Result<bool, String> {
     let mut settings = current.get(&app);
     settings.screenshots = enabled;
+    current.set(settings.clone());
+    save(&app, &settings)?;
+
+    let _ = app.emit("settings-changed", settings.clone());
+
+    Ok(enabled)
+}
+
+/// Whether a finished countdown plays a chime.
+///
+/// Nothing to apply, as with `set_screenshots`: the tone is synthesised in the
+/// webview and the notch decides from the broadcast whether to play it. The only
+/// reason this is a stored preference at all rather than a frontend flag is that
+/// the switch lives in one window and the oscillator in another.
+#[tauri::command]
+pub fn set_timer_sound(
+    app: AppHandle,
+    current: State<'_, Current>,
+    enabled: bool,
+) -> Result<bool, String> {
+    let mut settings = current.get(&app);
+    settings.timer_sound = enabled;
     current.set(settings.clone());
     save(&app, &settings)?;
 

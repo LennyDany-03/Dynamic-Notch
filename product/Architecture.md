@@ -90,6 +90,7 @@ All feature components read `NotchState` and `activeModule` from context/hook �
 | `power_action` | Sleep, restart or shut down, from the system monitor's power row | `SetSuspendState` / `ExitWindowsEx` with `SeShutdownPrivilege` enabled on the process token |
 | `get_weather` / `search_places` | Conditions, a seven-day forecast, and the geocoder behind the location picker | Open-Meteo over `reqwest` — no OS API, and the only outbound request in the app besides the updater |
 | `read_reminders` / `write_reminders` | The calendar's reminder store | Flat JSON in the app-data dir, same shape as `notes.rs` |
+| `read_timer` / `write_timer` | The countdown timer's state, and the broadcast that keeps a mirrored set of notches showing one timer | Flat JSON in the app-data dir, same shape as `reminders.rs`, plus a `timer-changed` emit |
 | `notes_location` | Where Quick Notes are written, for Settings to show and reveal | `app_data_dir` + `revealItemInDir` on the frontend |
 | `list_displays` | Every connected screen and which of them the notch is on, for the Display pane's map | tao's monitor enumeration through `Manager::available_monitors` — no direct Win32 |
 
@@ -805,6 +806,104 @@ Each command should be added only when its corresponding feature is being built 
   display settings is the picture they see here. What is marked is `active`,
   resolved in Rust — where the notch *is*, not what was last clicked — which is
   what makes the unplugged-monitor fallback visible rather than mysterious.
+
+### The timer
+
+  **The card is one object, and the digits are the input.** There is no field, no
+  picker and no stepper: clicking the readout starts editing it and typed digits
+  fill `HHMMSS` from the right the way a phone timer does, so 5-3-0 is five
+  minutes thirty. That is what lets the card carry six numerals at 58px and
+  nothing else — the alternative is a control panel that is on screen for the
+  whole life of a timer in order to be useful for the four seconds before one
+  starts. Presets sit in the action band and deliberately **set** rather than
+  start: a mis-clicked preset that started immediately costs a running timer,
+  and a second click on Start costs a click.
+
+  **The height never changes.** Idle fills the action band with presets and
+  Start; running and paused fill the same band with Pause and Reset. `size.timer`
+  is 26 nav + 14 padding + 96 readout + 8 + 32 band + 14 padding = 190, and every
+  one of those boxes is pinned in `TimerModule`. A card that grew when you pressed
+  Start would resize the notch under a cursor that has just clicked and is
+  therefore not moving — the dead zone `layout.contentRect` warns about, arriving
+  at the worst possible moment.
+
+  **The progress is a perimeter trace, not a ring, and that is arithmetic.** The
+  readout is ~280×70; a circle behind it is either a 70px disc lost behind the
+  middle two digits or a 280px one needing a card taller than any in the app.
+  Traced around the content's own proportions it is the same idea at the shape the
+  content has. The path is written out rather than drawn as an SVG `<rect>`,
+  because a rect's path begins at its top-*left* corner and a dial that fills from
+  anywhere but twelve o'clock reads as broken. Its length comes from
+  `getTotalLength()` rather than being derived, so it cannot disagree with a shape
+  `panelScale` has widened.
+
+  **A 1s tick is enough because the sweep interpolates in CSS.** `useTimer` reads
+  the clock once a second and the trace and the pill ring carry
+  `transition: stroke-dashoffset 1s linear`, so the eye sees continuous motion out
+  of a once-a-second update. A faster tick would cost a wake per frame for the
+  life of every timer and look identical. The tick runs *only while running* —
+  idle and paused set no interval at all, which matters in a process that is up
+  for the session and whose common case for this hook is nine hours of nothing.
+
+  **Rubik is self-hosted, and scoped to the readout.** `index.css` already pulls
+  Inter off the Google Fonts CDN, and that is fine because Inter there is a
+  fallback nobody notices missing. These are six numerals that *are* the card, in
+  an overlay that has to draw identically at login on a machine that is still
+  connecting — so the face is a file in the repo, and `font.display` is the only
+  token that reaches it.
+
+  **Time is stored as an instant.** `endsAt` is Unix millis, `reminders.rs`'s rule
+  for `dueAt` and for the same reason: a stored "remaining" needs something
+  ticking to keep it honest, and after a relaunch nothing was ticking.
+  `pausedRemainingMs` is the one duration in the file, because a paused timer has
+  no instant — the instant it lands on is not decided until it resumes. It is on
+  disk at all because Crest installs its own updates silently and restarts, and a
+  twenty-five minute timer dying because the app updated halfway through is the
+  app quietly losing something the user was relying on.
+
+  **`write_timer` broadcasts, and `reminders.rs` does not need to.** Reminders are
+  mounted by one window; the timer is mounted by *every* notch window, so with
+  `notchAllDisplays` on there is one copy per screen. The `timer-changed` event is
+  what makes three monitors show one timer rather than three. The other half of
+  that is `isLeadNotch`: only the lead window writes the completion and plays the
+  chime, or three copies would race the same write and chime a beat apart. Every
+  window still *draws* the finished state, because drawing is what mirroring is
+  for.
+
+  **The chime is the only sound in the app, and its AudioContext is built on a
+  gesture.** WebView2 applies Chromium's autoplay policy, so a context constructed
+  without a user gesture behind it starts `suspended` and every `start()` on it is
+  silently dropped — no error, nothing to debug. `armChime()` is called from the
+  click that *starts* the timer, which is the one gesture guaranteed to precede
+  any chime. It is synthesised rather than played from a file: two notes out of an
+  oscillator, no asset, no licence, nothing to fail to load. `timerSound` gates
+  it, because an app that has never made a noise acquiring one without a switch is
+  a new kind of presence nobody asked for.
+
+  **The flash is what is left when the banner declines.** `announce` refuses while
+  a card is already open or the cursor is on the notch — i.e. exactly when the
+  user is looking at the notch — so a finished timer would otherwise be silent
+  *and* invisible in the one case where someone is watching. `.timer-flash` pulses
+  the card's own surface and touches **only background and opacity**: width and
+  height are the geometry the state machine hit-tests against, and animating
+  either would put the drawn card and its hit rect out of step for the length of
+  the pulse.
+
+  **Both resting surfaces take the same priority: timer › music › weather.** The
+  pill's left column and the nav strip's left slot answer the same questions at
+  two sizes, so they take one rule rather than a strip that keeps showing the
+  temperature after the pill has moved on. The timer wins because it is the only
+  one of the three with a deadline — the temperature has not moved in ten minutes
+  and the track has a card one arrow away, while the countdown's whole value is
+  being visible without being asked for. It is drawn while **paused** as well as
+  running, because a paused timer that vanished is a timer you find at nine
+  minutes left the next morning. `formatCompact` has two shapes (`m:ss` under an
+  hour, `Hh MMm` at or over one) because the pill's outer columns are 80px at the
+  default width and floor at 72, and a plain `1:05:00` would push the chip into
+  the clock. Measured, the chip is 69px under an hour and 76.6px over one — the
+  second overhangs its column by about half a pixel at the *minimum* pill width,
+  into the middle column's slack, which is the tolerance this side has and the
+  right one does not.
 
 ## Open decisions (fill in as they're made)
 

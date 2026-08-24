@@ -3,6 +3,7 @@ import { listen } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import ContextMenu, { type MenuAnchor } from './components/ContextMenu'
 import NotchShell from './components/NotchShell'
+import { playChime } from './components/timer/chime'
 import { useNotchState } from './hooks/useNotchState'
 import { useMediaAnnounce } from './hooks/useMediaAnnounce'
 import { useMediaSession } from './hooks/useMediaSession'
@@ -17,6 +18,7 @@ import { useSettings } from './hooks/useSettings'
 import { useSurfaceOpacity } from './hooks/useSurfaceOpacity'
 import { useTheme } from './hooks/useTheme'
 import { useSystemStatus } from './hooks/useSystemStatus'
+import { useTimer } from './hooks/useTimer'
 import { useWeather } from './hooks/useWeather'
 import { useWheelCycle } from './hooks/useWheelCycle'
 import { useWindowsNotifications } from './hooks/useWindowsNotifications'
@@ -375,6 +377,52 @@ export default function App() {
     ),
   )
 
+  // The countdown, and everything that happens when one lands.
+  //
+  // Mounted here rather than inside the card for the reason the reminder,
+  // notification and screenshot feeds are: the pill and every card's nav strip
+  // draw a running timer, and it has to keep running while the card has never
+  // been opened — which is almost all of the time.
+  //
+  // Not gated on `loaded`, unlike those three. There is no preference deciding
+  // whether the timer *runs*: a countdown the user started is a commitment the
+  // app made, and waiting a frame to honour it on the off-chance a setting says
+  // otherwise would be the one case where the guess is worse than acting. The
+  // preference below gates only the noise it makes.
+  const [timerLandedAt, setTimerLandedAt] = useState<number | null>(null)
+
+  const timer = useTimer(
+    isLeadNotch,
+    useCallback(
+      (durationMs: number, landedAt: number) => {
+        announce({ kind: 'timer', durationMs, landedAt }, timing.announceMs)
+
+        // The flash. Its whole job is to be what is left when `announce`
+        // declines — which it does whenever a card is already open or the cursor
+        // is on the notch, i.e. exactly when the user is looking at the notch.
+        // Set unconditionally rather than only on that path, because a banner
+        // and a pulse together read as one event and are easier to catch than
+        // either alone.
+        setTimerLandedAt(landedAt)
+
+        // And cleared again once it has played, which is not tidiness. The card
+        // is unmounted every time the notch collapses to `hidden` and mounted
+        // again on the way back, so a `landedAt` left standing would replay the
+        // pulse on every single reopening for the rest of the session — a notch
+        // that flashes at you each time you summon it, hours after the timer it
+        // was reporting. Comfortably longer than the 1.15s animation.
+        window.setTimeout(() => setTimerLandedAt(null), 1600)
+
+        // Gated on `loaded` where the timer itself is not, and the asymmetry is
+        // the point: the default is on, and a machine that has never made a
+        // sound making one on the strength of an unread guess is exactly the
+        // surprise the preference exists to prevent.
+        if (loaded && settings.timerSound) playChime()
+      },
+      [announce, loaded, settings.timerSound],
+    ),
+  )
+
   const [menu, setMenu] = useState<MenuAnchor | null>(null)
   const closeMenu = useCallback(() => setMenu(null), [])
 
@@ -417,6 +465,8 @@ export default function App() {
         reminders={reminders}
         screenshots={screenshots}
         screenshotsEnabled={screenshotsEnabled}
+        timer={timer}
+        timerLandedAt={timerLandedAt}
         modules={panels.visible}
         metrics={metrics}
         animationSpeed={settings.animationSpeed}

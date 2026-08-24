@@ -1,3 +1,72 @@
+## 0.7.0 — 2026-08-24
+
+**A timer, and you can see it without opening anything.** The reason to set a
+countdown is almost never that you want to watch it — it is that you want to stop
+thinking about it — so the number goes where the temperature and the battery
+already are: on the resting pill, and in the top strip of whatever panel you have
+open. Set it by typing the digits the way you would on a phone, or take one of the
+four presets. When it lands the notch drops a banner and plays a short chime, and
+if you happen to be reading a panel at that moment the card flashes instead, so
+nothing interrupts what you were doing to tell you something you already asked to
+be told.
+
+### New
+
+- **The Timer panel.** Click the readout and type — digits fill from the right,
+  phone-timer style, so 5-3-0 is five minutes thirty. Four presets sit under it —
+  1m, 5m, 10m, 25m — and they *set* the time rather than starting it, because a
+  mis-clicked preset that ran immediately would cost you the timer already going.
+  Start, then Pause, Resume and Reset in the same band. It is the last panel in
+  the ring and it appears on its own; hide it under Settings → Panels like any
+  other
+- **The countdown on the resting pill.** In the slot the temperature usually has,
+  as a ring that empties beside the time remaining — under an hour it reads
+  `4:37`, over one it reads `1h 05m`. It takes that slot from the music and the
+  weather both, for as long as there is a timer: the track has a panel one arrow
+  away and the temperature has not moved in ten minutes, while a countdown is the
+  one readout whose whole value is being visible without being asked for
+- **And in the strip of every panel you open.** Which is the half that matters
+  more than it sounds — a panel being open is exactly when the pill is *not* on
+  screen, so without it the countdown would vanish for as long as you were reading
+  anything else
+- **A banner and a chime when it lands.** The banner turns an hourglass over and
+  says how long the timer ran; hovering it opens the panel, where the same
+  duration is already loaded and one click from running again. The chime is two
+  short notes, synthesised rather than a sound file — it is the only noise Crest
+  makes
+- **A switch for the chime**, under Settings → Settings → Timer. With it off the
+  banner and the flash still happen, so you are still told, just not out loud
+- **The card flashes when the banner cannot.** A banner is declined while you have
+  a panel open or the cursor on the notch — i.e. exactly when you are looking — so
+  the card pulses in your accent colour three times instead. It touches nothing
+  but colour: the panel does not resize under a cursor that is about to click
+- **A paused timer stays on the pill.** Paused is a state you can forget you are
+  in, and a countdown that disappeared when you paused it is one you find at nine
+  minutes left the next morning
+
+### Improved
+
+- **A timer survives a restart.** It is stored as the instant it ends rather than
+  as a number of minutes left, so nothing is lost to an update installing itself
+  — which Crest does silently, and a pomodoro dying to one would be the app losing
+  something you were relying on
+- **One timer, on every screen.** With the notch mirrored across displays it is
+  the same countdown on each rather than a private one per monitor, and only the
+  lead notch chimes
+
+### Fixed
+
+- **A Crest run from source no longer replaces itself with the released build.**
+  Updates install quietly by design, so a development build sitting behind the
+  current release would download it, install over the top and restart — into the
+  shipped app, with no dialog and no error. Only an installed Crest updates itself
+  unasked now; the tray's own update row still works everywhere, because that is
+  someone asking
+- **`npm run dev` mounts again in a plain browser.** Reading the window label
+  threw where there is no Tauri to ask, which left an empty page and one console
+  error — and that fallback is how the notch's layout and animation are worked on
+  without a Rust rebuild
+
 ## 0.6.9 — 2026-08-18
 
 **The notch stops taking your work away.** Writing a task into the calendar or a
