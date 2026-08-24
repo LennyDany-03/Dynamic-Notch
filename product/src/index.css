@@ -1,6 +1,37 @@
 /* Inter is the fallback when Segoe UI Variable is unavailable — matches the design export. */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
+/* Rubik, for the timer readout and nothing else (`font.display` in tokens.ts).
+
+   Self-hosted rather than pulled from the CDN above, and the difference is not
+   consistency for its own sake: Inter there is a *fallback* face that nobody
+   notices missing, whereas these are six numerals at 58px that are the entire
+   content of a card. Crest is an always-on overlay that has to draw identically
+   with no network — at login, on a machine that is still connecting, on one that
+   never does — and the alternative is a card that silently renders in Segoe UI at
+   a size where the difference is the whole design.
+
+   Declared here rather than by importing the package's own `index.css`, which
+   would pull the Arabic, Hebrew, Cyrillic and Greek subsets as well. This face
+   draws ten digits and the letters h, m and s; the latin subset alone is 35KB and
+   the full set is roughly ten times that, for glyphs nothing in the app can
+   reach. `unicode-range` says as much to the browser, so it will not even
+   consider this face for anything else on the page.
+
+   Licensed under the SIL Open Font License 1.1 — the licence ships inside the
+   package, at @fontsource-variable/rubik/LICENSE. */
+@font-face {
+  font-family: 'Rubik';
+  src: url('@fontsource-variable/rubik/files/rubik-latin-wght-normal.woff2')
+    format('woff2-variations');
+  /* The variable file's whole axis, so `font-weight` interpolates rather than
+     snapping to the nearest static cut. */
+  font-weight: 300 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+2013-2014, U+2018-201A, U+201C-201E, U+2026;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -404,9 +435,88 @@ button {
   }
 }
 
+/* The timer's caret. Not a real text cursor — there is nowhere sensible to put
+   one under six centred columns — but a mark saying the readout is live. Shares
+   the `cur` cadence with Quick Notes, because a second blink rate in one app is
+   a thing the eye notices without being able to say why. */
+.timer-caret {
+  animation: cur 1.06s steps(1, end) infinite;
+}
+
+/* A finished countdown, on the card's own surface.
+
+   This is the half of "the timer landed" that survives `announce` declining —
+   which it does whenever a card is already open or the cursor is on the notch,
+   i.e. exactly when the user is looking at the notch and would otherwise get
+   nothing at all.
+
+   **It touches only background and box-shadow.** Width and height are the
+   geometry `layout.contentRect` hit-tests against, and animating either would
+   put the drawn card and its hit rect out of step for the length of the pulse —
+   long enough for a click to land on a card that has moved. `inset: 0` on a
+   positioned overlay is what lets it fill the card without being part of its
+   layout at all. */
+.timer-flash {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+  pointer-events: none;
+  background: var(--accent);
+  animation: timer-flash 1.15s ease-out 1 both;
+}
+
+@keyframes timer-flash {
+  0% {
+    opacity: 0;
+  }
+  /* Three beats rather than one long fade. A single pulse at the top of the
+     screen is easy to miss in peripheral vision; three is unmistakable and still
+     over in a second, which is the difference between an alert and a strobe. */
+  12% {
+    opacity: 0.22;
+  }
+  30% {
+    opacity: 0.04;
+  }
+  46% {
+    opacity: 0.2;
+  }
+  64% {
+    opacity: 0.04;
+  }
+  78% {
+    opacity: 0.16;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .eq {
     animation: none;
     transform: scaleY(0.65);
+  }
+
+  .timer-caret {
+    animation: none;
+  }
+
+  /* The flash still happens — it is a notification, not decoration, and removing
+     it would leave a user with reduced motion no indication at all when the
+     banner declines. What goes is the flicker: one slow rise and fall. */
+  .timer-flash {
+    animation: timer-flash-still 1.15s ease-out 1 both;
+  }
+}
+
+@keyframes timer-flash-still {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  40% {
+    opacity: 0.18;
   }
 }

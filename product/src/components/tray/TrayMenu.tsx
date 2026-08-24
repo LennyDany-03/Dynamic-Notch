@@ -236,6 +236,15 @@ const MODULE_ROWS: Record<NotchModule, { label: string; icon: ReactElement }> = 
       </Icon>
     ),
   },
+  timer: {
+    label: 'Timer',
+    icon: (
+      <Icon>
+        <circle cx="12" cy="13.5" r="7.5" />
+        <path d="M12 9.5v4l2.5 1.5M9.5 2.5h5M12 2.5v3" />
+      </Icon>
+    ),
+  },
 }
 
 /**
