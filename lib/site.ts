@@ -18,7 +18,7 @@ export const site = {
   name: "Crest",
   tagline: "The dynamic notch, built for Windows.",
   description:
-    "Crest puts a Mica-glass notch at the top of your Windows desktop. Hover for your music, apps, files, notes, notifications, system load, weather and calendar — then it disappears. Five themes, any monitor. Free, native, and open source.",
+    "Crest puts a Mica-glass notch at the top of your Windows desktop. Hover for your music, apps, files, notes, notifications, system load, weather and calendar. Then it disappears. Five themes, any monitor. Free, native, and open source.",
   url: process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
   version,
   repo,

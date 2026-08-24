@@ -2,11 +2,6 @@ import Image from "next/image";
 import mark from "@/public/crest-logo.png";
 import { site } from "@/lib/site";
 
-/**
- * The app icon, reused verbatim as the site mark — same asset that ships in the
- * installer, the tray and the favicon, so the download the visitor ends up with
- * looks like the page they downloaded it from.
- */
 export default function Logo({
   size = 28,
   withWordmark = true,
@@ -24,7 +19,7 @@ export default function Logo({
         width={size}
         height={size}
         priority
-        className="rounded-[22%] shadow-[0_2px_12px_-2px_rgba(27,0,181,.9)]"
+        className="rounded-[22%] shadow-[0_2px_12px_-2px_rgba(18,58,158,.9)]"
         style={{ width: size, height: size }}
       />
       {withWordmark && (

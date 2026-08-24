@@ -13,133 +13,114 @@ import {
   Note,
 } from "./icons";
 
-/*
-  One card per thing the app ships. The first seven map onto the seven
-  `NotchModule` panels in the product source, in the order `MODULES` lists them;
-  the rest are what the notch does without a panel of its own.
-
-  **Bodies are one line.** They used to be three or four sentences each, which
-  made this section four screens tall — and a visitor deciding whether to
-  download something does not read four screens of prose, they scan for the one
-  feature they came for. The detail that was cut is not lost: it is in the FAQ,
-  where somebody who has already decided goes looking for it.
-
-  If a module is added to `MODULES`, it belongs here too. This section and the
-  Settings one are the only two places on the site that claim to be complete.
-*/
 const features = [
   {
     icon: Music,
     title: "Now playing",
-    body: "Art, scrub bar and transport for whatever Windows is playing.",
+    body: "A track starts. Skip it without touching the taskbar.",
   },
   {
     icon: Grid,
     title: "Quick launcher",
-    body: "Fuzzy search every installed app. Pin the ones you live in.",
+    body: "You need an app right now. Type three letters, it's open.",
   },
   {
     icon: Files,
     title: "File shelf",
-    body: "Drag files up to park them, drag them back out anywhere.",
+    body: "A file needs to go somewhere else first. Drag it up, drop it later.",
   },
   {
     icon: Bell,
     title: "Notifications",
-    body: "They drop down here instead of the corner, and wait to be read.",
+    body: "Something lands in the Action Center. It surfaces here first, then files itself away.",
   },
   {
     icon: Gauge,
     title: "System monitor",
-    body: "CPU, memory, GPU, disk and temperature — plus sleep and shut down.",
+    body: "The fan kicks in. Check what's actually using the CPU before you blame Chrome.",
   },
   {
     icon: Cloud,
     title: "Weather",
-    body: "Conditions now and the rest of the week, for a town you pick.",
+    body: "You're deciding on a jacket. It's already answered.",
   },
   {
     icon: Calendar,
     title: "Calendar",
-    body: "A month at a glance, and a nudge when a reminder comes round.",
+    body: "A reminder's about to fire. You see it before it interrupts you.",
   },
   {
     icon: Note,
     title: "Quick notes",
-    body: "A scratchpad one hover away that saves as you type.",
+    body: "A thought worth keeping. Type it before it's gone. No app to open first.",
   },
   {
     icon: Clipboard,
     title: "Clipboard history",
-    body: "The last things you copied. Click one to copy it again.",
+    body: "You copied the wrong thing two steps ago. It's still in there.",
   },
   {
     icon: Clock,
     title: "A clock at rest",
-    body: "Collapsed, it is the time and your battery. Nothing else.",
+    body: "You just want the time. That's all it shows until you ask for more.",
   },
   {
     icon: Ghost,
     title: "Invisible when idle",
-    body: "No taskbar button, no Alt-Tab entry, click-through everywhere.",
+    body: "You're not touching it. It's not touching your taskbar, Alt-Tab, or anything else.",
   },
 ];
 
 export default function Features() {
   return (
-    <section id="features" className="relative border-t border-white/[.06] py-24">
-      <div className="mx-auto max-w-6xl px-5">
+    <section id="features" className="relative py-[clamp(56px,9vw,104px)]">
+      <div className="mx-auto max-w-[1080px] px-[22px]">
         <div className="max-w-2xl">
-          <p className="section-label">Panels</p>
-          <h2 className="mt-4 text-[clamp(2rem,4.4vw,3rem)] leading-[1.1] font-semibold tracking-[-0.03em]">
-            Everything you reach for all day,
-            <span className="text-[var(--faint)]"> in one gesture.</span>
+          <p className="t-eyebrow">Panels</p>
+          <h2 className="t-title mt-3">
+            See what&rsquo;s happening
+            <span className="text-[var(--heading-tint)]"> without losing focus.</span>
           </h2>
-          <p className="mt-5 text-[16px] leading-relaxed text-[var(--muted)]">
+          <p className="t-lede mt-5">
             Seven panels, each a page of the same card. Arrows or a scroll move
             between them and it morphs to fit. Keep the ones you use, drag them
             into the order you want.
           </p>
         </div>
 
-        <div className="mt-12 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {features.map(({ icon: Icon, title, body }, i) => (
-            <Reveal
-              key={title}
-              /*
-                Stagger across the row rather than down the list: at four columns
-                a flat `i * 40` would take a second and a half to finish the last
-                row, long after the reader has moved on. Modulo the column count
-                so every row starts its own short cascade.
-              */
-              delay={(i % 4) * 55}
-              className="h-full"
-            >
-              <article className="pane group h-full rounded-2xl p-5 transition-colors duration-300 hover:border-[var(--hairline-bright)]">
-                <div className="relative z-[1] flex h-full flex-col">
-                  <span className="inline-grid h-9 w-9 place-items-center rounded-lg border border-[var(--hairline)] bg-white/[.05] text-[var(--accent-bright)] transition-colors duration-300 group-hover:bg-[var(--accent)] group-hover:text-white">
-                    <Icon width={17} height={17} />
+        
+        <div className="panel mt-11 overflow-hidden">
+          <div className="grid gap-px bg-[var(--hairline)] sm:grid-cols-2 lg:grid-cols-3">
+            {features.map(({ icon: Icon, title, body }, i) => (
+              <Reveal
+                key={title}
+                
+                delay={(i % 3) * 55}
+                className="bg-[var(--surface)]"
+              >
+                <article className="group flex h-full gap-4 px-6 py-6 transition-colors duration-200 hover:bg-[var(--surface-raised)]">
+                  
+                  <span className="mt-0.5 shrink-0 text-[var(--text-tertiary)] transition-colors duration-200 group-hover:text-[var(--accent-bright)]">
+                    <Icon width={20} height={20} />
                   </span>
-                  <h3 className="mt-4 text-[15px] font-semibold tracking-tight">
-                    {title}
-                  </h3>
-                  <p className="mt-1.5 text-[13.5px] leading-relaxed text-[var(--muted)]">
-                    {body}
-                  </p>
-                </div>
-              </article>
-            </Reveal>
-          ))}
+                  <div className="min-w-0">
+                    <h3 className="t-heading">{title}</h3>
+                    <p className="mt-1 text-[13.5px] leading-[1.6] text-[var(--text-secondary)]">
+                      {body}
+                    </p>
+                  </div>
+                </article>
+              </Reveal>
+            ))}
+            
+            <div aria-hidden className="hidden bg-[var(--surface)] sm:block" />
+          </div>
         </div>
 
-        {/*
-          The three things that arrive without being asked for. A line rather
-          than three more cards — they are not panels, and giving them the same
-          shape as one would say they were.
-        */}
+        
         <Reveal delay={120}>
-          <p className="mt-8 text-center text-[14px] leading-relaxed text-[var(--faint)]">
-            And some things never wait to be asked for — a track starting, a
+          <p className="mx-auto mt-7 max-w-xl text-center text-[13.5px] leading-[1.7] text-[var(--text-tertiary)]">
+            And some things never wait to be asked for: a track starting, a
             notification landing, a reminder falling due, a charger going in, or
             your machine struggling.
           </p>
