@@ -35,31 +35,18 @@ const columns = [
 
 export default function SiteFooter() {
   return (
-    <footer className="border-t border-white/[.06] py-14">
-      <div className="mx-auto max-w-6xl px-5">
+    <footer className="border-t border-[var(--hairline)] py-14">
+      <div className="mx-auto max-w-[1080px] px-[22px]">
         <div className="flex flex-col gap-12 sm:flex-row sm:justify-between">
           <div className="max-w-xs">
-            <Logo />
-            <p className="mt-4 text-[14px] leading-relaxed text-[var(--faint)]">
+            <Logo size={24} />
+            <p className="mt-4 text-[13.5px] leading-[1.7] text-[var(--text-tertiary)]">
               A dynamic notch for Windows. Music, notifications, apps,
-              clipboard, files and notes — one hover away.
+              clipboard, files and notes, one hover away.
             </p>
-            <a
-              href={site.discord}
-              target="_blank"
-              rel="noreferrer noopener"
-              className="mt-5 inline-flex items-center gap-2 rounded-xl border border-[var(--hairline)] px-3.5 py-2 text-[13px] text-[var(--muted)] transition-colors hover:border-transparent hover:bg-[#5865F2] hover:text-white"
-            >
-              <Discord width={15} height={15} />
-              Join the community
-            </a>
 
-            {/*
-              Icon row, drawn from `activeSocials` — an account with no URL yet
-              is filtered out in `lib/site.ts`, so nothing here is ever a dead
-              link waiting for a handle.
-            */}
-            <ul className="mt-6 flex flex-wrap gap-2">
+            
+            <ul className="mt-6 flex flex-wrap gap-1">
               {activeSocials.map((social) => {
                 const Icon = SOCIAL_ICONS[social.id];
                 return (
@@ -69,20 +56,33 @@ export default function SiteFooter() {
                       target="_blank"
                       rel="noreferrer noopener"
                       aria-label={`${site.name} on ${social.label}`}
-                      className="grid h-10 w-10 place-items-center rounded-xl border border-[var(--hairline)] text-[var(--faint)] transition-colors hover:border-[var(--hairline-bright)] hover:bg-white/[.06] hover:text-white"
+                      className="grid h-11 w-11 place-items-center rounded-[var(--r-pill)] text-[var(--text-tertiary)] transition-colors duration-200 hover:bg-[var(--surface-raised)] hover:text-[var(--text)]"
                     >
                       <Icon width={17} height={17} />
                     </a>
                   </li>
                 );
               })}
+              <li>
+                <a
+                  href={site.discord}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  aria-label={`${site.name} on Discord`}
+                  className="grid h-11 w-11 place-items-center rounded-[var(--r-pill)] text-[var(--text-tertiary)] transition-colors duration-200 hover:bg-[var(--surface-raised)] hover:text-[var(--discord)]"
+                >
+                  <Discord width={17} height={17} />
+                </a>
+              </li>
             </ul>
           </div>
 
           <div className="flex flex-wrap gap-x-16 gap-y-10">
             {columns.map((column) => (
               <div key={column.heading}>
-                <p className="section-label">{column.heading}</p>
+                <p className="text-[13px] font-semibold tracking-[-0.005em] text-[var(--text)]">
+                  {column.heading}
+                </p>
                 <ul className="mt-4 space-y-2.5">
                   {column.links.map((link) => (
                     <li key={link.label}>
@@ -91,7 +91,7 @@ export default function SiteFooter() {
                         {...(link.external
                           ? { target: "_blank", rel: "noreferrer noopener" }
                           : {})}
-                        className="text-[14px] text-[var(--muted)] transition-colors hover:text-white"
+                        className="text-[13.5px] text-[var(--text-secondary)] transition-colors duration-200 hover:text-[var(--text)]"
                       >
                         {link.label}
                       </a>
@@ -103,7 +103,7 @@ export default function SiteFooter() {
           </div>
         </div>
 
-        <div className="mt-12 flex flex-col gap-3 border-t border-white/[.06] pt-6 text-[13px] text-[var(--faint)] sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-12 flex flex-col gap-3 border-t border-[var(--hairline)] pt-6 text-[12.5px] text-[var(--text-faint)] sm:flex-row sm:items-center sm:justify-between">
           <p>
             © {new Date().getFullYear()} {site.name}. Not affiliated with
             Microsoft or Apple.
@@ -114,7 +114,7 @@ export default function SiteFooter() {
               href={site.authorUrl}
               target="_blank"
               rel="noreferrer noopener"
-              className="text-[var(--muted)] underline-offset-4 hover:text-white hover:underline"
+              className="text-[var(--text-secondary)] underline-offset-4 hover:text-[var(--text)] hover:underline"
             >
               {site.author}
             </a>

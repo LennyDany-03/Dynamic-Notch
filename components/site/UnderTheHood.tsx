@@ -9,17 +9,17 @@ const pillars = [
   {
     icon: Bolt,
     title: "Idle costs nothing",
-    body: "Nothing renders while the notch is away, and the watchers that have to keep listening — what is playing, what has just arrived, what your machine is doing — settle to a check every two seconds. The meters only speed up while you are looking at them, and the forecast is cached for ten minutes.",
+    body: "Nothing renders while the notch is away, and the watchers that have to keep listening (what is playing, what has just arrived, what your machine is doing) settle to a check every two seconds. The meters only speed up while you are looking at them, and the forecast is cached for ten minutes.",
   },
   {
     icon: Shield,
-    title: "Your data stays put",
-    body: "No account, no sync, no telemetry, no analytics. Clipboard entries, notes, reminders and shelved files live in your local app-data folder and go nowhere else. Only two things ever leave the machine: the update check, and the forecast for the town you typed in yourself.",
+    title: "No account. No clutter.",
+    body: "Nothing to sign into, nothing syncing to a server you didn't choose. Clipboard entries, notes, reminders and shelved files live in your local app-data folder and go nowhere else. Only two things ever leave the machine: the update check, and the forecast for the town you typed in yourself.",
   },
   {
     icon: Ghost,
-    title: "It respects your desktop",
-    body: "Transparent, skipped from the taskbar and from Alt-Tab, and click-through outside its own bounds — so a click meant for the desktop reaches the desktop. It only claims the top of the window stack when there is something on screen to see.",
+    title: "It stays out of the way.",
+    body: "No taskbar icon, no Alt-Tab entry, click-through outside its own bounds: a click meant for the desktop reaches the desktop. It only claims the top of the window stack when there is something on screen to see.",
   },
 ];
 
@@ -34,45 +34,44 @@ const stack = [
 
 export default function UnderTheHood() {
   return (
-    <section id="stack" className="relative border-t border-white/[.06] py-24">
-      <div className="mx-auto max-w-6xl px-5">
+    <section id="stack" className="relative py-[clamp(56px,9vw,104px)]">
+      <div className="mx-auto max-w-[1080px] px-[22px]">
         <div className="max-w-2xl">
-          <p className="section-label">Under the hood</p>
-          <h2 className="mt-4 text-[clamp(2rem,4.4vw,3rem)] leading-[1.1] font-semibold tracking-[-0.03em]">
+          <p className="t-eyebrow">Under the hood</p>
+          <h2 className="t-title mt-3">
             Built like a system tool,
-            <span className="text-[var(--faint)]"> not a wrapper.</span>
+            <span className="text-[var(--heading-tint)]"> not a wrapper.</span>
           </h2>
         </div>
 
-        <div className="mt-14 grid gap-4 sm:grid-cols-2">
-          {pillars.map(({ icon: Icon, title, body }) => (
-            <div key={title} className="pane rounded-2xl p-7">
-              <div className="relative z-[1] flex gap-4">
-                <span className="mt-0.5 shrink-0 text-[var(--accent-bright)]">
-                  <Icon width={22} height={22} />
+        
+        <div className="panel mt-11 overflow-hidden">
+          <div className="grid gap-px bg-[var(--hairline)] sm:grid-cols-2">
+            {pillars.map(({ icon: Icon, title, body }) => (
+              <div key={title} className="flex gap-4 bg-[var(--surface)] px-7 py-7">
+                <span className="mt-0.5 shrink-0 text-[var(--text-tertiary)]">
+                  <Icon width={20} height={20} />
                 </span>
-                <div>
-                  <h3 className="text-[17px] font-semibold tracking-tight">{title}</h3>
-                  <p className="mt-2 text-[14.5px] leading-relaxed text-[var(--muted)]">
-                    {body}
-                  </p>
+                <div className="min-w-0">
+                  <h3 className="t-heading">{title}</h3>
+                  <p className="t-body mt-1.5">{body}</p>
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
 
-        <ul className="mt-4 flex flex-wrap gap-2">
+        
+        <dl className="mt-7 flex flex-wrap items-baseline gap-x-7 gap-y-2 border-t border-[var(--hairline)] pt-6">
           {stack.map(([name, role]) => (
-            <li
-              key={name}
-              className="inline-flex items-baseline gap-2 rounded-xl border border-[var(--hairline)] bg-white/[.03] px-4 py-2.5"
-            >
-              <span className="text-[14px] font-medium">{name}</span>
-              <span className="text-[12.5px] text-[var(--faint)]">{role}</span>
-            </li>
+            <div key={name} className="flex items-baseline gap-2">
+              <dt className="text-[13px] font-medium tracking-[-0.005em] text-[var(--text-body)]">
+                {name}
+              </dt>
+              <dd className="text-[12.5px] text-[var(--text-faint)]">{role}</dd>
+            </div>
           ))}
-        </ul>
+        </dl>
       </div>
     </section>
   );
