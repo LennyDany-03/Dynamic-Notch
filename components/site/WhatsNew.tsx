@@ -108,31 +108,60 @@ export default function WhatsNew({ releases }: { releases: Release[] }) {
   const [mounted, setMounted] = useState(false);
   const [shown, setShown] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
-  
+  const entranceFrameRef = useRef<number | null>(null);
+  const exitTimerRef = useRef<number | null>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
 
   const [latest, ...previous] = releases;
 
-  const close = useCallback(() => setOpen(false), []);
-
-  useEffect(() => {
-    if (open) {
-      setMounted(true);
-      const frame = requestAnimationFrame(() => setShown(true));
-      return () => cancelAnimationFrame(frame);
+  const close = useCallback(() => {
+    if (entranceFrameRef.current !== null) {
+      cancelAnimationFrame(entranceFrameRef.current);
+      entranceFrameRef.current = null;
     }
-    if (!mounted) return;
+
+    setOpen(false);
     setShown(false);
-    
-    const timer = window.setTimeout(() => setMounted(false), 300);
-    return () => window.clearTimeout(timer);
-  }, [open, mounted]);
+
+    if (!mounted) return;
+    if (exitTimerRef.current !== null) {
+      window.clearTimeout(exitTimerRef.current);
+    }
+    exitTimerRef.current = window.setTimeout(() => {
+      exitTimerRef.current = null;
+      setMounted(false);
+    }, 300);
+  }, [mounted]);
 
   const show = useCallback(() => {
     returnFocusRef.current = document.activeElement as HTMLElement | null;
-    setOpen(true);
+    if (!open) {
+      if (exitTimerRef.current !== null) {
+        window.clearTimeout(exitTimerRef.current);
+        exitTimerRef.current = null;
+      }
+      setMounted(true);
+      setShown(false);
+      setOpen(true);
+      entranceFrameRef.current = requestAnimationFrame(() => {
+        entranceFrameRef.current = null;
+        setShown(true);
+      });
+    }
     if (latest) writeSeen(latest.version);
-  }, [latest]);
+  }, [latest, open]);
+
+  useEffect(
+    () => () => {
+      if (entranceFrameRef.current !== null) {
+        cancelAnimationFrame(entranceFrameRef.current);
+      }
+      if (exitTimerRef.current !== null) {
+        window.clearTimeout(exitTimerRef.current);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     window.addEventListener(OPEN_EVENT, show);
