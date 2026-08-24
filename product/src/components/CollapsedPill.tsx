@@ -81,9 +81,16 @@ const CHIP = { height: 22, padding: '0 8px' } as const
  */
 const COLUMN = 80
 
-/** Horizontal padding, and what the clock needs at its longest ("10:08 AM"). */
+/**
+ * Horizontal padding, and what the clock needs at its longest ("10:08 AM").
+ *
+ * 68 rather than 64 because the clock is set at 14 now rather than 13 — see the
+ * note where it is drawn. This number is the floor the columns give way to
+ * protect, so it has to follow the type it is protecting; left at 64 the clock
+ * would begin clipping a preference or two before the columns started yielding.
+ */
 const PADDING = 12
-const CLOCK_MIN = 64
+const CLOCK_MIN = 68
 
 /**
  * The outer columns, at whatever width the pill has been set to.
@@ -264,11 +271,20 @@ export default function CollapsedPill({
       )}
 
       {/* ── The clock ──────────────────────────────────────────────────────
-          The pill's content, and the only thing here set in type. */}
+          The pill's content, and the only thing here set in type.
+
+          14 rather than 13, which is the one change this surface needed. The
+          marks either side are set at 12, so at 13 the clock was within a pixel
+          of the things it is meant to be read *past* — three items of near-equal
+          weight spread across a strip, with nothing saying which one the pill is
+          for. A point of separation is enough to put the time first and let the
+          readouts settle into being ambient, which is what they are: the clock is
+          why anyone looks at the resting notch, and the charge and the
+          temperature are what they notice while they are there. */}
       <span
         style={{
           justifySelf: 'center',
-          fontSize: 13,
+          fontSize: 14,
           fontWeight: 600,
           letterSpacing: '-.01em',
           color: color.text.primary,

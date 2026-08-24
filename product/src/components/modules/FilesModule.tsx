@@ -1,7 +1,7 @@
-import { useState } from 'react'
 import FileShelf from '../fileshelf/FileShelf'
 import QuickNotes from '../notes/QuickNotes'
 import type { FileShelfState } from '../../hooks/useFileShelf'
+import { useStickyState } from '../../hooks/useStickyState'
 import { color } from '../../tokens'
 
 /**
@@ -21,7 +21,11 @@ import { color } from '../../tokens'
  * exists to survive rather than something to go looking for.
  */
 export default function FilesModule({ shelf }: { shelf: FileShelfState }) {
-  const [notesExpanded, setNotesExpanded] = useState(false)
+  // Sticky, because expanding the notes is a request to write and the writing is
+  // what survives a collapse: coming back to the split view with the note you
+  // were mid-sentence in shrunk into the right-hand pane is the same interruption
+  // as losing the text, one step less severe.
+  const [notesExpanded, setNotesExpanded] = useStickyState('files.notesExpanded', false)
 
   return (
     <div style={{ width: '100%', height: '100%', padding: 16, display: 'flex' }}>

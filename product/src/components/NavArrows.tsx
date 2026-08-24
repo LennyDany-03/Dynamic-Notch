@@ -2,27 +2,54 @@ import { useState } from 'react'
 import BatteryBadge from './system/BatteryBadge'
 import TimerBadge from './timer/TimerBadge'
 import WeatherBadge from './weather/WeatherBadge'
-import { color, sectionLabel } from '../tokens'
+import { color } from '../tokens'
 import { MODULE_LABELS, type NotchModule } from '../types/notch'
 import type { BatteryStatus } from '../types/system'
 import { phaseOf, type TimerState } from '../types/timer'
 import type { CurrentWeather } from '../types/weather'
 
 /**
- * The chip the temperature is drawn on, and the one deviation in this file from
- * `BatteryBadge`'s rule that the strip gets a bare mark.
+ * The chip **both** marks in this strip are drawn on.
  *
- * That rule has a reason and it still holds for the charge: a 22px chip inside a
- * 26px strip reads as a button squeezed into a title bar. This is 18, which
- * leaves 4 above and below and reads as a tag rather than a control — and the
- * weather needs it where the charge does not, because a battery outline is
- * legible as a mark on any surface while a glyph beside a number is two unlike
- * things that need something to say they are one. The accent wash is that
- * something, and it is what the user asked the mark to be coloured with.
+ * 18 rather than the pill's 22: that leaves 4 above and below in a 26px strip and
+ * reads as a tag, where a 22 would fill it edge to edge and read as a button
+ * squeezed into a title bar. Its height is also what selects each badge's compact
+ * size — one value, two marks, no second prop to set out of step.
  *
- * Its height is also what selects the badge's compact size — see `WeatherBadge`.
+ * It used to be the temperature's alone, with the charge drawn bare beside it on
+ * the reasoning that a battery outline is legible as a mark on any surface. True,
+ * and beside the point: the two corners of one strip were then a filled tag on
+ * the left and a naked outline on the right, which is not a considered asymmetry
+ * but two components that were never reconciled. The pill had already answered
+ * this — both marks are chips there — so the strip now answers it the same way,
+ * and expanding a card reads as the pill growing a name rather than as arriving
+ * at a different piece of furniture.
  */
 const CHIP = { height: 18, padding: '0 6px' } as const
+
+/**
+ * The module name.
+ *
+ * Deliberately *not* `sectionLabel`, which is what this used to be. That token is
+ * for the section headings inside a card — "File shelf", "Audio routing" — where
+ * 10px uppercase at .14em tracking is a quiet label above the content it names.
+ * Here it was doing the opposite job: this strip has one piece of type on it, the
+ * name of the card you are looking at, and setting it in wide-tracked capitals
+ * made the loudest thing on the surface a word you already know, shouting over
+ * the card underneath.
+ *
+ * Sentence case at 11.5 reads as a title rather than a heading, sits nearer the
+ * weight of the two readouts flanking it, and — the practical half — fits a good
+ * deal more of a long name before the ellipsis, because capitals plus .14em is
+ * about a third wider than the same string set normally. "File shelf and notes"
+ * was the one that clipped.
+ */
+const LABEL = {
+  fontSize: 11.5,
+  fontWeight: 600,
+  letterSpacing: '.01em',
+  color: color.text.secondary,
+} as const
 
 interface Props {
   active: NotchModule
@@ -205,7 +232,7 @@ export default function NavArrows({
 
         <span
           style={{
-            ...sectionLabel,
+            ...LABEL,
             minWidth: 0,
             whiteSpace: 'nowrap',
             overflow: 'hidden',
@@ -224,9 +251,13 @@ export default function NavArrows({
 
       {/* Nothing at all on a machine without a battery, and the grid needs no
           telling — an empty column is still the same width as the one opposite,
-          so the name does not move. */}
+          so the name does not move.
+
+          Same chip as the temperature opposite, which is the whole of the
+          redesign here: one shape, one height, one material, differing only in
+          the fill each has something to say with. */}
       <span style={{ display: 'flex', justifyContent: 'flex-end', minWidth: 0 }}>
-        {badge && <BatteryBadge battery={battery} />}
+        {badge && <BatteryBadge battery={battery} chip={CHIP} />}
       </span>
     </div>
   )
