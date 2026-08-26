@@ -32,6 +32,13 @@ export const Github: Icon = (p) => (
   </svg>
 );
 
+export const Mail: Icon = (p) => (
+  <svg {...base(p)}>
+    <rect x="3" y="5" width="18" height="14" rx="2.5" />
+    <path d="m3.5 7.5 7.4 5.2a2 2 0 0 0 2.2 0l7.4-5.2" />
+  </svg>
+);
+
 export const Music: Icon = (p) => (
   <svg {...base(p)}>
     <path d="M9 18V6l11-2v12" />

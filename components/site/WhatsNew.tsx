@@ -103,7 +103,22 @@ function Groups({ groups }: { groups: Release["groups"] }) {
   );
 }
 
-export default function WhatsNew({ releases }: { releases: Release[] }) {
+export default function WhatsNew({
+  releases,
+  autoOpen = true,
+}: {
+  releases: Release[];
+  /**
+   * Whether an unseen release opens the modal by itself.
+   *
+   * True on the home page, which is what the auto-open is for. False everywhere
+   * else: the privacy and contact pages mount this only so the header's
+   * Changelog button has a listener, and a changelog springing up unasked over
+   * a privacy policy is the one place that surprise is actually costly — the
+   * Store submission points a reviewer straight at that URL.
+   */
+  autoOpen?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [shown, setShown] = useState(false);
@@ -169,10 +184,11 @@ export default function WhatsNew({ releases }: { releases: Release[] }) {
   }, [show]);
 
   useEffect(() => {
+    if (!autoOpen) return;
     if (!latest || readSeen() === latest.version) return;
     const timer = window.setTimeout(show, AUTO_OPEN_DELAY_MS);
     return () => window.clearTimeout(timer);
-  }, [latest, show]);
+  }, [autoOpen, latest, show]);
 
   
   useEffect(() => {

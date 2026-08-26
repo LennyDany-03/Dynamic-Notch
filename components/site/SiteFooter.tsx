@@ -1,16 +1,24 @@
+import Link from "next/link";
 import Logo from "./Logo";
 import { Discord, SOCIAL_ICONS } from "./icons";
 import { activeSocials, site } from "@/lib/site";
 
+/**
+ * In-page targets are root-relative (`/#features`, not `#features`) because
+ * this footer is drawn on `/privacy` and `/contact` too, where a bare fragment
+ * resolves against *that* page and goes nowhere. The home page loses nothing:
+ * a link differing from the current URL only in its fragment is a
+ * same-document navigation, so it still smooth-scrolls without a reload.
+ */
 const columns = [
   {
     heading: "Product",
     links: [
-      { href: "#features", label: "Features", external: false },
-      { href: "#settings", label: "Settings", external: false },
-      { href: "#how", label: "How it works", external: false },
-      { href: "#stack", label: "Under the hood", external: false },
-      { href: "#download", label: "Download", external: false },
+      { href: "/#features", label: "Features", external: false },
+      { href: "/#settings", label: "Settings", external: false },
+      { href: "/#how", label: "How it works", external: false },
+      { href: "/#stack", label: "Under the hood", external: false },
+      { href: "/#download", label: "Download", external: false },
     ],
   },
   {
@@ -26,12 +34,20 @@ const columns = [
     heading: "Community",
     links: [
       { href: site.discord, label: "Discord server", external: true },
-      { href: "#community", label: "Where to find us", external: false },
+      { href: "/#community", label: "Where to find us", external: false },
       { href: `${site.repo}/discussions`, label: "Discussions", external: true },
       { href: `${site.repo}/issues/new`, label: "Request a feature", external: true },
     ],
   },
 ];
+
+/** The bottom bar's one link style — legal links and the byline share it. */
+const legalLink =
+  "text-[var(--text-secondary)] underline-offset-4 hover:text-[var(--text)] hover:underline";
+
+/** The column links' one style, shared by the internal and external branches. */
+const columnLink =
+  "text-[13.5px] text-[var(--text-secondary)] transition-colors duration-200 hover:text-[var(--text)]";
 
 export default function SiteFooter() {
   return (
@@ -86,15 +102,20 @@ export default function SiteFooter() {
                 <ul className="mt-4 space-y-2.5">
                   {column.links.map((link) => (
                     <li key={link.label}>
-                      <a
-                        href={link.href}
-                        {...(link.external
-                          ? { target: "_blank", rel: "noreferrer noopener" }
-                          : {})}
-                        className="text-[13.5px] text-[var(--text-secondary)] transition-colors duration-200 hover:text-[var(--text)]"
-                      >
-                        {link.label}
-                      </a>
+                      {link.external ? (
+                        <a
+                          href={link.href}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          className={columnLink}
+                        >
+                          {link.label}
+                        </a>
+                      ) : (
+                        <Link href={link.href} className={columnLink}>
+                          {link.label}
+                        </Link>
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -108,16 +129,25 @@ export default function SiteFooter() {
             © {new Date().getFullYear()} {site.name}. Not affiliated with
             Microsoft or Apple.
           </p>
-          <p>
-            Built by{" "}
-            <a
-              href={site.authorUrl}
-              target="_blank"
-              rel="noreferrer noopener"
-              className="text-[var(--text-secondary)] underline-offset-4 hover:text-[var(--text)] hover:underline"
-            >
-              {site.author}
-            </a>
+
+          <p className="flex flex-wrap items-center gap-x-5 gap-y-2">
+            <Link href="/privacy" className={legalLink}>
+              Privacy
+            </Link>
+            <Link href="/contact" className={legalLink}>
+              Contact
+            </Link>
+            <span>
+              Built by{" "}
+              <a
+                href={site.authorUrl}
+                target="_blank"
+                rel="noreferrer noopener"
+                className={legalLink}
+              >
+                {site.author}
+              </a>
+            </span>
           </p>
         </div>
       </div>
