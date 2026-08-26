@@ -3,7 +3,6 @@
   "bundle": {
     "targets": ["nsis"],
     "createUpdaterArtifacts": false,
-    "publisher": "Lenny Dany Derek",
     "windows": {
       "webviewInstallMode": { "type": "offlineInstaller" }
     }

@@ -5502,7 +5502,7 @@ checksum = "b9d782e804c2f632e395708e99a94275910eb9100b2114651e04744e9b125006"
 
 [[package]]
 name = "windows_dynamic_noich"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "arboard",
  "base64 0.22.1",
