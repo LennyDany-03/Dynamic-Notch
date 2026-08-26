@@ -1,6 +1,6 @@
 [package]
 name = "windows_dynamic_noich"
-version = "0.7.0"
+version = "0.7.1"
 description = "Crest — Windows Dynamic Notch"
 authors = ["LennyDany-03"]
 edition = "2021"

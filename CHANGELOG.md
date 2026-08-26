@@ -1,3 +1,22 @@
+## 0.7.1 — 2026-08-27
+
+**A packaging release — nothing inside the app has changed.** Crest looks and
+behaves exactly as it did in 0.7.0. What moved is the information Windows keeps
+*about* Crest, which was wrong in a way you would only ever notice in the places
+Windows shows it back to you.
+
+### Fixed
+
+- **Windows now knows who made Crest.** The installer and the app carry a proper
+  publisher name and copyright line, so the entry in Add or remove programs and
+  the Details tab of the file properties read `Lenny Dany Derek` rather than a
+  fragment of the app's internal identifier. Nothing about how Crest runs depends
+  on this — it is the label, not the thing
+- **Two build dependencies carrying security advisories were updated.** Neither
+  ships inside Crest — they are part of what builds it — so there is nothing to
+  see here, and it is written down because a changelog that quietly omits
+  security updates is not worth reading
+
 ## 0.7.0 — 2026-08-24
 
 **A timer, and you can see it without opening anything.** The reason to set a
