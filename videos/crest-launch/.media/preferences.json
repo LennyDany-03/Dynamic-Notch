@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "preferences": {
+    "destination": {
+      "value": "youtube",
+      "confirmed_in": [
+        "crest-launch"
+      ],
+      "updated_at": "2026-08-26T11:29:02.833Z"
+    },
+    "aspect": {
+      "value": "1920x1080",
+      "confirmed_in": [
+        "crest-launch"
+      ],
+      "updated_at": "2026-08-26T11:29:02.932Z"
+    },
+    "language": {
+      "value": "en",
+      "confirmed_in": [
+        "crest-launch"
+      ],
+      "updated_at": "2026-08-26T11:29:03.048Z"
+    },
+    "flow": {
+      "value": "automation",
+      "confirmed_in": [
+        "crest-launch"
+      ],
+      "updated_at": "2026-08-26T11:29:03.175Z"
+    },
+    "storyboard": {
+      "value": "yes",
+      "confirmed_in": [
+        "crest-launch"
+      ],
+      "updated_at": "2026-08-26T11:29:03.323Z"
+    },
+    "style_preset.product-launch-video": {
+      "value": "cobalt-grid",
+      "confirmed_in": [
+        "crest-launch"
+      ],
+      "updated_at": "2026-08-26T11:56:51.803Z"
+    }
+  },
+  "sightings": {}
+}

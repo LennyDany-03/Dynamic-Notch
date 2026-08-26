@@ -1,0 +1,1237 @@
+{
+  "total_duration_s": 54.203,
+  "width": 1920,
+  "height": 1080,
+  "groups": [
+    {
+      "id": "caption-group-0",
+      "frame": 1,
+      "start": 0.239,
+      "end": 1.679,
+      "text": "Every Windows desktop",
+      "words": [
+        {
+          "id": "caption-word-0-0",
+          "text": "Every",
+          "start": 0.239,
+          "end": 0.5
+        },
+        {
+          "id": "caption-word-0-1",
+          "text": "Windows",
+          "start": 0.599,
+          "end": 1.019
+        },
+        {
+          "id": "caption-word-0-2",
+          "text": "desktop",
+          "start": 1.059,
+          "end": 1.599
+        }
+      ]
+    },
+    {
+      "id": "caption-group-1",
+      "frame": 1,
+      "start": 1.679,
+      "end": 1.979,
+      "text": "has a",
+      "words": [
+        {
+          "id": "caption-word-1-0",
+          "text": "has",
+          "start": 1.679,
+          "end": 1.779
+        },
+        {
+          "id": "caption-word-1-1",
+          "text": "a",
+          "start": 1.819,
+          "end": 1.899
+        }
+      ]
+    },
+    {
+      "id": "caption-group-2",
+      "frame": 1,
+      "start": 1.979,
+      "end": 2.359,
+      "text": "strip of",
+      "words": [
+        {
+          "id": "caption-word-2-0",
+          "text": "strip",
+          "start": 1.979,
+          "end": 2.159
+        },
+        {
+          "id": "caption-word-2-1",
+          "text": "of",
+          "start": 2.2,
+          "end": 2.279
+        }
+      ]
+    },
+    {
+      "id": "caption-group-3",
+      "frame": 1,
+      "start": 2.359,
+      "end": 3.039,
+      "text": "dead space",
+      "words": [
+        {
+          "id": "caption-word-3-0",
+          "text": "dead",
+          "start": 2.359,
+          "end": 2.579
+        },
+        {
+          "id": "caption-word-3-1",
+          "text": "space",
+          "start": 2.619,
+          "end": 2.919
+        }
+      ]
+    },
+    {
+      "id": "caption-group-4",
+      "frame": 1,
+      "start": 3.059,
+      "end": 3.399,
+      "text": "right at",
+      "words": [
+        {
+          "id": "caption-word-4-0",
+          "text": "right",
+          "start": 3.059,
+          "end": 3.259
+        },
+        {
+          "id": "caption-word-4-1",
+          "text": "at",
+          "start": 3.279,
+          "end": 3.379
+        }
+      ]
+    },
+    {
+      "id": "caption-group-5",
+      "frame": 1,
+      "start": 3.399,
+      "end": 3.959,
+      "text": "the top.",
+      "words": [
+        {
+          "id": "caption-word-5-0",
+          "text": "the",
+          "start": 3.399,
+          "end": 3.5
+        },
+        {
+          "id": "caption-word-5-1",
+          "text": "top.",
+          "start": 3.559,
+          "end": 3.839
+        }
+      ]
+    },
+    {
+      "id": "caption-group-6",
+      "frame": 1,
+      "start": 4.38,
+      "end": 5.679,
+      "text": "Nineteen hundred pixels",
+      "words": [
+        {
+          "id": "caption-word-6-0",
+          "text": "Nineteen",
+          "start": 4.38,
+          "end": 4.739
+        },
+        {
+          "id": "caption-word-6-1",
+          "text": "hundred",
+          "start": 4.88,
+          "end": 5.099
+        },
+        {
+          "id": "caption-word-6-2",
+          "text": "pixels",
+          "start": 5.219,
+          "end": 5.639
+        }
+      ]
+    },
+    {
+      "id": "caption-group-7",
+      "frame": 1,
+      "start": 5.679,
+      "end": 6.139,
+      "text": "wide.",
+      "words": [
+        {
+          "id": "caption-word-7-0",
+          "text": "wide.",
+          "start": 5.679,
+          "end": 6.019
+        }
+      ]
+    },
+    {
+      "id": "caption-group-8",
+      "frame": 1,
+      "start": 6.48,
+      "end": 7.059,
+      "text": "Doing nothing",
+      "words": [
+        {
+          "id": "caption-word-8-0",
+          "text": "Doing",
+          "start": 6.48,
+          "end": 6.739
+        },
+        {
+          "id": "caption-word-8-1",
+          "text": "nothing",
+          "start": 6.779,
+          "end": 7.039
+        }
+      ]
+    },
+    {
+      "id": "caption-group-9",
+      "frame": 1,
+      "start": 7.059,
+      "end": 7.519,
+      "text": "at all.",
+      "words": [
+        {
+          "id": "caption-word-9-0",
+          "text": "at",
+          "start": 7.059,
+          "end": 7.139
+        },
+        {
+          "id": "caption-word-9-1",
+          "text": "all.",
+          "start": 7.219,
+          "end": 7.399
+        }
+      ]
+    },
+    {
+      "id": "caption-group-10",
+      "frame": 2,
+      "start": 7.879,
+      "end": 8.559,
+      "text": "Crest turns",
+      "words": [
+        {
+          "id": "caption-word-10-0",
+          "text": "Crest",
+          "start": 7.879,
+          "end": 8.199
+        },
+        {
+          "id": "caption-word-10-1",
+          "text": "turns",
+          "start": 8.279,
+          "end": 8.519
+        }
+      ]
+    },
+    {
+      "id": "caption-group-11",
+      "frame": 2,
+      "start": 8.559,
+      "end": 8.9,
+      "text": "it into",
+      "words": [
+        {
+          "id": "caption-word-11-0",
+          "text": "it",
+          "start": 8.559,
+          "end": 8.599
+        },
+        {
+          "id": "caption-word-11-1",
+          "text": "into",
+          "start": 8.659,
+          "end": 8.839
+        }
+      ]
+    },
+    {
+      "id": "caption-group-12",
+      "frame": 2,
+      "start": 8.9,
+      "end": 9.459,
+      "text": "a panel.",
+      "words": [
+        {
+          "id": "caption-word-12-0",
+          "text": "a",
+          "start": 8.9,
+          "end": 8.959
+        },
+        {
+          "id": "caption-word-12-1",
+          "text": "panel.",
+          "start": 8.999,
+          "end": 9.339
+        }
+      ]
+    },
+    {
+      "id": "caption-group-13",
+      "frame": 2,
+      "start": 9.739,
+      "end": 10.18,
+      "text": "It shows",
+      "words": [
+        {
+          "id": "caption-word-13-0",
+          "text": "It",
+          "start": 9.739,
+          "end": 9.88
+        },
+        {
+          "id": "caption-word-13-1",
+          "text": "shows",
+          "start": 9.92,
+          "end": 10.14
+        }
+      ]
+    },
+    {
+      "id": "caption-group-14",
+      "frame": 2,
+      "start": 10.18,
+      "end": 10.519,
+      "text": "up when",
+      "words": [
+        {
+          "id": "caption-word-14-0",
+          "text": "up",
+          "start": 10.18,
+          "end": 10.279
+        },
+        {
+          "id": "caption-word-14-1",
+          "text": "when",
+          "start": 10.299,
+          "end": 10.459
+        }
+      ]
+    },
+    {
+      "id": "caption-group-15",
+      "frame": 2,
+      "start": 10.519,
+      "end": 11.479,
+      "text": "something needs you,",
+      "words": [
+        {
+          "id": "caption-word-15-0",
+          "text": "something",
+          "start": 10.519,
+          "end": 10.839
+        },
+        {
+          "id": "caption-word-15-1",
+          "text": "needs",
+          "start": 10.879,
+          "end": 11.16
+        },
+        {
+          "id": "caption-word-15-2",
+          "text": "you,",
+          "start": 11.199,
+          "end": 11.359
+        }
+      ]
+    },
+    {
+      "id": "caption-group-16",
+      "frame": 2,
+      "start": 11.739,
+      "end": 12.12,
+      "text": "and gets",
+      "words": [
+        {
+          "id": "caption-word-16-0",
+          "text": "and",
+          "start": 11.739,
+          "end": 11.859
+        },
+        {
+          "id": "caption-word-16-1",
+          "text": "gets",
+          "start": 11.899,
+          "end": 12.08
+        }
+      ]
+    },
+    {
+      "id": "caption-group-17",
+      "frame": 2,
+      "start": 12.12,
+      "end": 12.339,
+      "text": "out of",
+      "words": [
+        {
+          "id": "caption-word-17-0",
+          "text": "out",
+          "start": 12.12,
+          "end": 12.199
+        },
+        {
+          "id": "caption-word-17-1",
+          "text": "of",
+          "start": 12.219,
+          "end": 12.299
+        }
+      ]
+    },
+    {
+      "id": "caption-group-18",
+      "frame": 2,
+      "start": 12.339,
+      "end": 12.64,
+      "text": "the way",
+      "words": [
+        {
+          "id": "caption-word-18-0",
+          "text": "the",
+          "start": 12.339,
+          "end": 12.399
+        },
+        {
+          "id": "caption-word-18-1",
+          "text": "way",
+          "start": 12.459,
+          "end": 12.58
+        }
+      ]
+    },
+    {
+      "id": "caption-group-19",
+      "frame": 2,
+      "start": 12.64,
+      "end": 13.1,
+      "text": "the second",
+      "words": [
+        {
+          "id": "caption-word-19-0",
+          "text": "the",
+          "start": 12.64,
+          "end": 12.779
+        },
+        {
+          "id": "caption-word-19-1",
+          "text": "second",
+          "start": 12.819,
+          "end": 13.039
+        }
+      ]
+    },
+    {
+      "id": "caption-group-20",
+      "frame": 2,
+      "start": 13.1,
+      "end": 13.76,
+      "text": "it doesn't.",
+      "words": [
+        {
+          "id": "caption-word-20-0",
+          "text": "it",
+          "start": 13.1,
+          "end": 13.18
+        },
+        {
+          "id": "caption-word-20-1",
+          "text": "doesn't.",
+          "start": 13.219,
+          "end": 13.64
+        }
+      ]
+    },
+    {
+      "id": "caption-group-21",
+      "frame": 3,
+      "start": 14.162,
+      "end": 14.682,
+      "text": "Nudge the",
+      "words": [
+        {
+          "id": "caption-word-21-0",
+          "text": "Nudge",
+          "start": 14.162,
+          "end": 14.522
+        },
+        {
+          "id": "caption-word-21-1",
+          "text": "the",
+          "start": 14.543,
+          "end": 14.642
+        }
+      ]
+    },
+    {
+      "id": "caption-group-22",
+      "frame": 3,
+      "start": 14.682,
+      "end": 15.062,
+      "text": "top of",
+      "words": [
+        {
+          "id": "caption-word-22-0",
+          "text": "top",
+          "start": 14.682,
+          "end": 14.902
+        },
+        {
+          "id": "caption-word-22-1",
+          "text": "of",
+          "start": 14.942,
+          "end": 15.023
+        }
+      ]
+    },
+    {
+      "id": "caption-group-23",
+      "frame": 3,
+      "start": 15.062,
+      "end": 15.682,
+      "text": "the screen.",
+      "words": [
+        {
+          "id": "caption-word-23-0",
+          "text": "the",
+          "start": 15.062,
+          "end": 15.102
+        },
+        {
+          "id": "caption-word-23-1",
+          "text": "screen.",
+          "start": 15.182,
+          "end": 15.562
+        }
+      ]
+    },
+    {
+      "id": "caption-group-24",
+      "frame": 3,
+      "start": 16.123,
+      "end": 16.862,
+      "text": "Hold it",
+      "words": [
+        {
+          "id": "caption-word-24-0",
+          "text": "Hold",
+          "start": 16.123,
+          "end": 16.342
+        },
+        {
+          "id": "caption-word-24-1",
+          "text": "it",
+          "start": 16.423,
+          "end": 16.822
+        }
+      ]
+    },
+    {
+      "id": "caption-group-25",
+      "frame": 3,
+      "start": 16.862,
+      "end": 17.322,
+      "text": "for six",
+      "words": [
+        {
+          "id": "caption-word-25-0",
+          "text": "for",
+          "start": 16.862,
+          "end": 17.022
+        },
+        {
+          "id": "caption-word-25-1",
+          "text": "six",
+          "start": 17.062,
+          "end": 17.262
+        }
+      ]
+    },
+    {
+      "id": "caption-group-26",
+      "frame": 3,
+      "start": 17.322,
+      "end": 18.463,
+      "text": "hundred milliseconds.",
+      "words": [
+        {
+          "id": "caption-word-26-0",
+          "text": "hundred",
+          "start": 17.322,
+          "end": 17.582
+        },
+        {
+          "id": "caption-word-26-1",
+          "text": "milliseconds.",
+          "start": 17.622,
+          "end": 18.343
+        }
+      ]
+    },
+    {
+      "id": "caption-group-27",
+      "frame": 3,
+      "start": 18.823,
+      "end": 19.622,
+      "text": "It opens.",
+      "words": [
+        {
+          "id": "caption-word-27-0",
+          "text": "It",
+          "start": 18.823,
+          "end": 18.942
+        },
+        {
+          "id": "caption-word-27-1",
+          "text": "opens.",
+          "start": 19.042,
+          "end": 19.502
+        }
+      ]
+    },
+    {
+      "id": "caption-group-28",
+      "frame": 4,
+      "start": 19.895,
+      "end": 20.455,
+      "text": "Music.",
+      "words": [
+        {
+          "id": "caption-word-28-0",
+          "text": "Music.",
+          "start": 19.895,
+          "end": 20.335
+        }
+      ]
+    },
+    {
+      "id": "caption-group-29",
+      "frame": 4,
+      "start": 20.936,
+      "end": 21.695,
+      "text": "Your apps.",
+      "words": [
+        {
+          "id": "caption-word-29-0",
+          "text": "Your",
+          "start": 20.936,
+          "end": 21.056
+        },
+        {
+          "id": "caption-word-29-1",
+          "text": "apps.",
+          "start": 21.135,
+          "end": 21.575
+        }
+      ]
+    },
+    {
+      "id": "caption-group-30",
+      "frame": 4,
+      "start": 22.156,
+      "end": 22.815,
+      "text": "What's actually",
+      "words": [
+        {
+          "id": "caption-word-30-0",
+          "text": "What's",
+          "start": 22.156,
+          "end": 22.335
+        },
+        {
+          "id": "caption-word-30-1",
+          "text": "actually",
+          "start": 22.396,
+          "end": 22.715
+        }
+      ]
+    },
+    {
+      "id": "caption-group-31",
+      "frame": 4,
+      "start": 22.815,
+      "end": 23.935,
+      "text": "eating the CPU.",
+      "words": [
+        {
+          "id": "caption-word-31-0",
+          "text": "eating",
+          "start": 22.815,
+          "end": 23.035
+        },
+        {
+          "id": "caption-word-31-1",
+          "text": "the",
+          "start": 23.075,
+          "end": 23.135
+        },
+        {
+          "id": "caption-word-31-2",
+          "text": "CPU.",
+          "start": 23.295,
+          "end": 23.815
+        }
+      ]
+    },
+    {
+      "id": "caption-group-32",
+      "frame": 4,
+      "start": 24.495,
+      "end": 25.055,
+      "text": "The weather,",
+      "words": [
+        {
+          "id": "caption-word-32-0",
+          "text": "The",
+          "start": 24.495,
+          "end": 24.555
+        },
+        {
+          "id": "caption-word-32-1",
+          "text": "weather,",
+          "start": 24.616,
+          "end": 24.935
+        }
+      ]
+    },
+    {
+      "id": "caption-group-33",
+      "frame": 4,
+      "start": 25.355,
+      "end": 25.995,
+      "text": "a timer,",
+      "words": [
+        {
+          "id": "caption-word-33-0",
+          "text": "a",
+          "start": 25.355,
+          "end": 25.375
+        },
+        {
+          "id": "caption-word-33-1",
+          "text": "timer,",
+          "start": 25.455,
+          "end": 25.875
+        }
+      ]
+    },
+    {
+      "id": "caption-group-34",
+      "frame": 4,
+      "start": 26.215,
+      "end": 26.915,
+      "text": "your notes.",
+      "words": [
+        {
+          "id": "caption-word-34-0",
+          "text": "your",
+          "start": 26.215,
+          "end": 26.315
+        },
+        {
+          "id": "caption-word-34-1",
+          "text": "notes.",
+          "start": 26.395,
+          "end": 26.795
+        }
+      ]
+    },
+    {
+      "id": "caption-group-35",
+      "frame": 4,
+      "start": 27.475,
+      "end": 28.415,
+      "text": "Seven panels,",
+      "words": [
+        {
+          "id": "caption-word-35-0",
+          "text": "Seven",
+          "start": 27.475,
+          "end": 27.696
+        },
+        {
+          "id": "caption-word-35-1",
+          "text": "panels,",
+          "start": 27.815,
+          "end": 28.295
+        }
+      ]
+    },
+    {
+      "id": "caption-group-36",
+      "frame": 4,
+      "start": 28.775,
+      "end": 29.816,
+      "text": "one arrow apart.",
+      "words": [
+        {
+          "id": "caption-word-36-0",
+          "text": "one",
+          "start": 28.775,
+          "end": 28.916
+        },
+        {
+          "id": "caption-word-36-1",
+          "text": "arrow",
+          "start": 28.996,
+          "end": 29.215
+        },
+        {
+          "id": "caption-word-36-2",
+          "text": "apart.",
+          "start": 29.275,
+          "end": 29.696
+        }
+      ]
+    },
+    {
+      "id": "caption-group-37",
+      "frame": 5,
+      "start": 30.227,
+      "end": 30.867,
+      "text": "Move away",
+      "words": [
+        {
+          "id": "caption-word-37-0",
+          "text": "Move",
+          "start": 30.227,
+          "end": 30.387
+        },
+        {
+          "id": "caption-word-37-1",
+          "text": "away",
+          "start": 30.447,
+          "end": 30.787
+        }
+      ]
+    },
+    {
+      "id": "caption-group-38",
+      "frame": 5,
+      "start": 30.867,
+      "end": 31.127,
+      "text": "and it",
+      "words": [
+        {
+          "id": "caption-word-38-0",
+          "text": "and",
+          "start": 30.867,
+          "end": 30.947
+        },
+        {
+          "id": "caption-word-38-1",
+          "text": "it",
+          "start": 30.988,
+          "end": 31.067
+        }
+      ]
+    },
+    {
+      "id": "caption-group-39",
+      "frame": 5,
+      "start": 31.127,
+      "end": 32.227,
+      "text": "steps back down.",
+      "words": [
+        {
+          "id": "caption-word-39-0",
+          "text": "steps",
+          "start": 31.127,
+          "end": 31.407
+        },
+        {
+          "id": "caption-word-39-1",
+          "text": "back",
+          "start": 31.507,
+          "end": 31.687
+        },
+        {
+          "id": "caption-word-39-2",
+          "text": "down.",
+          "start": 31.787,
+          "end": 32.107
+        }
+      ]
+    },
+    {
+      "id": "caption-group-40",
+      "frame": 5,
+      "start": 32.627,
+      "end": 34.087,
+      "text": "No taskbar icon.",
+      "words": [
+        {
+          "id": "caption-word-40-0",
+          "text": "No",
+          "start": 32.627,
+          "end": 32.767
+        },
+        {
+          "id": "caption-word-40-1",
+          "text": "taskbar",
+          "start": 32.907,
+          "end": 33.407
+        },
+        {
+          "id": "caption-word-40-2",
+          "text": "icon.",
+          "start": 33.488,
+          "end": 33.967
+        }
+      ]
+    },
+    {
+      "id": "caption-group-41",
+      "frame": 5,
+      "start": 34.307,
+      "end": 35.707,
+      "text": "No Alt-Tab entry.",
+      "words": [
+        {
+          "id": "caption-word-41-0",
+          "text": "No",
+          "start": 34.307,
+          "end": 34.448
+        },
+        {
+          "id": "caption-word-41-1",
+          "text": "Alt-Tab",
+          "start": 34.567,
+          "end": 35.107
+        },
+        {
+          "id": "caption-word-41-2",
+          "text": "entry.",
+          "start": 35.187,
+          "end": 35.587
+        }
+      ]
+    },
+    {
+      "id": "caption-group-42",
+      "frame": 5,
+      "start": 35.968,
+      "end": 36.507,
+      "text": "Nothing.",
+      "words": [
+        {
+          "id": "caption-word-42-0",
+          "text": "Nothing.",
+          "start": 35.968,
+          "end": 36.387
+        }
+      ]
+    },
+    {
+      "id": "caption-group-43",
+      "frame": 6,
+      "start": 36.908,
+      "end": 38.129,
+      "text": "Six hundred milliseconds",
+      "words": [
+        {
+          "id": "caption-word-43-0",
+          "text": "Six",
+          "start": 36.908,
+          "end": 37.068
+        },
+        {
+          "id": "caption-word-43-1",
+          "text": "hundred",
+          "start": 37.149,
+          "end": 37.369
+        },
+        {
+          "id": "caption-word-43-2",
+          "text": "milliseconds",
+          "start": 37.488,
+          "end": 38.068
+        }
+      ]
+    },
+    {
+      "id": "caption-group-44",
+      "frame": 6,
+      "start": 38.129,
+      "end": 38.728,
+      "text": "to open.",
+      "words": [
+        {
+          "id": "caption-word-44-0",
+          "text": "to",
+          "start": 38.129,
+          "end": 38.188
+        },
+        {
+          "id": "caption-word-44-1",
+          "text": "open.",
+          "start": 38.288,
+          "end": 38.608
+        }
+      ]
+    },
+    {
+      "id": "caption-group-45",
+      "frame": 6,
+      "start": 39.389,
+      "end": 40.468,
+      "text": "Seven panels built",
+      "words": [
+        {
+          "id": "caption-word-45-0",
+          "text": "Seven",
+          "start": 39.389,
+          "end": 39.649
+        },
+        {
+          "id": "caption-word-45-1",
+          "text": "panels",
+          "start": 39.748,
+          "end": 40.109
+        },
+        {
+          "id": "caption-word-45-2",
+          "text": "built",
+          "start": 40.188,
+          "end": 40.389
+        }
+      ]
+    },
+    {
+      "id": "caption-group-46",
+      "frame": 6,
+      "start": 40.468,
+      "end": 40.769,
+      "text": "in.",
+      "words": [
+        {
+          "id": "caption-word-46-0",
+          "text": "in.",
+          "start": 40.468,
+          "end": 40.649
+        }
+      ]
+    },
+    {
+      "id": "caption-group-47",
+      "frame": 6,
+      "start": 41.629,
+      "end": 42.628,
+      "text": "Zero accounts.",
+      "words": [
+        {
+          "id": "caption-word-47-0",
+          "text": "Zero",
+          "start": 41.629,
+          "end": 41.848
+        },
+        {
+          "id": "caption-word-47-1",
+          "text": "accounts.",
+          "start": 42.008,
+          "end": 42.508
+        }
+      ]
+    },
+    {
+      "id": "caption-group-48",
+      "frame": 6,
+      "start": 43.328,
+      "end": 44.548,
+      "text": "MIT licensed.",
+      "words": [
+        {
+          "id": "caption-word-48-0",
+          "text": "MIT",
+          "start": 43.328,
+          "end": 43.768
+        },
+        {
+          "id": "caption-word-48-1",
+          "text": "licensed.",
+          "start": 43.808,
+          "end": 44.428
+        }
+      ]
+    },
+    {
+      "id": "caption-group-49",
+      "frame": 7,
+      "start": 44.874,
+      "end": 45.874,
+      "text": "Five themes.",
+      "words": [
+        {
+          "id": "caption-word-49-0",
+          "text": "Five",
+          "start": 44.874,
+          "end": 45.195
+        },
+        {
+          "id": "caption-word-49-1",
+          "text": "themes.",
+          "start": 45.294,
+          "end": 45.754
+        }
+      ]
+    },
+    {
+      "id": "caption-group-50",
+      "frame": 7,
+      "start": 46.294,
+      "end": 47.094,
+      "text": "Any monitor.",
+      "words": [
+        {
+          "id": "caption-word-50-0",
+          "text": "Any",
+          "start": 46.294,
+          "end": 46.454
+        },
+        {
+          "id": "caption-word-50-1",
+          "text": "monitor.",
+          "start": 46.555,
+          "end": 46.974
+        }
+      ]
+    },
+    {
+      "id": "caption-group-51",
+      "frame": 7,
+      "start": 47.514,
+      "end": 47.994,
+      "text": "Free.",
+      "words": [
+        {
+          "id": "caption-word-51-0",
+          "text": "Free.",
+          "start": 47.514,
+          "end": 47.874
+        }
+      ]
+    },
+    {
+      "id": "caption-group-52",
+      "frame": 8,
+      "start": 48.268,
+      "end": 48.928,
+      "text": "Crest.",
+      "words": [
+        {
+          "id": "caption-word-52-0",
+          "text": "Crest.",
+          "start": 48.268,
+          "end": 48.808
+        }
+      ]
+    },
+    {
+      "id": "caption-group-53",
+      "frame": 8,
+      "start": 49.468,
+      "end": 49.928,
+      "text": "Free,",
+      "words": [
+        {
+          "id": "caption-word-53-0",
+          "text": "Free,",
+          "start": 49.468,
+          "end": 49.808
+        }
+      ]
+    },
+    {
+      "id": "caption-group-54",
+      "frame": 8,
+      "start": 50.468,
+      "end": 51.029,
+      "text": "native,",
+      "words": [
+        {
+          "id": "caption-word-54-0",
+          "text": "native,",
+          "start": 50.468,
+          "end": 50.909
+        }
+      ]
+    },
+    {
+      "id": "caption-group-55",
+      "frame": 8,
+      "start": 51.428,
+      "end": 52.328,
+      "text": "open source.",
+      "words": [
+        {
+          "id": "caption-word-55-0",
+          "text": "open",
+          "start": 51.428,
+          "end": 51.669
+        },
+        {
+          "id": "caption-word-55-1",
+          "text": "source.",
+          "start": 51.788,
+          "end": 52.208
+        }
+      ]
+    },
+    {
+      "id": "caption-group-56",
+      "frame": 8,
+      "start": 52.768,
+      "end": 53.169,
+      "text": "Try it",
+      "words": [
+        {
+          "id": "caption-word-56-0",
+          "text": "Try",
+          "start": 52.768,
+          "end": 53.008
+        },
+        {
+          "id": "caption-word-56-1",
+          "text": "it",
+          "start": 53.049,
+          "end": 53.109
+        }
+      ]
+    },
+    {
+      "id": "caption-group-57",
+      "frame": 8,
+      "start": 53.169,
+      "end": 53.988,
+      "text": "on Windows.",
+      "words": [
+        {
+          "id": "caption-word-57-0",
+          "text": "on",
+          "start": 53.169,
+          "end": 53.288
+        },
+        {
+          "id": "caption-word-57-1",
+          "text": "Windows.",
+          "start": 53.328,
+          "end": 53.868
+        }
+      ]
+    }
+  ]
+}

@@ -4,18 +4,6 @@ import { ArrowRight, Discord, SOCIAL_ICONS } from "./icons";
 import mark from "@/public/crest-logo.png";
 import { activeSocials, site } from "@/lib/site";
 
-/*
-  Community.
-
-  The Discord server is the headline and everything else is a row beneath it —
-  a grid of five equal tiles would put the one place people can actually talk
-  to each other on the same footing as a follow button.
-
-  The tiles come from `activeSocials`, which is `socials` minus the accounts
-  that have no URL yet, so an unfilled handle renders nothing rather than a
-  dead link. Fill in `href` in `lib/site.ts` and a tile appears here and a
-  footer link with it.
-*/
 const reasons = [
   "Report a bug and watch it get fixed",
   "See what is being built before it ships",
@@ -25,48 +13,42 @@ const reasons = [
 
 export default function Community() {
   return (
-    <section
-      id="community"
-      className="relative overflow-hidden border-t border-white/[.06] py-24"
-    >
-      <div className="aurora" aria-hidden />
-
-      <div className="relative mx-auto max-w-6xl px-5">
+    <section id="community" className="relative py-[clamp(56px,9vw,104px)]">
+      <div className="mx-auto max-w-[1080px] px-[22px]">
         <div className="max-w-2xl">
-          <p className="section-label">Community</p>
-          <h2 className="mt-4 text-[clamp(2rem,4.4vw,3rem)] leading-[1.1] font-semibold tracking-[-0.03em]">
-            Crest is built in the open,
-            <span className="text-[var(--faint)]"> with the people using it.</span>
+          <p className="t-eyebrow">Community</p>
+          <h2 className="t-title mt-3">
+            Built in the open,
+            <span className="text-[var(--heading-tint)]">
+              {" "}
+              with the people using it.
+            </span>
           </h2>
-          <p className="mt-5 text-[16px] leading-relaxed text-[var(--muted)]">
+          <p className="t-lede mt-5">
             There is no support portal and no ticket queue. There is a Discord
             server where the person who writes the app reads what you post, and a
             public issue tracker for anything that outlives a conversation.
           </p>
         </div>
 
-        <div className="mt-14 grid gap-4 lg:grid-cols-[1.15fr_1fr]">
-          {/*
-            The invite card. Styled as a Discord embed on purpose — it is the
-            shape people already recognise as "a server you can join", and the
-            page is asking them to do exactly that.
-          */}
-          <div className="pane overflow-hidden rounded-3xl">
-            <div className="h-24 bg-gradient-to-b from-[#5865F2] to-[#3d47c9]" />
+        <div className="mt-11 grid gap-4 lg:grid-cols-[1.15fr_1fr]">
+          
+          <div className="card overflow-hidden">
+            <div className="h-24 bg-[var(--discord)]" />
 
-            <div className="relative z-[1] px-7 pb-7">
+            <div className="px-7 pb-7">
               <Image
                 src={mark}
                 alt=""
-                width={80}
-                height={80}
-                className="-mt-10 rounded-[22%] border-4 border-[#0a0a10] shadow-[0_12px_40px_-8px_rgba(27,0,181,1)]"
+                width={76}
+                height={76}
+                className="-mt-10 rounded-[22%] border-4 border-[var(--surface)] shadow-[var(--sh-card)]"
               />
 
-              <h3 className="mt-5 text-[22px] font-semibold tracking-tight">
+              <h3 className="mt-5 text-[21px] font-semibold tracking-[-0.02em]">
                 Crest: Windows Dynamic Notch
               </h3>
-              <p className="mt-3 text-[14.5px] leading-relaxed text-[var(--muted)]">
+              <p className="mt-2.5 text-[14.5px] leading-[1.65] text-[var(--text-secondary)]">
                 Fully open source, and free. Bug reports, changelogs, feature
                 requests, and early looks at panels that are not out yet.
               </p>
@@ -75,11 +57,11 @@ export default function Community() {
                 {reasons.map((reason) => (
                   <li
                     key={reason}
-                    className="flex items-start gap-2.5 text-[14px] text-[var(--muted)]"
+                    className="flex items-start gap-3 text-[14px] text-[var(--text-body)]"
                   >
                     <span
                       aria-hidden
-                      className="mt-[.55em] h-1.5 w-1.5 shrink-0 rounded-full bg-[#5865F2]"
+                      className="mt-[.6em] h-1 w-1 shrink-0 rounded-full bg-[var(--text-faint)]"
                     />
                     {reason}
                   </li>
@@ -89,51 +71,51 @@ export default function Community() {
               <Button
                 href={site.discord}
                 size="lg"
-                className="mt-7 w-full !bg-[#5865F2] !shadow-[0_8px_28px_-8px_rgba(88,101,242,.9)] hover:!bg-[#6b76f5] hover:!shadow-[0_12px_34px_-8px_rgba(88,101,242,.95)]"
+                className="mt-7 w-full !bg-[var(--discord)] !shadow-none hover:!bg-[#6b76f5]"
               >
                 <Discord width={19} height={19} />
                 Join the Discord
               </Button>
 
-              <p className="mt-3 text-center text-[12.5px] text-[var(--faint)]">
+              <p className="mt-3 text-center text-[12.5px] text-[var(--text-faint)]">
                 Free, no account beyond Discord&rsquo;s own.
               </p>
             </div>
           </div>
 
-          <div className="flex flex-col gap-4">
+          
+          <ul className="panel flex flex-col divide-y divide-[var(--hairline)] overflow-hidden">
             {activeSocials.map((social) => {
               const Icon = SOCIAL_ICONS[social.id];
               return (
-                <a
-                  key={social.id}
-                  href={social.href}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  className="pane group flex flex-1 items-center gap-4 rounded-2xl p-6 transition-colors duration-300 hover:border-[var(--hairline-bright)]"
-                >
-                  <span className="relative z-[1] inline-grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-[var(--hairline)] bg-white/[.05] text-[var(--accent-bright)] transition-colors duration-300 group-hover:bg-[var(--accent)] group-hover:text-white">
-                    <Icon width={20} height={20} />
-                  </span>
-
-                  <span className="relative z-[1] min-w-0 flex-1">
-                    <span className="block text-[16px] font-semibold tracking-tight">
-                      {social.label}
+                <li key={social.id} className="flex flex-1">
+                  <a
+                    href={social.href}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="group flex flex-1 items-center gap-4 px-6 py-6 transition-colors duration-200 hover:bg-[var(--surface-raised)]"
+                  >
+                    <span className="shrink-0 text-[var(--text-tertiary)] transition-colors duration-200 group-hover:text-[var(--accent-bright)]">
+                      <Icon width={20} height={20} />
                     </span>
-                    <span className="mt-1 block text-[14px] leading-relaxed text-[var(--muted)]">
-                      {social.blurb}
-                    </span>
-                  </span>
 
-                  <ArrowRight
-                    width={16}
-                    height={16}
-                    className="relative z-[1] shrink-0 text-[var(--faint)] transition-all duration-200 group-hover:translate-x-0.5 group-hover:text-white"
-                  />
-                </a>
+                    <span className="min-w-0 flex-1">
+                      <span className="t-heading block">{social.label}</span>
+                      <span className="mt-0.5 block text-[13.5px] leading-[1.6] text-[var(--text-secondary)]">
+                        {social.blurb}
+                      </span>
+                    </span>
+
+                    <ArrowRight
+                      width={16}
+                      height={16}
+                      className="shrink-0 text-[var(--text-faint)] transition-[transform,color] duration-200 group-hover:translate-x-0.5 group-hover:text-[var(--text)]"
+                    />
+                  </a>
+                </li>
               );
             })}
-          </div>
+          </ul>
         </div>
       </div>
     </section>

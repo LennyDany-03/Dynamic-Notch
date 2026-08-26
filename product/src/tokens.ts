@@ -184,6 +184,22 @@ export const radius = {
 export const font = {
   sans: "'Segoe UI Variable','Segoe UI','Inter',system-ui,sans-serif",
   mono: 'ui-monospace,Menlo,monospace',
+  /**
+   * The timer readout, and deliberately nothing else.
+   *
+   * NOT from the design export, which predates the timer. Rubik because the
+   * card's whole content is six numerals set at 58px, and at that size Segoe UI
+   * Variable's narrow apertures and tight spacing read as a system dialog rather
+   * than as a display — which is what a number filling a card is. It is
+   * self-hosted (see the @font-face in index.css) rather than pulled from the CDN
+   * the way Inter is: Inter there is a fallback nobody notices missing, whereas
+   * these digits *are* the card and Crest is an overlay that has to render
+   * identically with no network.
+   *
+   * Scoped to the readout so it stays a decision about one surface. An app-wide
+   * face change is a different piece of work and would want a look at every card.
+   */
+  display: "'Rubik','Segoe UI Variable','Segoe UI',system-ui,sans-serif",
 } as const
 
 /**
@@ -355,6 +371,27 @@ export const size = {
    * is the difference between recognising a window and squinting at one.
    */
   screenshots: { width: 420, height: 260 },
+  /**
+   * NOT from the design export either — it predates the timer entirely.
+   *
+   * Sized *to* its contents like `system`, `quickAccess` and `screenshots`, and
+   * every box in the arithmetic is pinned in `TimerModule`: 26 nav + 14 padding
+   * + 96 readout block (the digits plus the perimeter trace's stroke and its
+   * inset) + 8 gap + 32 action band + 14 padding = 190.
+   *
+   * **The height is the same in all three modes**, which is the one rule here
+   * worth reading twice. Idle fills the action band with presets and Start,
+   * running and paused fill it with Pause and Reset; none of them changes its
+   * height. A card that grew when you pressed Start would resize the notch under
+   * a stationary cursor — and the cursor is stationary at exactly that moment,
+   * because it has just clicked.
+   *
+   * 400 matches the weather card. The readout measures about 280 at 58px, so the
+   * 360 of content width carries it with air either side; going wider would buy
+   * nothing but desktop covered, and this is comfortably inside the 480×346
+   * ceiling the largest cards set.
+   */
+  timer: { width: 400, height: 190 },
 } as const
 
 /** Springs — NOT from the design export (it is static). Tuned for Fluent motion. */

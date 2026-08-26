@@ -3,15 +3,10 @@ import { join } from "node:path";
 import { ImageResponse } from "next/og";
 import { site } from "@/lib/site";
 
-export const alt = `${site.name} — ${site.tagline}`;
+export const alt = `${site.name}: ${site.tagline}`;
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-/*
-  Satori can't resolve `/crest-logo.png` against a relative URL, so the app icon
-  is inlined as a data URI. Read once at module scope: this runs at build time
-  for a static route, so the cost is paid once, not per request.
-*/
 const logo = `data:image/png;base64,${readFileSync(
   join(process.cwd(), "public", "crest-logo.png")
 ).toString("base64")}`;
@@ -27,12 +22,10 @@ export default function OpengraphImage() {
           flexDirection: "column",
           justifyContent: "space-between",
           padding: 80,
-          background: "#07070b",
-          // Satori supports only a subset of CSS — no filters, so the aurora
-          // is faked with two stacked radial gradients.
+          background: "#050508",
           backgroundImage:
-            "radial-gradient(1000px 700px at 42% -22%, rgba(124,58,237,.78), transparent 72%), radial-gradient(760px 560px at 104% 0%, rgba(27,0,181,.85), transparent 72%), radial-gradient(620px 420px at -8% 108%, rgba(168,85,247,.3), transparent 70%)",
-          color: "#ededf2",
+            "radial-gradient(1000px 700px at 42% -22%, rgba(47,111,237,.78), transparent 72%), radial-gradient(760px 560px at 104% 0%, rgba(18,58,158,.85), transparent 72%), radial-gradient(620px 420px at -8% 108%, rgba(91,144,245,.3), transparent 70%)",
+          color: "#f5f5f7",
           fontFamily: "sans-serif",
         }}
       >
@@ -56,8 +49,8 @@ export default function OpengraphImage() {
           >
             The dynamic notch, built for Windows.
           </div>
-          <div style={{ fontSize: 32, color: "rgba(237,237,242,.62)", maxWidth: 880 }}>
-            Music, apps, clipboard, files and notes — one hover away, zero
+          <div style={{ fontSize: 32, color: "rgba(245,245,247,.62)", maxWidth: 880 }}>
+            Music, apps, clipboard, files and notes. One hover away, zero
             taskbar presence.
           </div>
         </div>

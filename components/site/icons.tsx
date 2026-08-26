@@ -1,12 +1,6 @@
 import type { SVGProps } from "react";
 import type { SocialId } from "@/lib/site";
 
-/*
-  Hand-rolled so the marketing site stays dependency-free. The app itself uses
-  lucide-react; these trace the same 24×24 grid and 2px stroke so the two read
-  as one family.
-*/
-
 type Icon = (props: SVGProps<SVGSVGElement>) => React.ReactElement;
 
 function base(props: SVGProps<SVGSVGElement>) {
@@ -128,6 +122,14 @@ export const ChevronRight: Icon = (p) => (
   </svg>
 );
 
+export const ExternalLink: Icon = (p) => (
+  <svg {...base(p)}>
+    <path d="M14 4h6v6" />
+    <path d="M20 4 11 13" />
+    <path d="M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4" />
+  </svg>
+);
+
 export const ArrowRight: Icon = (p) => (
   <svg {...base(p)}>
     <path d="M4 12h15" />
@@ -198,9 +200,6 @@ export const BellOff: Icon = (p) => (
   </svg>
 );
 
-/* --- Preference icons ------------------------------------------------ */
-
-/** The position picker: a bar with the notch sitting on one end of it. */
 export const Position: Icon = (p) => (
   <svg {...base(p)}>
     <rect x="2.5" y="5" width="19" height="14" rx="2.2" />
@@ -208,7 +207,6 @@ export const Position: Icon = (p) => (
   </svg>
 );
 
-/** The hotzone hint: an arrow pointing at the edge it marks. */
 export const Target: Icon = (p) => (
   <svg {...base(p)}>
     <path d="M4 4h16" />
@@ -217,7 +215,6 @@ export const Target: Icon = (p) => (
   </svg>
 );
 
-/** Always on top: a layer lifted clear of the stack beneath it. */
 export const Layers: Icon = (p) => (
   <svg {...base(p)}>
     <path d="m12 2.5 8.5 4.5L12 11.5 3.5 7Z" />
@@ -226,7 +223,6 @@ export const Layers: Icon = (p) => (
   </svg>
 );
 
-/** Background opacity: the standard half-filled contrast disc. */
 export const Contrast: Icon = (p) => (
   <svg {...base(p)}>
     <circle cx="12" cy="12" r="9" />
@@ -234,7 +230,6 @@ export const Contrast: Icon = (p) => (
   </svg>
 );
 
-/** The Settings window itself. */
 export const Sliders: Icon = (p) => (
   <svg {...base(p)}>
     <path d="M4 7h9M17 7h3M4 17h3M11 17h9" />
@@ -250,16 +245,12 @@ export const Pin: Icon = (p) => (
   </svg>
 );
 
-/* --- Panels and preferences added after 0.4 -------------------------- */
-
-/** System monitor: a load trace, the shape the meters draw. */
 export const Gauge: Icon = (p) => (
   <svg {...base(p)}>
     <path d="M3 13h3.5l2-5 3 10 2.5-7 1.5 2H21" />
   </svg>
 );
 
-/** Weather: the sun-behind-cloud the forecast card uses. */
 export const Cloud: Icon = (p) => (
   <svg {...base(p)}>
     <circle cx="8.5" cy="8.5" r="3" />
@@ -268,7 +259,6 @@ export const Cloud: Icon = (p) => (
   </svg>
 );
 
-/** Calendar and reminders: a month with a day marked. */
 export const Calendar: Icon = (p) => (
   <svg {...base(p)}>
     <rect x="3.5" y="5" width="17" height="16" rx="2.5" />
@@ -277,7 +267,6 @@ export const Calendar: Icon = (p) => (
   </svg>
 );
 
-/** Theme: two panels swapped, the front one half-filled. */
 export const Palette: Icon = (p) => (
   <svg {...base(p)}>
     <rect x="3" y="3" width="13" height="13" rx="2.5" />
@@ -286,7 +275,6 @@ export const Palette: Icon = (p) => (
   </svg>
 );
 
-/** Accent colour: the painter's droplet with three swatches on it. */
 export const Droplet: Icon = (p) => (
   <svg {...base(p)}>
     <path d="M12 3a9 9 0 0 0 0 18c1.4 0 2.2-.9 2.2-2 0-1-.7-1.6-.7-2.4 0-.7.6-1.3 1.4-1.3H17a4.5 4.5 0 0 0 4.5-4.6C21.5 6.3 17.3 3 12 3Z" />
@@ -296,7 +284,6 @@ export const Droplet: Icon = (p) => (
   </svg>
 );
 
-/** Which screen: one monitor on a stand, with the notch on its top edge. */
 export const Screen: Icon = (p) => (
   <svg {...base(p)}>
     <rect x="2.5" y="4.5" width="19" height="13" rx="2.5" />
@@ -305,7 +292,6 @@ export const Screen: Icon = (p) => (
   </svg>
 );
 
-/** Displays: two screens, the front one carrying a notch. */
 export const Displays: Icon = (p) => (
   <svg {...base(p)}>
     <rect x="2" y="5" width="11" height="8" rx="1.8" />
@@ -315,7 +301,6 @@ export const Displays: Icon = (p) => (
   </svg>
 );
 
-/** The panel picker: an ordered list with one row switched off. */
 export const List: Icon = (p) => (
   <svg {...base(p)}>
     <rect x="3" y="4" width="18" height="6" rx="2" />
@@ -324,7 +309,6 @@ export const List: Icon = (p) => (
   </svg>
 );
 
-/** Scroll to change panel: a wheel with a step either side of it. */
 export const Scroll: Icon = (p) => (
   <svg {...base(p)}>
     <rect x="8" y="3" width="8" height="13" rx="4" />
@@ -333,7 +317,6 @@ export const Scroll: Icon = (p) => (
   </svg>
 );
 
-/** Updates that install themselves. */
 export const Refresh: Icon = (p) => (
   <svg {...base(p)}>
     <path d="M20.5 12a8.5 8.5 0 1 1-2.6-6.1" />
@@ -349,13 +332,6 @@ export const Users: Icon = (p) => (
     <path d="M18 14.4A6.5 6.5 0 0 1 21.5 20" />
   </svg>
 );
-
-/* --- Social marks ----------------------------------------------------- */
-
-/*
-  Filled brand marks rather than stroked outlines: these are logos, and a
-  1.8px-stroke tracing of one reads as a knock-off next to the real thing.
-*/
 
 export const Discord: Icon = (p) => (
   <svg {...base(p)} strokeWidth={0} fill="currentColor">
@@ -383,11 +359,6 @@ export const YouTube: Icon = (p) => (
   </svg>
 );
 
-/**
- * Keyed by `SocialId` so `lib/site.ts` can stay a data-only module: adding an
- * account is one row there plus one entry here, and TypeScript fails the build
- * if the two ever disagree.
- */
 export const SOCIAL_ICONS: Record<SocialId, Icon> = {
   discord: Discord,
   github: Github,

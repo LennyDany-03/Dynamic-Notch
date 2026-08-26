@@ -1,8 +1,10 @@
 import BatteryBadge from './system/BatteryBadge'
+import TimerBadge from './timer/TimerBadge'
 import WeatherBadge from './weather/WeatherBadge'
 import { formatClock, useClock } from '../hooks/useClock'
 import type { MediaSession } from '../hooks/useMediaSession'
 import type { BatteryStatus } from '../types/system'
+import { phaseOf, type TimerState } from '../types/timer'
 import type { Weather } from '../types/weather'
 import { color, radius } from '../tokens'
 
@@ -29,10 +31,17 @@ import { color, radius } from '../tokens'
  * the right, flanking the clock for symmetry. The dot is gone: it said exactly
  * what the equalizer says, and the symmetry it bought is now the grid's job.
  *
- * **The left column holds one mark at a time, and music displaces the weather.**
- * The temperature is the resting state — a readout opposite the charge is what
- * makes the pill a status strip rather than a clock with a decoration either
- * side — and the equalizer takes the slot for as long as something is playing.
+ * **The left column holds one mark at a time, and the order is timer › music ›
+ * weather.** The temperature is the resting state — a readout opposite the charge
+ * is what makes the pill a status strip rather than a clock with a decoration
+ * either side — the equalizer takes the slot for as long as something is
+ * playing, and a running or paused countdown takes it from either of them.
+ *
+ * The timer wins because it is the only one of the three with a *deadline*. The
+ * temperature has not moved in ten minutes and the track is one hover away in a
+ * card that can hold its title; the countdown is the one mark whose entire value
+ * is that you can see it without asking, and it is the one that is *about* to
+ * stop being true. It gives the slot straight back the moment it is reset.
  *
  * It is a swap rather than a pair for two reasons, and the design one is the
  * better one. Music is *news*: it changes on its own, it is the only thing on
@@ -115,6 +124,8 @@ export default function CollapsedPill({
   session,
   battery,
   weather,
+  timer,
+  now,
   width,
 }: {
   session: MediaSession
@@ -133,6 +144,27 @@ export default function CollapsedPill({
    */
   weather: Weather | null
   /**
+   * The countdown, or the idle state.
+   *
+   * Takes the whole `TimerState` rather than a formatted reading, because what
+   * the badge draws is two things — a ring and a number — and the fraction the
+   * ring needs is not recoverable from the number. `TimerBadge` draws nothing at
+   * all while idle, which is the app's state until a timer is set, so the column
+   * simply falls back to the music mark or the temperature.
+   *
+   * This costs no poll: `useTimer` is mounted in `App` for the banner's sake
+   * whether or not the card has ever been opened, exactly as the weather is.
+   */
+  timer: TimerState
+  /**
+   * The clock, from `useTimer`.
+   *
+   * Threaded through rather than sampled in the badge so that the pill and the
+   * card agree to the millisecond — see `TimerFeed.now`. It is also what makes
+   * the badge re-render as the countdown runs, since it holds no state itself.
+   */
+  now: number
+  /**
    * The pill's own width, from `layout.cardSize`.
    *
    * Passed in rather than measured, because this component lays out inside a card
@@ -145,7 +177,14 @@ export default function CollapsedPill({
   const { media } = session
   const isPlaying = media?.isPlaying ?? false
   const current = weather?.current ?? null
-  const now = useClock()
+  // Running *or* paused. A paused timer that vanished from the pill is a timer
+  // you forget you have — see `TimerBadge`.
+  const hasTimer = phaseOf(timer) !== 'idle'
+  // Named `clock` rather than `now`, which the timer's own sample takes. They are
+  // the same wall clock read by two things at two rates — this one only has to be
+  // right to the minute, and re-rendering the pill every second for a clock that
+  // shows 9:41 would be paying the countdown's cost with no countdown running.
+  const clock = useClock()
   const column = columnWidth(width)
 
   return (
@@ -159,9 +198,10 @@ export default function CollapsedPill({
         padding: `0 ${PADDING}px`,
       }}
     >
-      {/* ── Music, or the weather ──────────────────────────────────────────
-          One mark at a time. See the note at the top of the file for why music
-          displaces the temperature rather than sitting beside it.
+      {/* ── The countdown, the music, or the weather ──────────────────────────────────────────
+          One mark at a time, in the order timer › music › weather. See the note
+          at the top of the file for why these displace each other rather than
+          sitting side by side.
 
           Wordless on purpose, the music half: at rest the notch says *that*
           something is playing, and the title is one hover away in the card that
@@ -184,7 +224,11 @@ export default function CollapsedPill({
           fixed width, so the clock does not move either way, which is the
           reason the pill is a grid (see above) and the reason anything here
           can come and go at all. */}
-      {isPlaying ? (
+      {hasTimer ? (
+        <div style={{ justifySelf: 'start', display: 'flex' }}>
+          <TimerBadge timer={timer} now={now} chip={CHIP} />
+        </div>
+      ) : isPlaying ? (
         <div
           className="tile"
           style={{
@@ -249,7 +293,7 @@ export default function CollapsedPill({
           fontVariantNumeric: 'tabular-nums',
         }}
       >
-        {formatClock(now)}
+        {formatClock(clock)}
       </span>
 
       {/* ── The charge ─────────────────────────────────────────────────────

@@ -11,31 +11,6 @@ import {
 } from "react";
 import { Clipboard, Files, Note, Pause, Search, SkipBack, SkipForward } from "./icons";
 
-/*
-  A faithful replica of the shipped overlay, running in the browser.
-
-  Every dimension, colour and timing below is lifted from the real app rather
-  than eyeballed — a demo that lies about the thing you're about to install is
-  worse than no demo. The sources, so a future edit can be checked against them:
-
-    sizes            product/src/tokens.ts        (`size`)
-    nav strip        product/src/layout.ts        (`NAV_STRIP_HEIGHT`)
-    palette          product/src/index.css        (the `crest` block)
-    labels           product/src/types/notch.ts   (`MODULE_LABELS`)
-    pill             product/src/components/CollapsedPill.tsx
-    nav              product/src/components/NavArrows.tsx
-    battery          product/src/components/system/BatteryBadge.tsx
-    meters           product/src/components/modules/SystemModule.tsx
-
-  Two deliberate departures. This never enters the `hidden` state — on the
-  desktop the notch disappears entirely when the cursor leaves, which here would
-  just look like the demo broke. And the panels are drawn with fixed sample
-  content rather than live data, because a marketing page has no media session,
-  no notification centre and no performance counters to read.
-*/
-
-/* --- The app's own palette, verbatim ---------------------------------- */
-
 const C = {
   tile: "rgba(255,255,255,.055)",
   tileHighlight: "rgba(255,255,255,.12)",
@@ -52,16 +27,15 @@ const C = {
   dividerStrong: "rgba(255,255,255,.08)",
   dashed: "rgba(255,255,255,.15)",
   scrubTrack: "rgba(255,255,255,.15)",
-  artGradient: "linear-gradient(135deg,#4b3f6b,#241d38)",
-  accent: "#7c3aed",
-  accentBright: "#a855f7",
-  accentWash: "rgba(124,58,237,.16)",
+  artGradient: "linear-gradient(135deg,#3d5486,#1a2338)",
+  accent: "#2f6fed",
+  accentBright: "#5b90f5",
+  accentWash: "rgba(47,111,237,.16)",
   onAccent: "#fff",
   loadWarn: "#fbbf24",
   danger: "#f87171",
 } as const;
 
-/** `sectionLabel` from the product's tokens. */
 const sectionLabel: CSSProperties = {
   fontSize: 10,
   fontWeight: 600,
@@ -69,8 +43,6 @@ const sectionLabel: CSSProperties = {
   textTransform: "uppercase",
   color: C.muted,
 };
-
-/* --- Modules ----------------------------------------------------------- */
 
 type Module =
   | "media"
@@ -81,7 +53,6 @@ type Module =
   | "weather"
   | "calendar";
 
-/** `MODULES` — the app's default ring order. */
 const MODULES: readonly Module[] = [
   "media",
   "launcher",
@@ -92,7 +63,6 @@ const MODULES: readonly Module[] = [
   "calendar",
 ];
 
-/** `MODULE_LABELS`, word for word — these are what the nav strip actually says. */
 const LABELS: Record<Module, string> = {
   media: "Media controls",
   launcher: "Launcher and clipboard",
@@ -103,13 +73,6 @@ const LABELS: Record<Module, string> = {
   calendar: "Calendar",
 };
 
-/**
- * Card dimensions, verbatim from `size` in the product's design tokens.
- *
- * `notifications` is the one card the app sizes to its contents rather than to a
- * constant: `layout.notificationsCardHeight` is 88px of chrome plus a 44px row
- * each, capped at the 300 in the tokens. Three rows are drawn here, so 220.
- */
 const SIZE = {
   peek: { width: 264, height: 34 },
   media: { width: 380, height: 164 },
@@ -123,23 +86,15 @@ const SIZE = {
 
 const NAV_STRIP_HEIGHT = 26;
 
-/** Interaction timings, verbatim from `timing`. */
 const DWELL_MS = 600;
 const GRACE_MS = 300;
 
-/**
- * The charge the demo shows.
- *
- * On mains, so the badge draws its accent fill, its bolt and the wash behind the
- * chip — the state that shows what the design actually does with colour. A
- * flat grey bar would be the least interesting of the three it can be in.
- */
 const BATTERY = { percent: 68, acPower: true };
 
 export default function NotchDemo() {
   const [expanded, setExpanded] = useState(false);
   const [module, setModule] = useState<Module>("media");
-  /** True once the visitor has hovered or clicked — stops the scripted tour. */
+  
   const [touched, setTouched] = useState(false);
 
   const dwell = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -157,9 +112,6 @@ export default function NotchDemo() {
   const handleEnter = useCallback(() => {
     setTouched(true);
     clearTimers();
-    // The real notch requires 600ms of continuous dwell before expanding, so a
-    // cursor crossing the top of the screen on its way somewhere else is
-    // ignored. Reproduced here, or the demo would feel twitchier than the app.
     dwell.current = setTimeout(() => setExpanded(true), DWELL_MS);
   }, [clearTimers]);
 
@@ -168,13 +120,7 @@ export default function NotchDemo() {
     grace.current = setTimeout(() => setExpanded(false), GRACE_MS);
   }, [clearTimers]);
 
-  /*
-    Scripted tour: the notch's whole pitch is that it expands, so a visitor who
-    never happens to mouse over the demo should still see it happen once. It
-    walks four of the seven panels rather than all of them — long enough to show
-    that the card resizes to each one, short enough that nobody is watching a
-    loop instead of reading the page. Any real interaction cancels it.
-  */
+  
   useEffect(() => {
     if (touched) return;
 
@@ -200,13 +146,7 @@ export default function NotchDemo() {
     });
   }, []);
 
-  /*
-    Scrolling over an open card steps the ring, exactly as it does in the app.
-    Non-passive so the page underneath does not scroll out from under the
-    gesture — which is also why it is an effect with a ref rather than an
-    `onWheel` prop: React attaches those passively and `preventDefault` is
-    ignored.
-  */
+  
   const cardRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const node = cardRef.current;
@@ -215,8 +155,6 @@ export default function NotchDemo() {
     let settled = 0;
     const onWheel = (event: WheelEvent) => {
       event.preventDefault();
-      // The app swallows everything for 320ms after a step, because a trackpad
-      // keeps delivering events for most of a second after the fingers lift.
       const now = Date.now();
       if (now - settled < 320) return;
       settled = now;
@@ -231,17 +169,17 @@ export default function NotchDemo() {
 
   return (
     <div className="relative w-full">
-      {/* The "desktop" the notch sits on. */}
+      
       <div className="pane relative overflow-hidden rounded-2xl">
         <div
           aria-hidden
           className="absolute inset-0"
           style={{
             background:
-              "radial-gradient(120% 90% at 50% 0%, #2a1a52 0%, #150f2c 42%, #0a0a12 100%)",
+              "radial-gradient(120% 90% at 50% 0%, #16295c 0%, #0e1730 42%, #0a0a12 100%)",
           }}
         />
-        {/* A couple of wallpaper shapes, so the Mica blur has something to chew on. */}
+        
         <div
           aria-hidden
           className="absolute -left-16 top-24 h-64 w-64 rounded-full opacity-40 blur-3xl"
@@ -250,22 +188,16 @@ export default function NotchDemo() {
         <div
           aria-hidden
           className="absolute -right-10 bottom-0 h-72 w-72 rounded-full opacity-30 blur-3xl"
-          style={{ background: "#1b00b5" }}
+          style={{ background: "#123a9e" }}
         />
 
         <div className="relative flex h-[420px] items-start justify-center px-4 sm:h-[470px]">
-          {/*
-            The app renders at fixed pixel sizes against a 1080p-ish desktop.
-            Scaling the whole stage keeps those proportions honest on a phone
-            instead of reflowing the card into something that doesn't ship.
-          */}
+          
           <div className="origin-top scale-[0.6] sm:scale-[0.8] lg:scale-100">
             <div
               ref={cardRef}
               onPointerEnter={handleEnter}
               onPointerLeave={handleLeave}
-              // Focus bubbles from the nav buttons, so the same handlers give
-              // keyboard users a way in: Tab to the card and it expands.
               onFocus={handleEnter}
               onBlur={handleLeave}
               tabIndex={0}
@@ -275,10 +207,7 @@ export default function NotchDemo() {
               style={{
                 width: card.width,
                 height: card.height,
-                // `radius.shell`, and the same value for the pill — the app
-                // draws both at 16 rather than rounding the pill to its height.
                 borderRadius: 16,
-                // Slight overshoot approximates the app's Framer Motion spring.
                 transition:
                   "width .42s cubic-bezier(.22,1.15,.36,1), height .42s cubic-bezier(.22,1.15,.36,1)",
               }}
@@ -308,12 +237,12 @@ export default function NotchDemo() {
               </div>
             </div>
 
-            {/* Hint sits below the card so it never overlaps the hit area. */}
+            
             <p
               className="mt-6 text-center text-[13px] transition-opacity duration-500"
               style={{ color: C.muted, opacity: expanded ? 0 : 1 }}
             >
-              Hover the notch — it expands after {DWELL_MS}ms
+              Hover the notch. It expands after {DWELL_MS}ms
             </p>
           </div>
         </div>
@@ -322,21 +251,11 @@ export default function NotchDemo() {
   );
 }
 
-/* --- Battery badge ------------------------------------------------------ */
-
-/**
- * Ported from `BatteryBadge.tsx`, including the two sizes and the reason for
- * them: `full` is the resting pill, where the charge is one of three things on
- * screen and has room to be read; `compact` is the nav strip, where a full-size
- * badge stopped being a status mark in the corner and started competing with the
- * panel name.
- */
 const BADGE = {
   full: { glyph: { width: 22, height: 11.85 }, gap: 5, font: 12, number: 30 },
   compact: { glyph: { width: 18, height: 9.7 }, gap: 4, font: 11, number: 26 },
 } as const;
 
-/** The fill, inset evenly inside the shell's inner edge. */
 const BODY = { x: 2.75, width: 17.5 };
 
 function BatteryBadge({ chip }: { chip?: { height: number; padding: string } }) {
@@ -346,9 +265,6 @@ function BatteryBadge({ chip }: { chip?: { height: number; padding: string } }) 
 
   return (
     <span
-      // `notch-tile` is the site's port of the app's `.tile`: the same surface
-      // and the same top hairline, so the chip is made of the material the cards
-      // are. The radius is overridden because this one is a pill.
       className={chip ? "notch-tile" : undefined}
       style={{
         display: "flex",
@@ -359,8 +275,6 @@ function BatteryBadge({ chip }: { chip?: { height: number; padding: string } }) 
           height: chip.height,
           padding: chip.padding,
           borderRadius: 99,
-          // Clips the tile's top hairline to the curve — it is a full-width 1px
-          // line that would otherwise hang past a pill radius at each end.
           overflow: "hidden",
           ...(acPower && { background: C.accentWash }),
         }),
@@ -384,11 +298,9 @@ function BatteryBadge({ chip }: { chip?: { height: number; padding: string } }) 
           stroke={C.muted}
           strokeWidth={1.5}
         />
-        {/* Terminal. Solid rather than outlined: at this size an outlined 2px
-            cap fills in with its own stroke anyway. */}
+        
         <rect x="23.6" y="5" width="1.9" height="4" rx="0.95" fill={C.muted} />
-        {/* The charge that is gone, so the two together read as a gauge rather
-            than a bar floating in an outline. */}
+        
         <rect x={BODY.x} y="3.5" width={BODY.width} height="7" rx="1.75" fill={C.hover} />
         <rect
           x={BODY.x}
@@ -415,8 +327,6 @@ function BatteryBadge({ chip }: { chip?: { height: number; padding: string } }) 
           fontWeight: 600,
           letterSpacing: ".01em",
           color: acPower ? tint : C.secondary,
-          // Tabular and floored to the width of "100%", so a pill that is 100%
-          // one minute and 99% the next does not shuffle everything beside it.
           fontVariantNumeric: "tabular-nums",
           minWidth: size.number,
           textAlign: "right",
@@ -428,14 +338,6 @@ function BatteryBadge({ chip }: { chip?: { height: number; padding: string } }) 
   );
 }
 
-/* --- Collapsed pill ---------------------------------------------------- */
-
-/*
-  The clock is an external source of truth, not React state, so it's read
-  through `useSyncExternalStore`. The server snapshot is deliberately empty —
-  the build machine's clock has nothing to do with the visitor's, and rendering
-  one into the HTML is a guaranteed hydration mismatch.
-*/
 function subscribeToClock(onTick: () => void) {
   const id = setInterval(onTick, 1000);
   return () => clearInterval(id);
@@ -446,20 +348,8 @@ const readClock = () =>
 
 const readClockOnServer = () => "";
 
-/** Both marks share these — the whole of "they belong together". */
 const CHIP = { height: 22, padding: "0 8px" };
 
-/**
- * The 264×34 pill, as a three-column grid.
- *
- * The side columns are the *same fixed width*, so the clock is centred by the
- * layout itself and neither mark can ever reach it. The version this replaced
- * was the design export's row with an absolutely-centred clock, which worked by
- * arithmetic — and is how a battery readout ended up a pixel from the time.
- *
- * There is no dot on the right any more. It said exactly what the equalizer
- * says, and the symmetry it bought is the grid's job now.
- */
 function CollapsedPill() {
   const time = useSyncExternalStore(subscribeToClock, readClock, readClockOnServer);
 
@@ -474,9 +364,7 @@ function CollapsedPill() {
         padding: "0 12px",
       }}
     >
-      {/* Wordless on purpose: at rest the notch says *that* something is
-          playing, and the title is one hover away in the card that can hold it.
-          In the app this is drawn only while audio is actually playing. */}
+      
       <div
         className="notch-tile"
         style={{
@@ -514,7 +402,6 @@ function CollapsedPill() {
           letterSpacing: "-.01em",
           color: C.primary,
           whiteSpace: "nowrap",
-          // Stops the pill twitching as digits change width.
           fontVariantNumeric: "tabular-nums",
         }}
       >
@@ -527,8 +414,6 @@ function CollapsedPill() {
     </div>
   );
 }
-
-/* --- Nav strip --------------------------------------------------------- */
 
 function Chevron({
   direction,
@@ -556,7 +441,6 @@ function Chevron({
         height: 20,
         flex: "none",
         borderRadius: 6,
-        // Accent only on the active state, per the design rules.
         background: hover ? C.hover : "transparent",
         transition: "background 140ms ease",
       }}
@@ -578,16 +462,6 @@ function Chevron({
   );
 }
 
-/**
- * Three columns with the outer two an equal `1fr`, so whatever the badge
- * measures, the column holding it and the empty one opposite match — and the
- * name lands on the card's centre line by construction.
- *
- * There is deliberately no position counter. It used to read "CALENDAR 2/7",
- * which answered a question nobody asks — the chevrons already say there is more
- * than one panel — and cost the thing being read: it sat inside the centred
- * label, parking the panel's name left of centre.
- */
 function NavArrows({
   label,
   onPrev,
@@ -622,8 +496,6 @@ function NavArrows({
   );
 }
 
-/* --- Shared panel furniture -------------------------------------------- */
-
 const stroke = {
   fill: "none",
   strokeWidth: 1.5,
@@ -653,8 +525,6 @@ function Glyph({
   );
 }
 
-/* --- Panels ------------------------------------------------------------ */
-
 function ModuleContent({ module }: { module: Module }) {
   if (module === "media") return <MediaPanel />;
   if (module === "launcher") return <LauncherPanel />;
@@ -665,7 +535,6 @@ function ModuleContent({ module }: { module: Module }) {
   return <CalendarPanel />;
 }
 
-/** 380×164. Padding and the 64px art are `MediaControls.tsx`'s own. */
 function MediaPanel() {
   return (
     <div
@@ -712,7 +581,7 @@ function MediaPanel() {
             textOverflow: "ellipsis",
           }}
         >
-          Midnight City
+          After Hours
         </div>
         <div
           style={{
@@ -724,7 +593,7 @@ function MediaPanel() {
             textOverflow: "ellipsis",
           }}
         >
-          M83
+          The Weeknd
         </div>
 
         <div style={{ flex: 1 }} />
@@ -804,7 +673,6 @@ const APPS = [
   ["St", "Steam"],
 ];
 
-/** 400×346. */
 function LauncherPanel() {
   return (
     <div
@@ -898,7 +766,7 @@ function LauncherPanel() {
         {[
           ["npm run tauri build", "2m ago"],
           ["https://tauri.app/start/", "14m ago"],
-          ["rgba(124, 58, 237, 1)", "1h ago"],
+          ["rgba(47, 111, 237, 1)", "1h ago"],
         ].map(([text, when], i) => (
           <div
             key={text}
@@ -932,7 +800,6 @@ function LauncherPanel() {
   );
 }
 
-/** 440×260 — the shelf wraps onto a second row, and notes hold a list. */
 function FilesPanel() {
   return (
     <div style={{ width: "100%", height: "100%", padding: 16, display: "flex" }}>
@@ -1072,7 +939,7 @@ function FilesPanel() {
           <br />
           Check media scrub on Spotify
           <br />
-          Notes autosave — no save button
+          Notes autosave: no save button
           <span className="caret" style={{ color: C.accentBright }}>
             |
           </span>
@@ -1083,26 +950,17 @@ function FilesPanel() {
 }
 
 const NOTIFICATIONS = [
-  ["Sl", "Slack", "Dany mentioned you in #releases", "now"],
-  ["Ml", "Mail", "Your build finished successfully", "4m"],
-  ["Cl", "Calendar", "Standup in 10 minutes", "12m"],
+  ["Cl", "Calendar", "Design review in 12 min", "now"],
+  ["Dl", "Downloads", "Crest_0.6.9_x64-setup.exe finished", "4m"],
+  ["Sl", "Slack", "Dany mentioned you in #releases", "12m"],
 ];
 
-/**
- * 420 wide, and the one card sized to its list — 88px of chrome plus a 44px row
- * each. At a fixed height it drew a stripe of empty Mica under two
- * notifications and held the notch open over it.
- */
 function NotificationsPanel() {
   return (
     <div
       style={{
         width: "100%",
         height: "100%",
-        // 16 + 20 header + 10 + rows + 16, which with the 26px nav strip is the
-        // 88 of chrome `layout.notificationsCardHeight` budgets for. Get this
-        // wrong and the card draws a stripe of empty Mica under the last row —
-        // which in the app holds the notch open over nothing.
         padding: 16,
         display: "flex",
         flexDirection: "column",
@@ -1184,7 +1042,6 @@ function NotificationsPanel() {
   );
 }
 
-/** `toneFor` — the app's own thresholds. */
 const WARN_AT = 75;
 const HOT_AT = 90;
 
@@ -1194,7 +1051,6 @@ function toneFor(percent: number) {
   return C.accent;
 }
 
-/** A 34px meter with its 5px bar, as `SystemModule` draws it. */
 function Meter({
   label,
   value,
@@ -1224,7 +1080,6 @@ function Meter({
             fontSize: 11.5,
             fontWeight: 600,
             color: C.strong,
-            // Stops the column twitching between 9% and 10% every poll.
             fontVariantNumeric: "tabular-nums",
             minWidth: 34,
             textAlign: "right",
@@ -1250,7 +1105,6 @@ function Meter({
   );
 }
 
-/** 380×266 — 26 nav + 16 + 16 header + 10 + 4×34 + 12 + 34 power + 16. */
 function SystemPanel() {
   return (
     <div
@@ -1267,9 +1121,7 @@ function SystemPanel() {
       >
         <span style={sectionLabel}>System monitor</span>
         <span style={{ flex: 1 }} />
-        {/* Never a meter: what Windows exposes as a thermal zone is an ambient
-            sensor as often as it is the CPU package, so a bar implying "x% of
-            the way to too hot" would read a scale this number is not on. */}
+        
         <span
           className="notch-tile"
           style={{
@@ -1298,9 +1150,7 @@ function SystemPanel() {
 
       <div style={{ flex: 1, minHeight: 12 }} />
 
-      {/* The power row. Every button asks a second time before it does anything
-          — the notch expands on hover, so a live shutdown button would be one
-          stray click from taking the machine down. */}
+      
       <div style={{ height: 34, flex: "none", display: "flex", gap: 8 }}>
         {[
           [
@@ -1358,7 +1208,6 @@ const FORECAST = [
   ["Sun", 34, 26],
 ] as const;
 
-/** 400×268 — 16 + 76 conditions + 14 + 44 detail + 14 + 62 forecast + 16. */
 function WeatherPanel() {
   return (
     <div
@@ -1486,14 +1335,9 @@ function WeatherPanel() {
   );
 }
 
-/**
- * 480×286. The month always draws six week rows even when five would do — a
- * grid that changed height would change the card's, and the notch would resize
- * as you paged through the year.
- */
 function CalendarPanel() {
   const today = 14;
-  const offset = 5; // Where the 1st falls in the first row, for the sample month.
+  const offset = 5;
 
   return (
     <div style={{ width: "100%", height: "100%", padding: 16, display: "flex", gap: 12 }}>
@@ -1657,9 +1501,7 @@ function CalendarPanel() {
                 >
                   {title}
                 </span>
-                {/* The time sits *under* the title rather than in a column
-                    beside it — a fixed slot for the clock left a title about
-                    eleven characters a line, and names broke mid-word. */}
+                
                 <span
                   style={{
                     display: "inline-block",

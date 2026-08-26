@@ -1,45 +1,72 @@
 @import "tailwindcss";
 
-/*
-  Crest marketing site — dark only.
-
-  The product is a translucent Mica overlay that lives on a dark Windows
-  desktop, so the site borrows its palette wholesale from `product/src/tokens.ts`
-  (accent #7C3AED, accentBright #A855F7) plus the deep indigo of the app icon.
-  A light theme would misrepresent what the app looks like, so the page opts out
-  of one entirely rather than shipping a washed-out second skin.
-*/
-
 :root {
   color-scheme: dark;
 
-  --background: #07070b;
-  --foreground: #ededf2;
+  
+  --ground: #050508;
+  --surface: #0f0f13;
+  --surface-raised: #16161b;
+  --surface-hover: #1b1b21;
 
-  /* Ported from the product's design tokens. */
-  --accent: #7c3aed;
-  --accent-bright: #a855f7;
-  /* The app icon's field colour. Used only for depth washes, never for text. */
-  --indigo: #1b00b5;
+  
+  --hairline: rgba(255, 255, 255, 0.08);
+  --hairline-strong: rgba(255, 255, 255, 0.14);
 
-  --muted: rgba(237, 237, 242, 0.62);
-  --faint: rgba(237, 237, 242, 0.42);
+  
+  --text: #f5f5f7;
+  --text-body: #c9c9ce;
+  --text-secondary: #98989d;
+  --text-tertiary: #7d7d82;
+  --text-faint: #5a5a60;
 
-  /* Mica recipe: never a flat fill, always a translucent pane + hairline. */
-  --pane: rgba(255, 255, 255, 0.04);
-  --pane-strong: rgba(255, 255, 255, 0.06);
-  --hairline: rgba(255, 255, 255, 0.09);
-  --hairline-bright: rgba(255, 255, 255, 0.16);
+  
+  --accent: #2f6fed;
+  --accent-bright: #5b90f5;
+  
+  --indigo: #123a9e;
+  
+  --discord: #5865f2;
+  --heading-tint: color-mix(in srgb, #295fcc 55%, white);
+
+  
+  --track: #2a2a30;
+
+  
+  --r-pill: 999px;
+  --r-chip: 6px;
+  --r-thumb: 12px;
+  --r-sheet: 16px;
+  --r-card: 18px;
+  --r-panel: 22px;
+  --r-hero: 26px;
+
+  
+  --sh-card: 0 1px 2px rgba(0, 0, 0, 0.5), 0 8px 24px rgba(0, 0, 0, 0.32);
+  --sh-panel: 0 1px 3px rgba(0, 0, 0, 0.55), 0 18px 48px rgba(0, 0, 0, 0.4);
+  --sh-lift: 0 2px 6px rgba(0, 0, 0, 0.5), 0 16px 40px rgba(0, 0, 0, 0.5);
+  --sh-cta: 0 2px 8px rgba(0, 0, 0, 0.4), 0 22px 60px rgba(47, 111, 237, 0.34);
+  --sh-overlay: 0 2px 8px rgba(0, 0, 0, 0.6), 0 34px 90px rgba(0, 0, 0, 0.7);
+
+  
+  --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+
+  
+  --background: var(--ground);
+  --foreground: var(--text);
+  --muted: var(--text-body);
+  --faint: var(--text-tertiary);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-background: var(--ground);
+  --color-foreground: var(--text);
+  --color-surface: var(--surface);
   --color-accent: var(--accent);
   --color-accent-bright: var(--accent-bright);
-  --color-muted: var(--muted);
-  --color-faint: var(--faint);
-  --color-pane: var(--pane);
+  --color-muted: var(--text-body);
+  --color-faint: var(--text-tertiary);
   --color-hairline: var(--hairline);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
@@ -47,117 +74,189 @@
 
 html {
   scroll-behavior: smooth;
-  /* The sticky header would otherwise cover anchored section headings. */
+  
   scroll-padding-top: 96px;
+  
+  font-optical-sizing: auto;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-geist-sans), "Segoe UI Variable", "Segoe UI", system-ui,
-    sans-serif;
+  background: var(--ground);
+  color: var(--text);
+  
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+    "Segoe UI Variable Text", "Segoe UI", var(--font-geist-sans), "Helvetica Neue",
+    system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
 }
 
 ::selection {
-  background: rgba(124, 58, 237, 0.4);
+  background: rgba(47, 111, 237, 0.4);
 }
 
-/* --- Surfaces -------------------------------------------------------- */
+:where(a, button, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent-bright);
+  outline-offset: 2px;
+  border-radius: var(--r-chip);
+}
 
-/*
-  A Mica pane: translucent fill, blur, and a top-only highlight hairline —
-  the same construction the app uses for its notch shell.
-*/
-.pane {
-  position: relative;
-  background: var(--pane);
+.t-display {
+  font-size: clamp(2.5rem, 6.4vw, 4.25rem);
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+}
+
+.t-title {
+  font-size: clamp(1.85rem, 4vw, 2.75rem);
+  font-weight: 600;
+  letter-spacing: -0.028em;
+  line-height: 1.1;
+}
+
+.t-heading {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+  line-height: 1.4;
+}
+
+.t-lede {
+  font-size: clamp(1rem, 1.6vw, 1.1875rem);
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.t-body {
+  font-size: 0.9375rem;
+  line-height: 1.85;
+  color: var(--text-body);
+}
+
+.t-eyebrow {
+  font-size: 0.8125rem;
+  font-weight: 550;
+  letter-spacing: -0.005em;
+  color: var(--accent-bright);
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+.panel {
+  background: var(--surface);
   border: 1px solid var(--hairline);
-  backdrop-filter: blur(24px) saturate(140%);
-  -webkit-backdrop-filter: blur(24px) saturate(140%);
+  border-radius: var(--r-panel);
+  box-shadow: var(--sh-panel);
 }
 
-.pane::after {
-  content: "";
+.card {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-card);
+  box-shadow: var(--sh-card);
+}
+
+.card-interactive {
+  transition:
+    transform 0.24s var(--ease-out-quart),
+    box-shadow 0.24s var(--ease-out-quart),
+    border-color 0.24s var(--ease-out-quart),
+    background-color 0.24s var(--ease-out-quart);
+}
+
+.card-interactive:hover {
+  transform: translateY(-3px);
+  background: var(--surface-raised);
+  border-color: var(--hairline-strong);
+  box-shadow: var(--sh-lift);
+}
+
+.press:active {
+  transform: scale(0.975);
+  transition: transform 0.1s ease-out;
+}
+
+.glass {
+  background: rgba(8, 8, 12, 0.72);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+}
+
+.glass-on-color {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.scroll-edge {
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.3s var(--ease-out-quart), box-shadow 0.3s var(--ease-out-quart);
+}
+
+.scroll-edge[data-scrolled="true"] {
+  border-bottom-color: var(--hairline);
+  box-shadow: 0 1px 16px rgba(0, 0, 0, 0.5);
+}
+
+.parallax-bg {
+  z-index: 0;
+  perspective: 1400px;
+}
+
+.parallax-bg__stage {
   position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  /* Light catches the top edge only, as it does on a real Mica surface. */
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.07) 0%,
-    rgba(255, 255, 255, 0) 45%
+  inset: -10%;
+  transform-style: preserve-3d;
+  transform: rotateX(calc(var(--py) * -5deg)) rotateY(calc(var(--px) * 6deg));
+  will-change: transform;
+}
+
+.parallax-bg__orbit {
+  position: absolute;
+  transform: translate3d(
+    calc(var(--px) * var(--depth) * 90px),
+    calc(var(--py) * var(--depth) * 90px - var(--pscroll) * var(--depth) * 220px),
+    calc(var(--depth) * -220px)
   );
+  will-change: transform;
 }
 
-/*
-  A dialog is a `.pane` with the whole page moving behind it, not a card resting
-  on one — at the pane's own 4% fill the hero's aurora shows through the release
-  notes and reads as part of the text. Same recipe, opaque enough to be a
-  surface. Declared after `.pane` so it wins on order, not specificity.
-*/
-.modal-panel {
-  background: rgba(11, 11, 17, 0.92);
+.parallax-bg__drift {
+  animation-name: parallax-drift;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
 }
 
-/* Aurora wash behind the hero and download sections. */
-.aurora {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  overflow: hidden;
-}
-
-.aurora::before,
-.aurora::after {
-  content: "";
-  position: absolute;
+.parallax-bg__orb {
   border-radius: 50%;
-  filter: blur(120px);
-  opacity: 0.5;
+  transform: translate3d(-50%, -50%, 0);
 }
 
-.aurora::before {
-  width: 780px;
-  height: 780px;
-  top: -420px;
-  left: 50%;
-  margin-left: -390px;
-  background: radial-gradient(circle, var(--accent) 0%, transparent 65%);
+@keyframes parallax-drift {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(var(--drift-x), var(--drift-y), 0);
+  }
 }
 
-.aurora::after {
-  width: 620px;
-  height: 620px;
-  top: -180px;
-  right: -180px;
-  background: radial-gradient(circle, var(--indigo) 0%, transparent 68%);
-  opacity: 0.55;
+@media (prefers-reduced-motion: reduce) {
+  .parallax-bg__stage,
+  .parallax-bg__orbit,
+  .parallax-bg__drift {
+    transform: none !important;
+    animation: none !important;
+  }
 }
 
-/* Faint grid, so the hero reads as a surface rather than a void. */
-.grid-floor {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background-image: linear-gradient(
-      rgba(255, 255, 255, 0.028) 1px,
-      transparent 1px
-    ),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.028) 1px, transparent 1px);
-  background-size: 64px 64px;
-  mask-image: radial-gradient(ellipse 90% 60% at 50% 0%, #000 30%, transparent 75%);
-}
-
-/* --- The notch itself ------------------------------------------------ */
-
-/*
-  Ported verbatim from `product/src/index.css` so the hero demo is the real
-  material, not an impression of it. Base surface + noise + top-only hairline.
-  If the app's Mica recipe changes, change it here too.
-*/
 .mica {
   position: relative;
   background: rgba(32, 32, 32, 0.8);
@@ -189,7 +288,6 @@ body {
   pointer-events: none;
 }
 
-/* Inner tile — 8px radius, own top hairline at .12. */
 .notch-tile {
   position: relative;
   background: rgba(255, 255, 255, 0.055);
@@ -207,29 +305,10 @@ body {
   border-radius: inherit;
 }
 
-/* --- Type ------------------------------------------------------------ */
-
-.section-label {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--faint);
-}
-
-.gradient-text {
-  background: linear-gradient(180deg, #ffffff 0%, rgba(255, 255, 255, 0.62) 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-
-/* --- Motion ---------------------------------------------------------- */
-
 @keyframes rise {
   from {
     opacity: 0;
-    transform: translateY(14px);
+    transform: translateY(12px);
   }
   to {
     opacity: 1;
@@ -238,26 +317,7 @@ body {
 }
 
 .rise {
-  animation: rise 0.7s cubic-bezier(0.16, 1, 0.3, 1) backwards;
-}
-
-/*
-  Scroll reveal for card grids. The hero's `.rise` fires on load because it is
-  above the fold; everything below it needs to wait until it is actually looked
-  at, or the animation has already finished by the time the reader arrives.
-
-  Held at `opacity: 0` until `Reveal` adds `.is-visible`, and deliberately not
-  the other way round: a card that faded *out* on first paint would flash.
-*/
-@keyframes reveal-up {
-  from {
-    opacity: 0;
-    transform: translateY(16px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
+  animation: rise 0.62s var(--ease-spring) backwards;
 }
 
 .reveal {
@@ -265,18 +325,13 @@ body {
 }
 
 .reveal.is-visible {
-  animation: reveal-up 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: rise 0.55s var(--ease-spring) forwards;
 }
 
-/*
-  The settings group swapping under the tabs. Mirrors the real Settings window,
-  which slides a pane in from `x: 6` — small, because the card is already
-  changing and a second axis of travel reads as jitter.
-*/
 @keyframes group-in {
   from {
     opacity: 0;
-    transform: translateX(14px);
+    transform: translateX(10px);
   }
   to {
     opacity: 1;
@@ -285,14 +340,9 @@ body {
 }
 
 .group-in {
-  animation: group-in 0.32s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  animation: group-in 0.3s var(--ease-spring) backwards;
 }
 
-/*
-  Panel cross-fade inside the notch. The app fades panels over 120ms with no
-  movement — the card is already springing to a new size, and a second axis of
-  motion on top of that reads as jitter.
-*/
 @keyframes panel-in {
   from {
     opacity: 0;
@@ -306,7 +356,6 @@ body {
   animation: panel-in 0.14s ease-out backwards;
 }
 
-/* The collapsed pill's equalizer, matching the app's `.eq` animation. */
 @keyframes eq {
   0%,
   100% {
@@ -320,56 +369,6 @@ body {
 .eq {
   transform-origin: bottom;
   animation: eq 0.9s ease-in-out infinite;
-}
-
-/*
-  The "What's new" dialog. The panel rises from the bottom edge on a phone,
-  where it is a sheet, and scales up from centre on a wider screen — two
-  keyframes rather than one because the two shapes read as different objects.
-*/
-@keyframes modal-backdrop-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes modal-sheet-in {
-  from {
-    opacity: 0;
-    transform: translateY(24px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-@keyframes modal-panel-in {
-  from {
-    opacity: 0;
-    transform: scale(0.96) translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-.modal-backdrop {
-  animation: modal-backdrop-in 0.2s ease-out;
-}
-
-.modal-panel {
-  animation: modal-sheet-in 0.34s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-@media (min-width: 640px) {
-  .modal-panel {
-    animation-name: modal-panel-in;
-  }
 }
 
 @keyframes caret {
@@ -387,6 +386,41 @@ body {
   animation: caret 1.1s step-end infinite;
 }
 
+.modal-backdrop {
+  background: rgba(0, 0, 0, 0.6);
+  opacity: 0;
+  
+  transition: opacity 0.25s var(--ease-out-quart);
+}
+
+.modal-backdrop[data-open="true"] {
+  opacity: 1;
+}
+
+.modal-panel {
+  background: rgba(14, 14, 18, 0.86);
+  border: 1px solid var(--hairline-strong);
+  box-shadow: var(--sh-overlay);
+  backdrop-filter: blur(0px) saturate(180%);
+  -webkit-backdrop-filter: blur(0px) saturate(180%);
+  opacity: 0;
+  transform: translateY(14px) scale(0.985);
+  transition:
+    opacity 0.26s var(--ease-out-quart),
+    transform 0.26s var(--ease-out-quart),
+    backdrop-filter 0.26s var(--ease-out-quart),
+    -webkit-backdrop-filter 0.26s var(--ease-out-quart);
+}
+
+.modal-panel[data-open="true"] {
+  opacity: 1;
+  transform: none;
+  backdrop-filter: blur(30px) saturate(180%);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+  transition-duration: 0.4s;
+  transition-timing-function: var(--ease-spring);
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
@@ -396,19 +430,64 @@ body {
   .eq,
   .caret,
   .group-in,
-  .modal-backdrop,
-  .modal-panel {
+  .panel-in {
     animation: none;
   }
 
-  /*
-    Reveal needs more than `animation: none`: the resting state is
-    `opacity: 0`, so cancelling the animation alone would leave every card
-    below the fold invisible rather than unanimated.
-  */
+  
   .reveal,
   .reveal.is-visible {
     animation: none;
     opacity: 1;
+  }
+
+  .card-interactive:hover {
+    transform: none;
+  }
+
+  .press:active {
+    transform: none;
+  }
+
+  .modal-panel {
+    transition: opacity 0.2s ease;
+    transform: none !important;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .glass,
+  .modal-panel {
+    background: var(--surface-raised);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .glass-on-color {
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .parallax-bg {
+    display: none;
+  }
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --hairline: rgba(255, 255, 255, 0.28);
+    --hairline-strong: rgba(255, 255, 255, 0.45);
+    --text-body: #e4e4e8;
+    --text-secondary: #c2c2c7;
+    --text-tertiary: #a8a8ae;
+    --text-faint: #8e8e94;
+  }
+
+  .glass,
+  .modal-panel {
+    background: #0b0b0f;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 }

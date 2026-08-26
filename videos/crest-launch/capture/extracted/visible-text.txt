@@ -1,0 +1,207 @@
+[a] See Crest
+[button] Changelog
+[a] Download
+[a] Download
+[a] See Crest
+[button] Changelog
+[a] GitHub
+[a] FAQ
+[span] 0.7.0
+[button] See what’s new
+[h1] The space at the top
+[h1] of your screen
+[span] finally
+[span] does something.
+[p] Crest turns that dead strip above your desktop into a small panel. Music, a timer, your battery, a notification. It shows up when one of those needs you, and gets out of the way the second it doesn’t.
+[a] Try Crest for Windows
+[a] See it in action
+[p] Free for Windows 10 & 11 · No account required
+[span] 5:21 PM
+[p] Hover the notch. It expands after
+[p] 600
+[dt] 600ms
+[dd] Typical response time
+[dd] Built-in modules
+[dd] Accounts required
+[dt] MIT
+[dd] Open-source license
+[p] Why the top edge
+[h2] Windows leaves that space empty.
+[span] We didn’t.
+[p] The strip above your desktop is bigger than a menu bar and does exactly as much. Crest started as a two-hour experiment to see if that space could hold something useful without turning into another sidebar, another floating window, another thing competing for room. It didn’t need to. It just needed to know when to show up.
+[p] Panels
+[h2] See what’s happening
+[span] without losing focus.
+[p] Seven panels, each a page of the same card. Arrows or a scroll move between them and it morphs to fit. Keep the ones you use, drag them into the order you want.
+[h3] Now playing
+[p] A track starts. Skip it without touching the taskbar.
+[h3] Quick launcher
+[p] You need an app right now. Type three letters, it's open.
+[h3] File shelf
+[p] A file needs to go somewhere else first. Drag it up, drop it later.
+[h3] Notifications
+[p] Something lands in the Action Center. It surfaces here first, then files itself away.
+[h3] System monitor
+[p] The fan kicks in. Check what's actually using the CPU before you blame Chrome.
+[h3] Weather
+[p] You're deciding on a jacket. It's already answered.
+[h3] Calendar
+[p] A reminder's about to fire. You see it before it interrupts you.
+[h3] Quick notes
+[p] A thought worth keeping. Type it before it's gone. No app to open first.
+[h3] Clipboard history
+[p] You copied the wrong thing two steps ago. It's still in there.
+[h3] A clock at rest
+[p] You just want the time. That's all it shows until you ask for more.
+[h3] Invisible when idle
+[p] You're not touching it. It's not touching your taskbar, Alt-Tab, or anything else.
+[p] And some things never wait to be asked for: a track starting, a notification landing, a reminder falling due, a charger going in, or your machine struggling.
+[p] The small stuff
+[h2] Built for the little things.
+[p] Not a redesign of how you use your PC: the small stuff that happens forty times a day. None of it deserves its own window. All of it fits in a strip you already know how to reach.
+[h3] A timer for the next 25 minutes
+[p] Set it, forget the app exists, glance at the pill when you need to.
+[h3] A glance at what's eating your CPU
+[p] Before you blame the Wi-Fi, check whether it's actually your machine.
+[h3] The thing you copied three clicks ago
+[p] Not the one still on your clipboard. The one before that.
+[p] Settings
+[h2] Yours to arrange,
+[span] no config file.
+[p] Crest works the moment it installs, so none of this is setup: it is what you change once you have lived with it for a week. Every change lands immediately, in every window at once.
+[button] Panels & colour
+[button] Where it lives
+[button] What it tells you
+[button] Set once
+[h3] Choose your panels
+[p] Switch off the ones you don't use and drag the rest into the order you want.
+[span] Media
+[span] Launcher
+[span] Shelf
+[span] Calendar
+[h3] Five themes
+[p] Crest, Glacier, Ember, Daylight and Mono. One repaints every window at once.
+[h3] Accent colour
+[p] Eight to pick from, or type your own hex. Everything active is drawn in it.
+[h3] Background opacity
+[p] How much of your wallpaper shows through. Every Mica surface follows it.
+[span] Eight pages, one window.
+[p] About, Panels, Theme, Appearance, Display, Weather, Notes and the switches, opened from the tray icon, so nothing is buried at the bottom of a page you have already scrolled past.
+[p] How it works
+[h2] No shortcut to learn.
+[p] The whole interface is one motion you already make a hundred times a day: moving the cursor to the top of the screen. Crest is a cursor-driven overlay, not another window to manage.
+[h3] Install and forget
+[p] One installer, no setup screen. Crest registers itself to start with Windows and then gets out of the way: there is nothing to configure before it is useful. A thin mark on the top edge shows you where to point until you no longer need it.
+[h3] Nudge the top of the screen
+[p] A thin strip at the very top edge is the trigger. Touch it and the pill peeks; keep the cursor there for 600ms and the full card opens. Passing through on your way to a tab does nothing.
+[h3] Move between panels
+[p] Chevrons either side of the panel name step through Media, Launcher, Shelf & Notes, Notifications, System, Weather and Calendar, or just scroll over the card. A list that scrolls on its own still scrolls on its own, so reading to the bottom of your notifications never tips you into the next panel. Drag a file at the notch and it jumps straight to the shelf.
+[h3] Let it come to you
+[p] Some things do not wait to be hovered. A track starting, a notification arriving, a reminder falling due, a charger going in, or your machine struggling: each drops a small banner down for a few seconds and retracts it. Hover to hold one while you read; keep hovering the ones with a panel behind them and it opens.
+[h3] Move away
+[p] Leave the card and it steps back down (expanded, to pill, to nothing) with a short grace period at each step so a slipped cursor doesn't close it. Or switch "Always on top" on and the pill simply stays.
+[h3] Never think about updating it
+[p] Crest checks for a new version shortly after it starts and again through the day. If there is one, it downloads and installs it on its own: no installer window, no prompts, no wizard. The only sign is a small loader in the notch itself.
+[p] Under the hood
+[h2] Built like a system tool,
+[span] not a wrapper.
+[h3] Native, not a web app in a box
+[p] The music, the launcher index, the clipboard listener, the drag-out shelf and the load meters are all real Windows APIs called from Rust. The CPU and GPU figures come from the same performance counters Task Manager reads, so they agree with it rather than approximating it.
+[h3] Idle costs nothing
+[p] Nothing renders while the notch is away, and the watchers that have to keep listening (what is playing, what has just arrived, what your machine is doing) settle to a check every two seconds. The meters only speed up while you are looking at them, and the forecast is cached for ten minutes.
+[h3] No account. No clutter.
+[p] Nothing to sign into, nothing syncing to a server you didn't choose. Clipboard entries, notes, reminders and shelved files live in your local app-data folder and go nowhere else. Only two things ever leave the machine: the update check, and the forecast for the town you typed in yourself.
+[h3] It stays out of the way.
+[p] No taskbar icon, no Alt-Tab entry, click-through outside its own bounds: a click meant for the desktop reaches the desktop. It only claims the top of the window stack when there is something on screen to see.
+[dt] Tauri 2
+[dd] Desktop shell
+[dt] Rust
+[dd] Native Windows APIs
+[dt] React 19
+[dd] Panel UI
+[dt] TypeScript
+[dd] End to end
+[dt] Framer Motion
+[dd] Spring physics
+[dt] Fluent 2
+[dd] Mica design language
+[h2] Make the top of your screen useful.
+[p] One installer, no setup screen. It’s running in about a minute, and by the second time you nudge the top edge you won’t remember doing it on purpose.
+[a] Download v
+[a] 0.7.0
+[a] Build from source
+[li] Windows 10 & 11, 64-bit
+[li] Served straight from GitHub
+[li] Starts with Windows
+[li] MIT licensed
+[p] Windows SmartScreen may warn on first run: the installer is not yet code-signed by a paid certificate. Choose
+[span] More info → Run anyway
+[p] , or build it yourself from the repo.
+[p] Community
+[h2] Built in the open,
+[span] with the people using it.
+[p] There is no support portal and no ticket queue. There is a Discord server where the person who writes the app reads what you post, and a public issue tracker for anything that outlives a conversation.
+[h3] Crest: Windows Dynamic Notch
+[p] Fully open source, and free. Bug reports, changelogs, feature requests, and early looks at panels that are not out yet.
+[li] Report a bug and watch it get fixed
+[li] See what is being built before it ships
+[li] Ask for a panel you want
+[li] Say when something feels wrong
+[a] Join the Discord
+[p] Free, no account beyond Discord’s own.
+[span] Discord
+[span] Bug reports, changelogs and whatever gets built next.
+[span] GitHub
+[span] The whole source, every release, and the issue tracker.
+[p] Questions
+[h2] Before you install.
+[p] Still unsure about something? Ask in the
+[a] Discord
+[a] open an issue
+[p] , both get answered.
+[summary] Does this need a laptop with a physical notch?
+[p] No. Crest draws its own. It is a transparent overlay pinned to the top edge of your screen (left, centre or right, whichever you pick) so it works on any monitor, including a desktop tower with no notch anywhere in sight.
+[summary] Will it get in the way of my windows?
+[p] It sits above them, but only where it is actually drawing. Everywhere else the overlay is click-through, so a click aimed at a maximised window or the desktop passes right through it. It is also skipped from the taskbar and from Alt-Tab.
+[summary] Which music apps work?
+[p] Anything that reports to the Windows media session: Spotify, Apple Music, Groove, VLC, and media playing in Edge, Chrome or Firefox. Crest reads the same source the volume flyout uses, so if Windows knows about it, Crest does.
+[summary] How do notifications in the notch work?
+[p] Crest reads the Windows notification centre, so anything that lands there drops down from the notch for a few seconds with the app's own icon, then retracts. Hover to hold it while you read. Windows needs "Let apps access your notifications" turned on. Crest tells you in Settings if it isn't. There is also a panel holding everything currently in the centre, where you can open one in full, dismiss it, or clear the lot.
+[summary] I have two monitors. Which one does it live on?
+[p] Whichever you want. The Display page in Settings draws the screens you have, arranged the way they actually sit on your desk and numbered to match Windows' own display settings. Click one and the notch moves there. Or switch on "show the notch on every display" and each monitor gets its own, with the same panels and the same banners. If you unplug the screen you sent it to, the notch moves to your main display until that screen is back; you never have to pick it again.
+[summary] Can I change how it looks?
+[p] There are five themes: Crest's near-black and violet, cool Glacier, warm Ember, a light Daylight for a bright desktop, and Mono with no colour in it at all. On top of that you can set the accent to any colour you like, and a slider decides how much of your wallpaper shows through. Everything repaints at once: the notch, the tray menu and the settings window.
+[summary] How does it update?
+[p] By itself. Crest checks shortly after it starts and again through the day, and if there is something newer it downloads and installs it quietly: no installer window, no prompts, no wizard. The only thing you see is a small loader in the notch. Releases are signed, and the full notes for each one are on GitHub and in the app.
+[summary] Can I stop Windows showing its own pop-ups too?
+[p] Yes: one switch in Settings. Crest turns off the per-app banner for each app that registers one, so a notification appears in the notch and nowhere else. It still lands in the notification centre as normal, and every banner is handed straight back the moment you turn the switch off or quit Crest. Nothing is ever blocked from being delivered.
+[summary] Can I move it, or keep it on screen?
+[p] Both. Settings puts the notch at the left, centre or right of your top edge (on whichever monitor you choose) and the strip you hover to summon it moves with it. "Always on top" keeps the pill resting on screen above your windows instead of hiding, and with it off, a card you open still comes up in front of whatever you are working in, then drops back once it closes. There is also a slider for how transparent the surface is.
+[summary] Where do I report a bug or ask for something?
+[p] The Discord server is the fastest route: bug reports, changelogs and feature requests all live there, and the person who writes the app reads it. Anything that should outlive a conversation belongs on the GitHub issue tracker instead.
+[summary] Does it phone home?
+[p] There is no account, no sync service, no telemetry and no analytics. Your clipboard entries, notes and shelved files are written to your local app-data folder and stay there. The whole source is on GitHub if you want to check.
+[summary] Is it heavy?
+[p] It is a Tauri app, so it uses the WebView that ships with Windows instead of bundling a browser. While the notch is away nothing renders, and the watchers that have to keep listening (what is playing, what has just arrived, what your machine is doing) settle to a check every two seconds. The load meters only speed up while the system panel is actually on screen. Idle cost is close to nothing.
+[summary] How do I get rid of it?
+[p] Uninstall it from Windows Settings like any other app. Auto-start is registered through the standard Windows mechanism and is removed along with it.
+[summary] Is it really free?
+[p] Yes: MIT licensed and open source. No trial, no pro tier, no upsell. If it saves you time, a star on the repo is plenty.
+[p] A dynamic notch for Windows. Music, notifications, apps, clipboard, files and notes, one hover away.
+[a] Features
+[a] Settings
+[a] How it works
+[a] Under the hood
+[a] Download
+[a] Source code
+[a] Releases
+[a] Report an issue
+[a] MIT license
+[p] Community
+[a] Discord server
+[a] Where to find us
+[a] Discussions
+[a] Request a feature
+[p] . Not affiliated with Microsoft or Apple.
+[p] Built by
+[a] LennyDany-03

@@ -113,6 +113,14 @@ export interface Settings {
   hotkey: string | null
   /** Whether the notch keeps recent screenshots to hand. */
   screenshots: boolean
+  /**
+   * Whether a finished countdown plays a chime.
+   *
+   * The only sound in the app, which is why it has a switch at all: everything
+   * else Crest does is silent, so a noise nobody could turn off would be the app
+   * acquiring a new kind of presence without asking.
+   */
+  timerSound: boolean
 }
 
 /**
@@ -152,6 +160,7 @@ const DEFAULTS: Settings = {
   collapseDelay: 300,
   hotkey: null,
   screenshots: true,
+  timerSound: true,
 }
 
 /**
@@ -478,6 +487,11 @@ export function useSettings() {
     [write],
   )
 
+  const setTimerSound = useCallback(
+    (enabled: boolean) => write('set_timer_sound', 'timerSound', enabled, { enabled }),
+    [write],
+  )
+
   return {
     settings,
     loaded,
@@ -503,6 +517,7 @@ export function useSettings() {
     setCollapseDelay,
     setHotkey,
     setScreenshots,
+    setTimerSound,
   }
 }
 

@@ -56,6 +56,7 @@ export type NotchModule =
   | 'calendar'
   | 'quickAccess'
   | 'screenshots'
+  | 'timer'
 
 /**
  * The **default** order and the full set of modules that exist.
@@ -81,6 +82,7 @@ export const MODULES: readonly NotchModule[] = [
   'calendar',
   'quickAccess',
   'screenshots',
+  'timer',
 ] as const
 
 /**
@@ -105,6 +107,7 @@ export const MODULE_LABELS: Record<NotchModule, string> = {
   calendar: 'Calendar',
   quickAccess: 'Quick Access',
   screenshots: 'Screenshots',
+  timer: 'Timer',
 }
 
 /**
@@ -210,6 +213,20 @@ export type Announcement =
    * notification logo, so a slow thumbnail costs a thumbnail and never the banner.
    */
   | { kind: 'screenshot'; shot: Screenshot }
+  /**
+   * A countdown has landed.
+   *
+   * Has a card behind it like `media`, `performance`, `reminder` and
+   * `screenshot`, so hovering it dwells through to somewhere the user can act —
+   * and here the card is already back at rest showing the duration that just ran,
+   * which puts "again" one click away.
+   *
+   * Carries `landedAt` purely so `announceKey` has something to key on: two
+   * one-minute timers run back to back are the same `durationMs`, and a shared
+   * key would swap the text under a fixed surface and read as the first banner
+   * having been wrong rather than as a second timer finishing.
+   */
+  | { kind: 'timer'; durationMs: number; landedAt: number }
   /**
    * Crest updating itself. Unlike the other five this is not a report of
    * something that happened — it is a *process*, and it is re-announced on every
