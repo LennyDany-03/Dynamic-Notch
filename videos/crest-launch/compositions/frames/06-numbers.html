@@ -1,0 +1,181 @@
+<template>
+  <style>
+    @font-face { font-family: 'Geist'; font-style: normal; font-weight: 400; font-display: block; src: url('assets/fonts/Geist_Regular.woff2') format('woff2'); }
+    @font-face { font-family: 'Geist'; font-style: normal; font-weight: 500; font-display: block; src: url('assets/fonts/Geist_Medium.woff2') format('woff2'); }
+    @font-face { font-family: 'Geist'; font-style: normal; font-weight: 600; font-display: block; src: url('assets/fonts/Geist_SemiBold.woff2') format('woff2'); }
+    @font-face { font-family: 'Geist Mono'; font-style: normal; font-weight: 400; font-display: block; src: url('assets/fonts/Geist_Mono_Regular.woff2') format('woff2'); }
+    @font-face { font-family: 'Geist Mono'; font-style: normal; font-weight: 500; font-display: block; src: url('assets/fonts/Geist_Mono_Medium.woff2') format('woff2'); }
+
+    #root {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      background: transparent;
+      font-family: 'Geist', 'Inter', system-ui, sans-serif;
+      color: #F5F5F7;
+    }
+
+    #root .f06-ground {
+      position: absolute;
+      inset: 0;
+      background-color: #0F0F13;
+      background-image:
+        linear-gradient(to right, rgba(47, 111, 237, 0.10) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(47, 111, 237, 0.10) 1px, transparent 1px);
+      background-size: 38.4px 38.4px;
+    }
+
+    #root .f06-measure {
+      position: absolute;
+      left: 80px; top: 258px;
+      width: 1760px; height: 424px;
+      display: block;
+      overflow: visible;
+    }
+
+    #root .f06-tile {
+      position: absolute;
+      top: 330px;
+      height: 300px;
+      border: 1px solid rgba(47, 111, 237, 0.18);
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      transform-origin: 50% 50%;
+    }
+
+    #root .f06-n {
+      font-family: 'Geist Mono', 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 108px;
+      line-height: 1;
+      letter-spacing: -0.02em;
+      font-variant-numeric: tabular-nums;
+      color: #F5F5F7;
+      transform-origin: 50% 50%;
+      display: block;
+    }
+    #root .f06-n .u { font-size: 42px; letter-spacing: 0; }
+    #root .f06-n.hot { color: #2F6FED; }
+
+    #root .f06-cap {
+      margin-top: 26px;
+      font-size: 21px;
+      color: rgba(245, 245, 247, 0.5);
+      letter-spacing: 0.01em;
+    }
+
+    #root .f06-eyebrow {
+      position: absolute;
+      left: 80px; top: 258px;
+      font-size: 13px; font-weight: 600;
+      letter-spacing: 0.16em; text-transform: uppercase;
+      color: rgba(245, 245, 247, 0.62);
+    }
+  </style>
+
+  <div data-hf-id="hf-jigv" id="root" data-composition-id="06-numbers" data-start="0" data-duration="8.546" data-width="1920" data-height="1080">
+    <div data-hf-id="hf-ruot" id="f06-ground" class="clip f06-ground" data-start="0" data-duration="8.546" data-track-index="0"></div>
+
+    <div data-hf-id="hf-zbry" class="f06-eyebrow" id="f06-eyebrow">Measured</div>
+
+    <!-- the four-column measure: five vertical hairlines drawn on the grid -->
+    <svg data-hf-id="hf-e5zq" class="f06-measure" viewBox="0 0 1760 424" preserveAspectRatio="none" aria-hidden="true">
+      <g data-hf-id="hf-4lrk" id="f06-mg" stroke="rgba(47,111,237,0.34)" stroke-width="1.2" />
+    </svg>
+
+    <div data-hf-id="hf-npyl" class="f06-tile" id="f06-t0" style="left:80px;  width:400px;">
+      <span data-hf-id="hf-kud1" class="f06-n" id="f06-n0">0<span data-hf-id="hf-7jyy" class="u">ms</span></span>
+      <span data-hf-id="hf-5bp0" class="f06-cap">typical response time</span>
+    </div>
+    <div data-hf-id="hf-hzqj" class="f06-tile" id="f06-t1" style="left:520px; width:400px;">
+      <span data-hf-id="hf-oewi" class="f06-n" id="f06-n1">0</span>
+      <span data-hf-id="hf-p2u5" class="f06-cap">built-in modules</span>
+    </div>
+    <div data-hf-id="hf-dg26" class="f06-tile" id="f06-t2" style="left:960px; width:400px;">
+      <span data-hf-id="hf-c64o" class="f06-n hot" id="f06-n2">0</span>
+      <span data-hf-id="hf-cb79" class="f06-cap">accounts required</span>
+    </div>
+    <div data-hf-id="hf-ndc1" class="f06-tile" id="f06-t3" style="left:1400px; width:440px;">
+      <span data-hf-id="hf-q04p" class="f06-n hot" id="f06-n3">MIT</span>
+      <span data-hf-id="hf-27pt" class="f06-cap">open-source license</span>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      window.__timelines = window.__timelines || {};
+      var tl = gsap.timeline({ paused: true });
+
+      /* five vertical measure hairlines at the tile boundaries */
+      var mg = document.querySelector('#f06-mg');
+      var MLEN = 424;
+      var mlines = [];
+      [0, 440, 880, 1320, 1760].forEach(function (x) {
+        var ln = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        var px = Math.min(Math.max(x, 0.6), 1759.4);
+        ln.setAttribute('x1', String(px)); ln.setAttribute('y1', '0');
+        ln.setAttribute('x2', String(px)); ln.setAttribute('y2', String(MLEN));
+        ln.style.strokeDasharray = MLEN;
+        mg.appendChild(ln);
+        mlines.push(ln);
+      });
+
+      var tiles = [0, 1, 2, 3].map(function (i) { return document.querySelector('#f06-t' + i); });
+      var nums = [0, 1, 2, 3].map(function (i) { return document.querySelector('#f06-n' + i); });
+      var eyebrow = document.querySelector('#f06-eyebrow');
+
+      gsap.set(tiles, { autoAlpha: 0 });
+
+      /* === Scene 1 (0.0-2.3s) — the measure strengthens, tile 1 lands ========= */
+      tl.fromTo(eyebrow, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.4, ease: 'power2.out' }, 0.10);
+      tl.fromTo(mlines, { strokeDashoffset: MLEN },
+        { strokeDashoffset: 0, duration: 0.75, ease: 'power3.out', stagger: 0.06 }, 0.18);
+
+      /* center-outward-expansion, direct-into-slot form: a short path, low drama. */
+      function land(tile, at) {
+        tl.fromTo(tile, { autoAlpha: 0, y: 34, scale: 0.97 },
+          { autoAlpha: 1, y: 0, scale: 1, duration: 0.55, ease: 'power3.out' }, at);
+      }
+
+      /* counting-dynamic-scale — proxy + scale share one timeline position. */
+      function countTo(el, target, suffix, at, dur) {
+        var p = { v: 0 };
+        tl.fromTo(p, { v: 0 }, {
+          v: target, duration: dur, ease: 'power3.out',
+          onUpdate: function () {
+            el.innerHTML = String(Math.round(p.v)) + (suffix || '');
+          }
+        }, at);
+        tl.fromTo(el, { scale: 0.72 }, { scale: 1, duration: dur, ease: 'power3.out' }, at);
+      }
+
+      land(tiles[0], 0.30);
+      countTo(nums[0], 600, '<span class="u">ms</span>', 0.42, 1.05);
+
+      /* === Scene 2 (2.3-4.3s) — "Seven panels built in" ====================== */
+      land(tiles[1], 2.76);
+      countTo(nums[1], 7, '', 2.86, 0.85);
+
+      /* === Scene 3 (4.3-5.9s) — "Zero accounts" ============================== */
+      /* A count-up to zero would be a no-op, so the 0 takes the scale half of the
+         same move and arrives accented — it is the objection-killer, not a metric. */
+      land(tiles[2], 4.98);
+      tl.fromTo(nums[2], { scale: 0.72 }, { scale: 1, duration: 0.85, ease: 'power3.out' }, 5.06);
+
+      /* === Scene 4 (5.9-8.046s) — "MIT licensed", then dead still ============ */
+      land(tiles[3], 6.68);
+      /* discrete-text-sequence: MIT is a word wearing a number's clothes, so it
+         snaps in by character rather than counting. */
+      var MITs = ['', 'M', 'MI', 'MIT'];
+      for (var k = 0; k < MITs.length; k++) {
+        tl.set(nums[3], { textContent: MITs[k] }, 6.74 + k * 0.07);
+      }
+      tl.fromTo(nums[3], { scale: 0.72 }, { scale: 1, duration: 0.8, ease: 'power3.out' }, 6.74);
+      /* All four hold to the end. No float, no push, no breathing. */
+
+      window.__timelines['06-numbers'] = tl;
+    })();
+  </script>
+</template>

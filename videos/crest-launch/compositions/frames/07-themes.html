@@ -1,0 +1,199 @@
+<template>
+  <style>
+    @font-face { font-family: 'Geist'; font-style: normal; font-weight: 400; font-display: block; src: url('assets/fonts/Geist_Regular.woff2') format('woff2'); }
+    @font-face { font-family: 'Geist'; font-style: normal; font-weight: 500; font-display: block; src: url('assets/fonts/Geist_Medium.woff2') format('woff2'); }
+    @font-face { font-family: 'Geist'; font-style: normal; font-weight: 600; font-display: block; src: url('assets/fonts/Geist_SemiBold.woff2') format('woff2'); }
+    @font-face { font-family: 'Geist Mono'; font-style: normal; font-weight: 400; font-display: block; src: url('assets/fonts/Geist_Mono_Regular.woff2') format('woff2'); }
+    @font-face { font-family: 'Geist Mono'; font-style: normal; font-weight: 500; font-display: block; src: url('assets/fonts/Geist_Mono_Medium.woff2') format('woff2'); }
+
+    #root {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      background: transparent;
+      font-family: 'Geist', 'Inter', system-ui, sans-serif;
+      color: #F5F5F7;
+    }
+
+    #root .f07-ground {
+      position: absolute;
+      inset: 0;
+      background-color: #0F0F13;
+      background-image:
+        linear-gradient(to right, rgba(47, 111, 237, 0.10) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(47, 111, 237, 0.10) 1px, transparent 1px);
+      background-size: 38.4px 38.4px;
+    }
+
+    /* the two screens ride one stage so the reposition is a single group move */
+    #root .f07-stage { position: absolute; inset: 0; }
+
+    #root .f07-mon {
+      position: absolute;
+      top: 330px;
+      width: 700px; height: 394px;
+      border: 1px solid rgba(245, 245, 247, 0.16);
+      border-radius: 8px;
+      background: rgba(245, 245, 247, 0.012);
+    }
+
+    /* THE ANCHOR — one geometry, five complete skins stacked on it. */
+    #root .f07-pill {
+      position: absolute;
+      top: 330px; left: 418px;
+      width: 264px; height: 34px;
+    }
+    #root .f07-skin {
+      position: absolute;
+      inset: 0;
+      border-radius: 16px;
+      overflow: hidden;
+      display: grid;
+      grid-template-columns: 80px 1fr 80px;
+      align-items: center;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28), 0 12px 28px rgba(0, 0, 0, 0.22);
+    }
+    #root .f07-skin::after {
+      content: ''; position: absolute; left: 0; right: 0; top: 0; height: 1px;
+      background: rgba(255, 255, 255, 0.1);
+    }
+    #root .f07-skin .eq { display: flex; align-items: flex-end; gap: 2px; height: 22px; padding-left: 10px; }
+    #root .f07-skin .eq i { display: block; width: 3px; border-radius: 2px; }
+    #root .f07-skin .ck {
+      text-align: center; font-size: 14px; font-weight: 500;
+      font-variant-numeric: tabular-nums;
+    }
+    #root .f07-skin .bt {
+      justify-self: end; margin-right: 10px; width: 34px; height: 16px;
+      border-radius: 4px; position: relative;
+    }
+    #root .f07-skin .bt span {
+      position: absolute; left: 2px; top: 2px; bottom: 2px; width: 18px;
+      border-radius: 2px; display: block;
+    }
+
+    #root .f07-label {
+      position: absolute;
+      left: 0; right: 0; top: 782px;
+      text-align: center;
+      font-size: 84px;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      color: #2F6FED;
+      transform-origin: 50% 50%;
+    }
+
+    #root .f07-name {
+      position: absolute;
+      left: 0; right: 0; top: 240px;
+      text-align: center;
+      font-family: 'Geist Mono', 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 22px;
+      letter-spacing: 0.08em;
+      color: rgba(245, 245, 247, 0.45);
+    }
+  </style>
+
+  <div data-hf-id="hf-3xph" id="root" data-composition-id="07-themes" data-start="0" data-duration="3.874" data-width="1920" data-height="1080">
+    <div data-hf-id="hf-cpxk" id="f07-ground" class="clip f07-ground" data-start="0" data-duration="3.874" data-track-index="0"></div>
+
+    <div data-hf-id="hf-d6np" class="f07-name" id="f07-name">Crest</div>
+
+    <div data-hf-id="hf-cjjp" data-layout-allow-overflow="" class="f07-stage" id="f07-stage">
+      <div data-hf-id="hf-96q5" class="f07-mon" id="f07-monA" style="left:200px;"></div>
+      <div data-hf-id="hf-l2kh" class="f07-mon" id="f07-monB" style="left:1020px;"></div>
+
+      <div data-hf-id="hf-3cyq" class="f07-pill" id="f07-pill">
+        <!-- five complete skins at identical geometry (theme-crossfade-morph) -->
+        <div data-hf-id="hf-k32b" data-layout-allow-overlap="" data-layout-allow-occlusion="" class="f07-skin" id="f07-s0" style="background:rgba(32,32,32,0.92)">
+          <div data-hf-id="hf-q0s6" class="eq"><i data-hf-id="hf-kdlj" style="height:8px;background:#2F6FED"></i><i data-hf-id="hf-a60e" style="height:14px;background:#2F6FED"></i><i data-hf-id="hf-61al" style="height:6px;background:#2F6FED"></i></div>
+          <div data-hf-id="hf-gz49" data-layout-allow-overlap="" data-layout-allow-occlusion="" class="ck" style="color:rgba(255,255,255,0.9)">9:41</div>
+          <div data-hf-id="hf-30lx" class="bt" style="border:1.2px solid rgba(255,255,255,0.55)"><span data-hf-id="hf-nlni" style="background:#2F6FED"></span></div>
+        </div>
+        <div data-hf-id="hf-oqin" data-layout-allow-overlap="" data-layout-allow-occlusion="" class="f07-skin" id="f07-s1" style="background:rgba(26,29,36,0.92)">
+          <div data-hf-id="hf-dfbu" class="eq"><i data-hf-id="hf-wsmm" style="height:8px;background:#6fb1d9"></i><i data-hf-id="hf-f8a3" style="height:14px;background:#6fb1d9"></i><i data-hf-id="hf-0jtc" style="height:6px;background:#6fb1d9"></i></div>
+          <div data-hf-id="hf-k7ls" data-layout-allow-overlap="" data-layout-allow-occlusion="" class="ck" style="color:#e8edf2">9:41</div>
+          <div data-hf-id="hf-vl2o" class="bt" style="border:1.2px solid rgba(232,237,242,0.55)"><span data-hf-id="hf-9uuz" style="background:#6fb1d9"></span></div>
+        </div>
+        <div data-hf-id="hf-pp75" data-layout-allow-overlap="" data-layout-allow-occlusion="" class="f07-skin" id="f07-s2" style="background:rgba(24,20,16,0.92)">
+          <div data-hf-id="hf-dtmv" class="eq"><i data-hf-id="hf-tezu" style="height:8px;background:#e8934a"></i><i data-hf-id="hf-684v" style="height:14px;background:#e8934a"></i><i data-hf-id="hf-4j1g" style="height:6px;background:#e8934a"></i></div>
+          <div data-hf-id="hf-oj42" data-layout-allow-overlap="" data-layout-allow-occlusion="" class="ck" style="color:#fdf6ec">9:41</div>
+          <div data-hf-id="hf-4kl6" class="bt" style="border:1.2px solid rgba(253,246,236,0.55)"><span data-hf-id="hf-sevz" style="background:#e8934a"></span></div>
+        </div>
+        <div data-hf-id="hf-oblr" data-layout-allow-overlap="" data-layout-allow-occlusion="" class="f07-skin" id="f07-s3" style="background:rgba(244,243,241,0.94)">
+          <div data-hf-id="hf-e7xw" class="eq"><i data-hf-id="hf-lcgn" style="height:8px;background:#2f6fed"></i><i data-hf-id="hf-q4fi" style="height:14px;background:#2f6fed"></i><i data-hf-id="hf-m0wd" style="height:6px;background:#2f6fed"></i></div>
+          <div data-hf-id="hf-xz0m" data-layout-allow-overlap="" data-layout-allow-occlusion="" class="ck" style="color:#1c1c1e">9:41</div>
+          <div data-hf-id="hf-rnc1" class="bt" style="border:1.2px solid rgba(28,28,30,0.45)"><span data-hf-id="hf-2afy" style="background:#2f6fed"></span></div>
+        </div>
+        <div data-hf-id="hf-vgqq" data-layout-allow-overlap="" data-layout-allow-occlusion="" class="f07-skin" id="f07-s4" style="background:rgba(13,13,13,0.92)">
+          <div data-hf-id="hf-em8x" class="eq"><i data-hf-id="hf-l7aa" style="height:8px;background:#f0f0f0"></i><i data-hf-id="hf-ne77" style="height:14px;background:#f0f0f0"></i><i data-hf-id="hf-nebg" style="height:6px;background:#f0f0f0"></i></div>
+          <div data-hf-id="hf-wtlu" data-layout-allow-overlap="" data-layout-allow-occlusion="" class="ck" style="color:#fff">9:41</div>
+          <div data-hf-id="hf-5k3t" class="bt" style="border:1.2px solid rgba(255,255,255,0.55)"><span data-hf-id="hf-nn77" style="background:#f0f0f0"></span></div>
+        </div>
+      </div>
+    </div>
+
+    <div data-hf-id="hf-g4p8" class="f07-label" id="f07-label">Free</div>
+  </div>
+
+  <script>
+    (function () {
+      window.__timelines = window.__timelines || {};
+      var tl = gsap.timeline({ paused: true });
+
+      var stage = document.querySelector('#f07-stage');
+      var monB = document.querySelector('#f07-monB');
+      var pill = document.querySelector('#f07-pill');
+      var label = document.querySelector('#f07-label');
+      var name = document.querySelector('#f07-name');
+      var skins = [0, 1, 2, 3, 4].map(function (i) { return document.querySelector('#f07-s' + i); });
+
+      var NAMES = ['Crest', 'Glacier', 'Ember', 'Daylight', 'Mono', 'Crest'];
+      /* Skin 0 sits under the whole cycle; the others crossfade over it and the
+         run resolves back to skin 0 — the pill returns to blue at rest. */
+      var STEPS = [0.30, 0.52, 0.74, 0.96, 1.18];
+
+      gsap.set(skins.slice(1), { autoAlpha: 0 });
+      /* stage starts pushed right so screen A reads centred; B waits off to the side */
+      gsap.set(stage, { x: 410 });
+      gsap.set(monB, { autoAlpha: 0 });
+      gsap.set(label, { autoAlpha: 0 });
+
+      /* ====== Scene 1 (0.0-1.3s) — "Five themes": the pill re-skins in place === */
+      /* theme-crossfade-morph — stacked complete layers, opacity-only crossfade,
+         the anchor's geometry never moving. */
+      for (var i = 1; i <= 4; i++) {
+        (function (n) {
+          tl.fromTo(skins[n], { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.13, ease: 'power1.inOut' }, STEPS[n - 1]);
+        })(i);
+      }
+      /* resolve back to Crest: the top skins clear in reverse so blue is underneath */
+      tl.to(skins.slice(1), { autoAlpha: 0, duration: 0.14, ease: 'power1.inOut' }, STEPS[4]);
+
+      for (var k = 0; k < NAMES.length; k++) {
+        tl.set(name, { textContent: NAMES[k] }, k === 0 ? 0 : STEPS[k - 1]);
+      }
+
+      /* ====== Scene 2 (1.3-2.4s) — "Any monitor" ============================= */
+      tl.fromTo(monB, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.3, ease: 'power2.out' }, 1.56);
+
+      /* nudge-curve — slow-fast-slow group reposition: 10 / 65 / 25 of the travel,
+         tail at least 3x the ramp-in. */
+      tl.fromTo(stage, { x: 410 }, { x: 369, duration: 0.14, ease: 'power3.in' }, 1.58);
+      tl.to(stage, { x: 103, duration: 0.298, ease: 'none' }, 1.722);
+      tl.to(stage, { x: 0, duration: 0.46, ease: 'power4.out' }, 2.02);
+
+      /* the pill hops to screen B's top edge (stage-local 418 -> 1238) */
+      tl.fromTo(pill, { x: 0 }, { x: 82, duration: 0.14, ease: 'power3.in' }, 1.72);
+      tl.to(pill, { x: 615, duration: 0.298, ease: 'none' }, 1.862);
+      tl.to(pill, { x: 820, duration: 0.46, ease: 'power4.out' }, 2.16);
+
+      /* ====== Scene 3 (2.4-3.474s) — "Free" ================================== */
+      tl.fromTo(label, { autoAlpha: 0, scale: 0.88 },
+        { autoAlpha: 1, scale: 1, duration: 0.42, ease: 'power3.out' }, 2.84);
+      /* Ends on the word. No time spent after it. */
+
+      window.__timelines['07-themes'] = tl;
+    })();
+  </script>
+</template>

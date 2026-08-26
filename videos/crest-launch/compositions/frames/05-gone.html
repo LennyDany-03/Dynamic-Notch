@@ -1,0 +1,182 @@
+<template>
+  <style>
+    @font-face { font-family: 'Geist'; font-style: normal; font-weight: 400; font-display: block; src: url('assets/fonts/Geist_Regular.woff2') format('woff2'); }
+    @font-face { font-family: 'Geist'; font-style: normal; font-weight: 500; font-display: block; src: url('assets/fonts/Geist_Medium.woff2') format('woff2'); }
+    @font-face { font-family: 'Geist'; font-style: normal; font-weight: 600; font-display: block; src: url('assets/fonts/Geist_SemiBold.woff2') format('woff2'); }
+    @font-face { font-family: 'Geist Mono'; font-style: normal; font-weight: 400; font-display: block; src: url('assets/fonts/Geist_Mono_Regular.woff2') format('woff2'); }
+    @font-face { font-family: 'Geist Mono'; font-style: normal; font-weight: 500; font-display: block; src: url('assets/fonts/Geist_Mono_Medium.woff2') format('woff2'); }
+
+    #root {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      background: transparent;
+      font-family: 'Geist', 'Inter', system-ui, sans-serif;
+      color: #F5F5F7;
+    }
+
+    #root .f05-ground {
+      position: absolute;
+      inset: 0;
+      background-color: #0F0F13;
+      background-image:
+        linear-gradient(to right, rgba(47, 111, 237, 0.10) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(47, 111, 237, 0.10) 1px, transparent 1px);
+      background-size: 38.4px 38.4px;
+    }
+
+    /* The virtual camera. Origin chosen so that at scale 2.82 the card lands
+       exactly where frame 04 left it (580,210) — the shot opens matched. */
+    #root .f05-world {
+      position: absolute;
+      inset: 0;
+      transform-origin: 960px 47.3px;
+    }
+
+    /* the desktop, authored at its zoomed-OUT size */
+    #root .f05-desk {
+      position: absolute;
+      left: 280px; top: 105px;
+      width: 1360px; height: 765px;
+      border: 1px solid rgba(245, 245, 247, 0.16);
+      border-radius: 10px;
+      background: rgba(245, 245, 247, 0.012);
+    }
+
+    #root .f05-hz {
+      position: absolute;
+      left: 920px; top: 105px;
+      width: 80px; height: 4px;
+      background: #2F6FED;
+      border-radius: 2px;
+    }
+
+    #root .f05-card {
+      position: absolute;
+      left: 826px; top: 105px;
+      width: 269px; height: 116px;
+      border-radius: 11px;
+      background: rgba(32, 32, 32, 0.92);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.28), 0 4px 10px rgba(0, 0, 0, 0.22);
+      overflow: hidden;
+    }
+    #root .f05-card::after {
+      content: ''; position: absolute; left: 0; right: 0; top: 0; height: 1px;
+      background: rgba(255, 255, 255, 0.1);
+    }
+    #root .f05-crow {
+      position: absolute; left: 12px; top: 34px; width: 30px; height: 30px;
+      border-radius: 5px; background: linear-gradient(135deg, #3C5CA8, #1D2740);
+    }
+    #root .f05-cl1 { position: absolute; left: 52px; top: 36px; width: 120px; height: 9px;
+      border-radius: 4px; background: rgba(255,255,255,.5); }
+    #root .f05-cl2 { position: absolute; left: 52px; top: 52px; width: 78px; height: 8px;
+      border-radius: 4px; background: rgba(255,255,255,.28); }
+    #root .f05-cbar { position: absolute; left: 52px; top: 76px; width: 190px; height: 3px;
+      border-radius: 2px; background: rgba(255,255,255,.15); }
+
+    #root .f05-pill {
+      position: absolute;
+      left: 866px; top: 105px;
+      width: 187px; height: 24px;
+      border-radius: 11px;
+      background: rgba(32, 32, 32, 0.92);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.28), 0 4px 10px rgba(0, 0, 0, 0.22);
+    }
+
+    #root .f05-cursor { position: absolute; left: 942px; top: 262px; width: 74px; height: 74px; }
+
+    #root .f05-tags {
+      position: absolute;
+      left: 0; right: 0; top: 520px;
+      display: flex; align-items: center; justify-content: center; gap: 68px;
+      font-family: 'Geist Mono', 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 46px;
+      letter-spacing: 0.02em;
+    }
+    #root .f05-tags .gone {
+      color: rgba(245, 245, 247, 0.38);
+      text-decoration: line-through;
+      text-decoration-color: #2F6FED;
+      text-decoration-thickness: 3px;
+    }
+    #root .f05-tags .last { color: #2F6FED; }
+  </style>
+
+  <div id="root" data-composition-id="05-gone" data-start="0" data-duration="7.161" data-width="1920" data-height="1080">
+    <div id="f05-ground" class="clip f05-ground" data-start="0" data-duration="7.161" data-track-index="0"></div>
+
+    <div class="f05-world" id="f05-world">
+      <div class="f05-desk"></div>
+      <div class="f05-hz" id="f05-hz"></div>
+
+      <div class="f05-card" id="f05-card">
+        <div class="f05-crow"></div>
+        <div class="f05-cl1"></div>
+        <div class="f05-cl2"></div>
+        <div class="f05-cbar"></div>
+      </div>
+
+      <div class="f05-pill" id="f05-pill"></div>
+    </div>
+
+    <svg class="f05-cursor" id="f05-cursor" viewBox="0 0 40 40" aria-hidden="true">
+      <path d="M4 2 L4 31 L11.5 24 L16.5 35 L21.5 32.5 L16.5 22 L26 22 Z"
+            fill="#F5F5F7" stroke="#0F0F13" stroke-width="1.6" stroke-linejoin="round"></path>
+    </svg>
+
+    <div class="f05-tags">
+      <span class="gone" id="f05-t1">taskbar</span>
+      <span class="gone" id="f05-t2">alt-tab</span>
+      <span class="last" id="f05-t3">nothing</span>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      window.__timelines = window.__timelines || {};
+      var tl = gsap.timeline({ paused: true });
+
+      var world = document.querySelector('#f05-world');
+      var card = document.querySelector('#f05-card');
+      var pill = document.querySelector('#f05-pill');
+      var hz = document.querySelector('#f05-hz');
+      var cursor = document.querySelector('#f05-cursor');
+      var t1 = document.querySelector('#f05-t1');
+      var t2 = document.querySelector('#f05-t2');
+      var t3 = document.querySelector('#f05-t3');
+
+      /* Opening state — matched to frame 04's close: card open, camera pushed in. */
+      gsap.set(world, { scale: 2.82 });
+      gsap.set(pill, { autoAlpha: 0 });
+      gsap.set(hz, { autoAlpha: 0 });
+      gsap.set([t1, t2, t3], { autoAlpha: 0 });
+
+      /* ====== Scene 1 (0.0-1.85s) — the cursor leaves, the notch steps down ==== */
+      tl.fromTo(cursor, { autoAlpha: 1, y: 0 },
+        { autoAlpha: 0, y: 820, duration: 0.62, ease: 'power2.in' }, 0.24);
+
+      /* Three DISCRETE states, not a fade — the product's real step-down, after
+         its real 300ms grace. expanded -> pill -> gone. */
+      tl.set(card, { autoAlpha: 0 }, 1.16);
+      tl.set(pill, { autoAlpha: 1 }, 1.16);
+      tl.set(pill, { autoAlpha: 0 }, 1.78);
+
+      /* ====== Scene 2 (1.85-2.55s) — ONE decelerating burst, then LOCK ========= */
+      tl.fromTo(world, { scale: 2.82 },
+        { scale: 1, duration: 0.70, ease: 'power4.out' }, 1.85);
+      /* The zoom ends at 2.55s of 6.66s. Everything after it is the post-lock act. */
+
+      /* ====== Scene 3 (2.55-6.661s) — post-lock. Dead still. ================== */
+      tl.fromTo(hz, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.4, ease: 'power2.out' }, 2.60);
+
+      /* Each tag lands on its spoken cue: 2.64 / 4.32 / 5.98. */
+      tl.fromTo(t1, { autoAlpha: 0, y: 16 }, { autoAlpha: 1, y: 0, duration: 0.45, ease: 'power3.out' }, 2.70);
+      tl.fromTo(t2, { autoAlpha: 0, y: 16 }, { autoAlpha: 1, y: 0, duration: 0.45, ease: 'power3.out' }, 4.38);
+      tl.fromTo(t3, { autoAlpha: 0, y: 16 }, { autoAlpha: 1, y: 0, duration: 0.5, ease: 'power3.out' }, 6.02);
+      /* No drift, no push, no jitter. This frame's silence is doing the work. */
+
+      window.__timelines['05-gone'] = tl;
+    })();
+  </script>
+</template>

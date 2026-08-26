@@ -1,0 +1,205 @@
+<template>
+  <style>
+    @font-face { font-family: 'Geist'; font-style: normal; font-weight: 400; font-display: block; src: url('assets/fonts/Geist_Regular.woff2') format('woff2'); }
+    @font-face { font-family: 'Geist'; font-style: normal; font-weight: 500; font-display: block; src: url('assets/fonts/Geist_Medium.woff2') format('woff2'); }
+    @font-face { font-family: 'Geist'; font-style: normal; font-weight: 600; font-display: block; src: url('assets/fonts/Geist_SemiBold.woff2') format('woff2'); }
+    @font-face { font-family: 'Geist Mono'; font-style: normal; font-weight: 400; font-display: block; src: url('assets/fonts/Geist_Mono_Regular.woff2') format('woff2'); }
+    @font-face { font-family: 'Geist Mono'; font-style: normal; font-weight: 500; font-display: block; src: url('assets/fonts/Geist_Mono_Medium.woff2') format('woff2'); }
+
+    #root {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      background: transparent;
+      font-family: 'Geist', 'Inter', system-ui, sans-serif;
+      color: #F5F5F7;
+    }
+
+    #root .f01-ground {
+      position: absolute;
+      inset: 0;
+      background-color: #0F0F13;
+      background-image:
+        linear-gradient(to right, rgba(47, 111, 237, 0.10) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(47, 111, 237, 0.10) 1px, transparent 1px);
+      background-size: 38.4px 38.4px;
+    }
+
+    /* Camera wrapper — GSAP owns its transform, so no CSS transform here. */
+    #root .f01-world {
+      position: absolute;
+      inset: 0;
+      transform-origin: 50% 42%;
+    }
+
+    #root .f01-band {
+      position: absolute;
+      left: 80px;
+      top: 70px;
+      width: 1760px;
+      height: 44px;
+      border: 1px solid rgba(47, 111, 237, 0.38);
+    }
+
+    #root .f01-hatch { position: absolute; inset: 0; display: block; }
+
+    #root .f01-dim {
+      position: absolute;
+      left: 80px;
+      top: 126px;
+      width: 1760px;
+      height: 34px;
+      display: block;
+      overflow: visible;
+    }
+
+    #root .f01-stack {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 300px;
+      text-align: center;
+    }
+
+    #root .f01-num {
+      font-family: 'Geist Mono', 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 232px;
+      font-weight: 400;
+      line-height: 1.06;
+      letter-spacing: -0.015em;
+      font-variant-numeric: tabular-nums;
+      color: #F5F5F7;
+      display: block;
+      transform-origin: 50% 50%;
+    }
+
+    #root .f01-unit {
+      font-family: 'Geist Mono', 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 30px;
+      letter-spacing: 0.05em;
+      color: rgba(245, 245, 247, 0.55);
+      display: block;
+      margin-top: 44px;
+    }
+
+    #root .f01-unused {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 700px;
+      text-align: center;
+      font-family: 'Geist Mono', 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 76px;
+      letter-spacing: 0.02em;
+      color: #2F6FED;
+    }
+  </style>
+
+  <div data-hf-id="hf-hcun" id="root" data-composition-id="01-dead-strip" data-start="0" data-duration="8.18" data-width="1920" data-height="1080">
+    <!-- Full-bleed ground rides its own full-duration clip, never #root. -->
+    <div data-hf-id="hf-46k7" id="f01-ground" class="clip f01-ground" data-start="0" data-duration="8.18" data-track-index="0"></div>
+
+    <div data-hf-id="hf-t7vu" class="f01-world" id="f01-world">
+      <div data-hf-id="hf-x8pa" class="f01-band" id="f01-band">
+        <svg data-hf-id="hf-ltez" class="f01-hatch" viewBox="0 0 1760 44" preserveAspectRatio="none" aria-hidden="true">
+          <g data-hf-id="hf-bh6f" id="f01-hatch-g" stroke="rgba(47,111,237,0.34)" stroke-width="1.4" />
+        </svg>
+      </div>
+
+      <svg data-hf-id="hf-kw5i" class="f01-dim" viewBox="0 0 1760 34" preserveAspectRatio="none" aria-hidden="true">
+        <line data-hf-id="hf-15ez" id="f01-dim-l" x1="880" y1="17" x2="0" y2="17" stroke="#2F6FED" stroke-width="1.6" />
+        <line data-hf-id="hf-td6z" id="f01-dim-r" x1="880" y1="17" x2="1760" y2="17" stroke="#2F6FED" stroke-width="1.6" />
+        <line data-hf-id="hf-4hi4" id="f01-tick-l" x1="1.2" y1="3" x2="1.2" y2="31" stroke="#2F6FED" stroke-width="2.4" />
+        <line data-hf-id="hf-fivm" id="f01-tick-r" x1="1758.8" y1="3" x2="1758.8" y2="31" stroke="#2F6FED" stroke-width="2.4" />
+      </svg>
+
+      <div data-hf-id="hf-o2a8" class="f01-stack">
+        <span data-hf-id="hf-xjtl" class="f01-num" id="f01-num">0</span>
+        <span data-hf-id="hf-hpd3" class="f01-unit" id="f01-unit">× 32 px</span>
+      </div>
+
+      <div data-hf-id="hf-4rgs" class="f01-unused" id="f01-unused">unused</div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      window.__timelines = window.__timelines || {};
+      var tl = gsap.timeline({ paused: true });
+
+      /* ---- svg-path-draw: the hatch is N diagonal strokes drawn left -> right ---- */
+      var g = document.querySelector('#f01-hatch-g');
+      var HATCH_N = 43;
+      var hatch = [];
+      for (var i = 0; i < HATCH_N; i++) {
+        var x = 12 + i * 40;
+        var ln = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        ln.setAttribute('x1', String(x));
+        ln.setAttribute('y1', '44');
+        ln.setAttribute('x2', String(x + 30));
+        ln.setAttribute('y2', '0');
+        g.appendChild(ln);
+        hatch.push(ln);
+      }
+      /* Authored constant, not a DOM measurement: sqrt(30^2 + 44^2) ~= 53.3 */
+      var HATCH_LEN = 53.3;
+      hatch.forEach(function (ln) { ln.style.strokeDasharray = HATCH_LEN; });
+
+      var band = document.querySelector('#f01-band');
+      var dimL = document.querySelector('#f01-dim-l');
+      var dimR = document.querySelector('#f01-dim-r');
+      var tickL = document.querySelector('#f01-tick-l');
+      var tickR = document.querySelector('#f01-tick-r');
+      var numEl = document.querySelector('#f01-num');
+      var unitEl = document.querySelector('#f01-unit');
+      var unusedEl = document.querySelector('#f01-unused');
+      var world = document.querySelector('#f01-world');
+
+      var DIM_LEN = 880;
+      [dimL, dimR].forEach(function (l) { l.style.strokeDasharray = DIM_LEN; });
+
+      /* ================= Scene 1 (0.0-3.4s) — the band establishes ============== */
+      tl.fromTo(band, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.5, ease: 'power2.out' }, 1.75);
+
+      tl.fromTo(hatch,
+        { strokeDashoffset: HATCH_LEN },
+        {
+          strokeDashoffset: 0,
+          duration: 0.9,
+          ease: 'power3.out',
+          stagger: { each: 0.0085, from: 'start' }
+        }, 1.95);
+
+      /* multi-phase-camera — ONE slow lean-in confined to the first 44% of the shot,
+         then locked for good. Doctrine bans a back-half push, so it never resumes. */
+      tl.fromTo(world, { scale: 1 }, { scale: 1.035, duration: 3.4, ease: 'power1.out' }, 0);
+
+      /* ================= Scene 2 (3.4-6.0s) — the measurement ================== */
+      tl.fromTo([dimL, dimR],
+        { strokeDashoffset: DIM_LEN },
+        { strokeDashoffset: 0, duration: 0.85, ease: 'power3.out' }, 3.5);
+
+      tl.fromTo([tickL, tickR], { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.18, ease: 'power2.out' }, 4.2);
+
+      /* counting-dynamic-scale — the numeric proxy and the scale tween share one
+         timeline position so the climb itself escalates. Cued to the spoken
+         "Nineteen hundred pixels wide" (word timings 4.38 -> 5.68). */
+      var counter = { v: 0 };
+      tl.fromTo(numEl, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.2, ease: 'none' }, 4.3);
+      tl.fromTo(counter, { v: 0 }, {
+        v: 1920,
+        duration: 1.4,
+        ease: 'power3.out',
+        onUpdate: function () { numEl.textContent = String(Math.round(counter.v)); }
+      }, 4.35);
+      tl.fromTo(numEl, { scale: 0.68 }, { scale: 1, duration: 1.4, ease: 'power3.out' }, 4.35);
+
+      /* ============ Scene 3 (6.0-7.68s) — settle, then total stillness ========= */
+      tl.fromTo(unitEl, { autoAlpha: 0, y: 14 }, { autoAlpha: 1, y: 0, duration: 0.5, ease: 'power3.out' }, 5.85);
+      tl.fromTo(unusedEl, { autoAlpha: 0, y: 22 }, { autoAlpha: 1, y: 0, duration: 0.55, ease: 'power3.out' }, 6.85);
+      /* No jitter and no drift — the frame goes completely still on "nothing at all". */
+
+      window.__timelines['01-dead-strip'] = tl;
+    })();
+  </script>
+</template>

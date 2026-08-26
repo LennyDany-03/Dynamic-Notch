@@ -1,0 +1,291 @@
+<template>
+  <style>
+    @font-face { font-family: 'Geist'; font-style: normal; font-weight: 400; font-display: block; src: url('assets/fonts/Geist_Regular.woff2') format('woff2'); }
+    @font-face { font-family: 'Geist'; font-style: normal; font-weight: 500; font-display: block; src: url('assets/fonts/Geist_Medium.woff2') format('woff2'); }
+    @font-face { font-family: 'Geist'; font-style: normal; font-weight: 600; font-display: block; src: url('assets/fonts/Geist_SemiBold.woff2') format('woff2'); }
+    @font-face { font-family: 'Geist Mono'; font-style: normal; font-weight: 400; font-display: block; src: url('assets/fonts/Geist_Mono_Regular.woff2') format('woff2'); }
+    @font-face { font-family: 'Geist Mono'; font-style: normal; font-weight: 500; font-display: block; src: url('assets/fonts/Geist_Mono_Medium.woff2') format('woff2'); }
+
+    #root {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      background: transparent;
+      font-family: 'Geist', 'Inter', system-ui, sans-serif;
+      color: #F5F5F7;
+    }
+
+    #root .f03-ground {
+      position: absolute;
+      inset: 0;
+      background-color: #0F0F13;
+      background-image:
+        linear-gradient(to right, rgba(47, 111, 237, 0.10) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(47, 111, 237, 0.10) 1px, transparent 1px);
+      background-size: 38.4px 38.4px;
+    }
+
+    /* One static scale on the whole cluster so the shot fills the canvas rather
+       than floating a small group at the top. GSAP never tweens a transform on
+       this element, so there is no transform conflict. */
+    #root .f03-scene { position: absolute; inset: 0; transform: scale(1.32); transform-origin: 960px 150px; }
+
+    /* pushed-in framing: the notch is drawn at 2x true scale */
+    #root .f03-hotzone {
+      position: absolute;
+      left: 880px;
+      top: 150px;
+      width: 160px;
+      height: 12px;
+      background: rgba(47, 111, 237, 0.55);
+      border-radius: 2px;
+      transform-origin: 50% 50%;
+    }
+
+    #root .f03-hztag {
+      position: absolute;
+      left: 660px;
+      top: 142px;
+      width: 190px;
+      text-align: right;
+      font-family: 'Geist Mono', 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 22px;
+      letter-spacing: 0.05em;
+      color: #5B90F5;
+    }
+
+    #root .f03-dwelltag {
+      position: absolute;
+      left: 1070px;
+      top: 142px;
+      font-family: 'Geist Mono', 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 22px;
+      letter-spacing: 0.05em;
+      color: #5B90F5;
+    }
+
+    /* --- pill at 2x (264x34 -> 528x68) --- */
+    #root .f03-pill {
+      position: absolute;
+      left: 696px;
+      top: 210px;
+      width: 528px;
+      height: 68px;
+      border-radius: 32px;
+      background: rgba(32, 32, 32, 0.92);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28), 0 12px 28px rgba(0, 0, 0, 0.22);
+      overflow: hidden;
+      display: grid;
+      grid-template-columns: 160px 1fr 160px;
+      align-items: center;
+      transform-origin: 50% 0%;
+    }
+    #root .f03-pill::after {
+      content: '';
+      position: absolute;
+      left: 0; right: 0; top: 0;
+      height: 2px;
+      background: rgba(255, 255, 255, 0.1);
+    }
+    #root .f03-pclock {
+      text-align: center;
+      font-size: 28px;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.9);
+      font-variant-numeric: tabular-nums;
+    }
+    #root .f03-eq { display: flex; align-items: flex-end; gap: 4px; height: 30px; padding-left: 24px; }
+    #root .f03-eq i { display: block; width: 6px; border-radius: 3px; background: #2F6FED; }
+    #root .f03-batt {
+      justify-self: end; margin-right: 24px;
+      width: 56px; height: 28px;
+      border: 2px solid rgba(255, 255, 255, 0.55);
+      border-radius: 7px; position: relative;
+    }
+    #root .f03-batt span {
+      position: absolute; left: 4px; top: 4px; bottom: 4px;
+      width: 30px; border-radius: 3px; background: #2F6FED;
+    }
+
+    /* --- media card at 2x (380x164 -> 760x328) --- */
+    #root .f03-card {
+      position: absolute;
+      left: 580px;
+      top: 210px;
+      width: 760px;
+      height: 328px;
+      border-radius: 32px;
+      background: rgba(32, 32, 32, 0.92);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28), 0 12px 28px rgba(0, 0, 0, 0.22);
+      overflow: hidden;
+      transform-origin: 50% 0%;
+    }
+    #root .f03-card::after {
+      content: '';
+      position: absolute; left: 0; right: 0; top: 0;
+      height: 2px; background: rgba(255, 255, 255, 0.1);
+    }
+    #root .f03-nav {
+      position: absolute; left: 0; right: 0; top: 0; height: 52px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; font-weight: 600; letter-spacing: 0.14em;
+      text-transform: uppercase; color: rgba(255, 255, 255, 0.4);
+    }
+    #root .f03-art {
+      position: absolute; left: 36px; top: 96px;
+      width: 88px; height: 88px; border-radius: 12px;
+      background: linear-gradient(135deg, #3C5CA8, #1D2740);
+    }
+    #root .f03-title {
+      position: absolute; left: 148px; top: 96px;
+      font-size: 28px; font-weight: 600; color: rgba(255, 255, 255, 0.92);
+    }
+    #root .f03-artist {
+      position: absolute; left: 148px; top: 134px;
+      font-size: 22px; color: rgba(255, 255, 255, 0.6);
+    }
+    #root .f03-scrub {
+      position: absolute; left: 148px; top: 186px; width: 560px; height: 4px;
+      border-radius: 2px; background: rgba(255, 255, 255, 0.15);
+    }
+    #root .f03-scrub i {
+      position: absolute; left: 0; top: 0; bottom: 0; width: 150px;
+      border-radius: 2px; background: #2F6FED; display: block;
+    }
+    #root .f03-tr {
+      position: absolute; left: 0; right: 0; top: 236px;
+      display: flex; align-items: center; justify-content: center; gap: 40px;
+    }
+    #root .f03-tr b {
+      display: block; width: 20px; height: 20px;
+      border-left: 4px solid rgba(255, 255, 255, 0.8);
+      border-top: 4px solid rgba(255, 255, 255, 0.8);
+      transform-origin: 50% 50%;
+    }
+    #root .f03-play {
+      width: 56px; height: 56px; border-radius: 99px; background: #2F6FED;
+      display: flex; align-items: center; justify-content: center;
+    }
+    #root .f03-play i {
+      display: block; width: 0; height: 0;
+      border-left: 18px solid #fff;
+      border-top: 11px solid transparent;
+      border-bottom: 11px solid transparent;
+      margin-left: 5px;
+    }
+
+    #root .f03-ring { position: absolute; left: 894px; top: 126px; width: 92px; height: 92px; }
+    #root .f03-cursor { position: absolute; left: 940px; top: 172px; width: 74px; height: 74px; }
+  </style>
+
+  <div id="root" data-composition-id="03-nudge" data-start="0" data-duration="6.273" data-width="1920" data-height="1080">
+    <div id="f03-ground" class="clip f03-ground" data-start="0" data-duration="6.273" data-track-index="0"></div>
+
+    <div class="f03-scene">
+
+    <div class="f03-hztag" id="f03-hztag">80 &#215; 6</div>
+    <div class="f03-hotzone" id="f03-hotzone"></div>
+    <div class="f03-dwelltag" id="f03-dwelltag">600 ms</div>
+
+    <div class="f03-pill" id="f03-pill">
+      <div class="f03-eq"><i style="height:12px"></i><i style="height:24px"></i><i style="height:9px"></i></div>
+      <div class="f03-pclock">9:41</div>
+      <div class="f03-batt"><span></span></div>
+    </div>
+
+    <div class="f03-card" id="f03-card">
+      <div class="f03-nav">&#8249; Media controls &#8250;</div>
+      <div class="f03-art"></div>
+      <div class="f03-title">Northbound</div>
+      <div class="f03-artist">Aurelia</div>
+      <div class="f03-scrub"><i></i></div>
+      <div class="f03-tr">
+        <b style="transform: rotate(-45deg)"></b>
+        <div class="f03-play"><i></i></div>
+        <b style="transform: rotate(135deg)"></b>
+      </div>
+    </div>
+
+    <!-- dwell ring: stroke rotated -90deg so it fills from twelve o'clock -->
+    <svg class="f03-ring" id="f03-ring" viewBox="0 0 92 92" aria-hidden="true">
+      <circle cx="46" cy="46" r="44" fill="none" stroke="rgba(47,111,237,0.18)" stroke-width="3"></circle>
+      <circle id="f03-ring-fg" cx="46" cy="46" r="44" fill="none" stroke="#2F6FED"
+              stroke-width="3" stroke-linecap="round" transform="rotate(-90 46 46)"></circle>
+    </svg>
+
+    <svg class="f03-cursor" id="f03-cursor" viewBox="0 0 40 40" aria-hidden="true">
+      <path d="M4 2 L4 31 L11.5 24 L16.5 35 L21.5 32.5 L16.5 22 L26 22 Z"
+            fill="#F5F5F7" stroke="#0F0F13" stroke-width="1.6" stroke-linejoin="round"></path>
+    </svg>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      window.__timelines = window.__timelines || {};
+      var tl = gsap.timeline({ paused: true });
+
+      var hz = document.querySelector('#f03-hotzone');
+      var hztag = document.querySelector('#f03-hztag');
+      var dwelltag = document.querySelector('#f03-dwelltag');
+      var pill = document.querySelector('#f03-pill');
+      var card = document.querySelector('#f03-card');
+      var ring = document.querySelector('#f03-ring');
+      var ringFg = document.querySelector('#f03-ring-fg');
+      var cursor = document.querySelector('#f03-cursor');
+
+      var cardKids = [
+        document.querySelector('#root .f03-nav'),
+        document.querySelector('#root .f03-art'),
+        document.querySelector('#root .f03-title'),
+        document.querySelector('#root .f03-artist'),
+        document.querySelector('#root .f03-scrub'),
+        document.querySelector('#root .f03-tr')
+      ];
+
+      /* svg-path-draw on the dwell ring: circumference of r=44 */
+      var RING_LEN = 2 * Math.PI * 44;
+      ringFg.style.strokeDasharray = RING_LEN;
+
+      /* ============ Scene 1 (0.0-2.0s) — the measured trigger + the approach ==== */
+      tl.fromTo(hz, { autoAlpha: 0, scaleX: 0.2 },
+        { autoAlpha: 1, scaleX: 1, duration: 0.5, ease: 'power3.out' }, 0.25);
+      tl.fromTo(hztag, { autoAlpha: 0, x: 16 },
+        { autoAlpha: 1, x: 0, duration: 0.45, ease: 'power3.out' }, 0.62);
+
+      /* cursor-click-ripple, travel leg only — the cursor rises from off-frame and
+         decelerates into the strip. Lands as the VO says "screen" (1.26). */
+      tl.fromTo(cursor, { autoAlpha: 0, y: 900 },
+        { autoAlpha: 1, y: 0, duration: 1.15, ease: 'power3.out' }, 0.35);
+
+      /* ============ Scene 2 (2.0-4.2s) — the pill peeks, the dwell fills ======= */
+      /* spring-pop-entrance in its smooth long-tail register: no overshoot. */
+      tl.fromTo(pill, { autoAlpha: 0, scaleY: 0.35, scaleX: 0.92 },
+        { autoAlpha: 1, scaleY: 1, scaleX: 1, duration: 0.55, ease: 'power3.out' }, 2.16);
+
+      tl.fromTo(dwelltag, { autoAlpha: 0, x: -14 },
+        { autoAlpha: 1, x: 0, duration: 0.4, ease: 'power3.out' }, 3.05);
+      tl.fromTo(ring, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.2, ease: 'none' }, 3.05);
+
+      /* The ring's fill IS the 600ms — cued exactly to the spoken number
+         ("six hundred milliseconds", word timings 3.14 -> 3.70). */
+      tl.fromTo(ringFg, { strokeDashoffset: RING_LEN },
+        { strokeDashoffset: 0, duration: 0.62, ease: 'none' }, 3.14);
+
+      /* ============ Scene 3 (4.2-5.773s) — it opens ============================ */
+      tl.fromTo(ring, { autoAlpha: 1 }, { autoAlpha: 0, duration: 0.3, ease: 'power2.in' }, 4.42);
+      tl.fromTo(dwelltag, { autoAlpha: 1 }, { autoAlpha: 0, duration: 0.3, ease: 'power2.in' }, 4.42);
+
+      /* card-morph-anchor — the pill hands off to the card at the same top edge,
+         so the card grows downward out of it. Lands on "It opens" (4.90). */
+      tl.fromTo(pill, { autoAlpha: 1 }, { autoAlpha: 0, duration: 0.22, ease: 'power2.in' }, 4.86);
+      tl.fromTo(card, { autoAlpha: 0, scaleY: 0.21, scaleX: 0.98 },
+        { autoAlpha: 1, scaleY: 1, scaleX: 1, duration: 0.62, ease: 'power3.out' }, 4.88);
+      tl.fromTo(cardKids, { autoAlpha: 0, y: 12 },
+        { autoAlpha: 1, y: 0, duration: 0.4, ease: 'power3.out', stagger: 0.05 }, 5.12);
+      /* Held. The cursor rests where it is; no back-half camera move. */
+
+      window.__timelines['03-nudge'] = tl;
+    })();
+  </script>
+</template>

@@ -1,0 +1,226 @@
+<template>
+  <style>
+    @font-face { font-family: 'Geist'; font-style: normal; font-weight: 400; font-display: block; src: url('assets/fonts/Geist_Regular.woff2') format('woff2'); }
+    @font-face { font-family: 'Geist'; font-style: normal; font-weight: 500; font-display: block; src: url('assets/fonts/Geist_Medium.woff2') format('woff2'); }
+    @font-face { font-family: 'Geist'; font-style: normal; font-weight: 600; font-display: block; src: url('assets/fonts/Geist_SemiBold.woff2') format('woff2'); }
+    @font-face { font-family: 'Geist Mono'; font-style: normal; font-weight: 400; font-display: block; src: url('assets/fonts/Geist_Mono_Regular.woff2') format('woff2'); }
+    @font-face { font-family: 'Geist Mono'; font-style: normal; font-weight: 500; font-display: block; src: url('assets/fonts/Geist_Mono_Medium.woff2') format('woff2'); }
+
+    #root {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      background: transparent;
+      font-family: 'Geist', 'Inter', system-ui, sans-serif;
+      color: #F5F5F7;
+    }
+
+    #root .f08-ground {
+      position: absolute;
+      inset: 0;
+      background-color: #0F0F13;
+      background-image:
+        linear-gradient(to right, rgba(47, 111, 237, 0.10) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(47, 111, 237, 0.10) 1px, transparent 1px);
+      background-size: 38.4px 38.4px;
+    }
+
+    /* --- carrier geometry: IDENTICAL to frame 01, closing the bookend --- */
+    #root .f08-band {
+      position: absolute;
+      left: 80px; top: 70px;
+      width: 1760px; height: 44px;
+      border: 1px solid rgba(47, 111, 237, 0.18);
+    }
+
+    #root .f08-dim {
+      position: absolute;
+      left: 80px; top: 126px;
+      width: 1760px; height: 34px;
+      display: block; overflow: visible;
+    }
+
+    #root .f08-pill {
+      position: absolute;
+      left: 828px; top: 75px;
+      width: 264px; height: 34px;
+      border-radius: 16px;
+      background: rgba(32, 32, 32, 0.92);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28), 0 12px 28px rgba(0, 0, 0, 0.22);
+      overflow: hidden;
+      display: grid;
+      grid-template-columns: 80px 1fr 80px;
+      align-items: center;
+    }
+    #root .f08-pill::after {
+      content: ''; position: absolute; left: 0; right: 0; top: 0; height: 1px;
+      background: rgba(255, 255, 255, 0.1);
+    }
+    #root .f08-eq { display: flex; align-items: flex-end; gap: 2px; height: 22px; padding-left: 10px; }
+    #root .f08-eq i { display: block; width: 3px; border-radius: 2px; background: #2F6FED; }
+    #root .f08-ck { text-align: center; font-size: 14px; font-weight: 500;
+      color: rgba(255,255,255,.9); font-variant-numeric: tabular-nums; }
+    #root .f08-bt { justify-self: end; margin-right: 10px; width: 34px; height: 16px;
+      border: 1.2px solid rgba(255,255,255,.55); border-radius: 4px; position: relative; }
+    #root .f08-bt span { position: absolute; left: 2px; top: 2px; bottom: 2px; width: 18px;
+      border-radius: 2px; background: #2F6FED; }
+
+    #root .f08-callout {
+      position: absolute;
+      left: 0; right: 0; top: 176px;
+      text-align: center;
+      font-family: 'Geist Mono', 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 30px;
+      letter-spacing: 0.05em;
+      color: rgba(245, 245, 247, 0.6);
+    }
+    #root .f08-callout .hot { color: #2F6FED; }
+
+    #root .f08-logo {
+      position: absolute;
+      left: 890px; top: 366px;
+      width: 140px; height: 140px;
+      border-radius: 31px;
+      display: block;
+      transform-origin: 50% 50%;
+    }
+
+    #root .f08-word {
+      position: absolute;
+      left: 0; right: 0; top: 542px;
+      text-align: center;
+      font-size: 104px;
+      font-weight: 500;
+      letter-spacing: -0.015em;
+      line-height: 1;
+    }
+
+    #root .f08-cta {
+      position: absolute;
+      left: 735px; top: 682px;
+      width: 450px; height: 78px;
+      border-radius: 99px;
+      background: #2F6FED;
+      display: flex; align-items: center; justify-content: center;
+      gap: 14px;
+      transform-origin: 50% 50%;
+    }
+    #root .f08-cta span {
+      font-size: 27px; font-weight: 600; color: #fff; letter-spacing: -0.005em;
+    }
+    #root .f08-cta svg { display: block; }
+
+    #root .f08-fine {
+      position: absolute;
+      left: 0; right: 0; top: 800px;
+      text-align: center;
+      font-family: 'Geist Mono', 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 20px;
+      letter-spacing: 0.04em;
+      color: rgba(245, 245, 247, 0.45);
+    }
+  </style>
+
+  <div data-hf-id="hf-6v98" id="root" data-composition-id="08-in-use" data-start="0" data-duration="6.034" data-width="1920" data-height="1080">
+    <div data-hf-id="hf-tdi9" id="f08-ground" class="clip f08-ground" data-start="0" data-duration="6.034" data-track-index="0"></div>
+
+    <div data-hf-id="hf-qb1u" class="f08-band" id="f08-band"></div>
+
+    <div data-hf-id="hf-rsgi" class="f08-pill" id="f08-pill">
+      <div data-hf-id="hf-9k81" class="f08-eq"><i data-hf-id="hf-jylm" style="height:8px"></i><i data-hf-id="hf-qe0t" style="height:14px"></i><i data-hf-id="hf-sg4c" style="height:6px"></i></div>
+      <div data-hf-id="hf-bd5x" class="f08-ck">9:41</div>
+      <div data-hf-id="hf-yf0x" class="f08-bt"><span data-hf-id="hf-uckh"></span></div>
+    </div>
+
+    <svg data-hf-id="hf-2z0l" class="f08-dim" viewBox="0 0 1760 34" preserveAspectRatio="none" aria-hidden="true">
+      <line data-hf-id="hf-3a2m" id="f08-dim-l" x1="880" y1="17" x2="0" y2="17" stroke="#2F6FED" stroke-width="1.6" />
+      <line data-hf-id="hf-h504" id="f08-dim-r" x1="880" y1="17" x2="1760" y2="17" stroke="#2F6FED" stroke-width="1.6" />
+      <line data-hf-id="hf-7l3d" id="f08-tick-l" x1="1.2" y1="3" x2="1.2" y2="31" stroke="#2F6FED" stroke-width="2.4" />
+      <line data-hf-id="hf-9mgv" id="f08-tick-r" x1="1758.8" y1="3" x2="1758.8" y2="31" stroke="#2F6FED" stroke-width="2.4" />
+    </svg>
+
+    <div data-hf-id="hf-rk3d" class="f08-callout"><span data-hf-id="hf-cuwv" id="f08-co"></span><span data-hf-id="hf-hgl0" class="hot" id="f08-hot"></span></div>
+
+    <img data-hf-id="hf-v8pk" class="f08-logo" id="f08-logo" src="assets/crest-logo.png" alt="Crest">
+
+    <div data-hf-id="hf-jpwx" class="f08-word" id="f08-word">Crest</div>
+
+    <div data-hf-id="hf-m2wk" class="f08-cta" id="f08-cta">
+      <svg data-hf-id="hf-5js9" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+        <path data-hf-id="hf-sap0" d="M12 3 L12 15 M6.5 10.5 L12 16 L17.5 10.5 M4 20 L20 20" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+      <span data-hf-id="hf-krkf">Try Crest for Windows</span>
+    </div>
+
+    <div data-hf-id="hf-pgjp" class="f08-fine" id="f08-fine">Free for Windows 10 &amp; 11 · No account required</div>
+  </div>
+
+  <script>
+    (function () {
+      window.__timelines = window.__timelines || {};
+      var tl = gsap.timeline({ paused: true });
+
+      var dimL = document.querySelector('#f08-dim-l');
+      var dimR = document.querySelector('#f08-dim-r');
+      var tickL = document.querySelector('#f08-tick-l');
+      var tickR = document.querySelector('#f08-tick-r');
+      var pill = document.querySelector('#f08-pill');
+      var band = document.querySelector('#f08-band');
+      var co = document.querySelector('#f08-co');
+      var hot = document.querySelector('#f08-hot');
+      var logo = document.querySelector('#f08-logo');
+      var word = document.querySelector('#f08-word');
+      var cta = document.querySelector('#f08-cta');
+      var fine = document.querySelector('#f08-fine');
+
+      var DIM_LEN = 880;
+      [dimL, dimR].forEach(function (l) { l.style.strokeDasharray = DIM_LEN; });
+
+      gsap.set([tickL, tickR], { autoAlpha: 0 });
+      gsap.set([cta, fine], { autoAlpha: 0 });
+
+      /* ====== Scene 1 (0.0-1.3s) — the bookend redraws, the mark arrives ====== */
+      /* svg-path-draw at frame 01's EXACT coordinates. */
+      tl.fromTo([dimL, dimR], { strokeDashoffset: DIM_LEN },
+        { strokeDashoffset: 0, duration: 0.7, ease: 'power3.out' }, 0.10);
+      tl.fromTo([tickL, tickR], { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.16, ease: 'power2.out' }, 0.68);
+
+      tl.fromTo(pill, { autoAlpha: 0, scale: 0.9 },
+        { autoAlpha: 1, scale: 1, duration: 0.5, ease: 'power3.out' }, 0.18);
+
+      /* The lockup — mark, then wordmark, on the spoken "Crest." (0.10). */
+      tl.fromTo(logo, { autoAlpha: 0, scale: 0.82 },
+        { autoAlpha: 1, scale: 1, duration: 0.6, ease: 'power3.out' }, 0.20);
+      tl.fromTo(word, { autoAlpha: 0, y: 26 },
+        { autoAlpha: 1, y: 0, duration: 0.55, ease: 'power3.out' }, 0.52);
+
+      /* ====== Scene 2 (1.3-4.0s) — the callout types; "in use" lands ========= */
+      /* discrete-text-sequence — whole-string replacement at thresholds. */
+      var HEAD = '1920 × 32 px · ';
+      for (var i = 0; i <= HEAD.length; i++) {
+        tl.set(co, { textContent: HEAD.slice(0, i) }, 1.32 + i * 0.036);
+      }
+      /* the payoff word — the slot where frame 01 read "unused" */
+      var TAIL = ['i', 'in', 'in ', 'in u', 'in us', 'in use'];
+      for (var k = 0; k < TAIL.length; k++) {
+        tl.set(hot, { textContent: TAIL[k] }, 2.28 + k * 0.055);
+      }
+
+      /* the band lights to accent — the strip is in use now */
+      tl.fromTo(band, { borderColor: 'rgba(47,111,237,0.18)' },
+        { borderColor: 'rgba(47,111,237,0.55)', duration: 0.7, ease: 'power2.out' }, 2.66);
+
+      /* ====== Scene 3 (4.0-6.034s) — the ask ================================= */
+      /* press-release-spring, no release burst: one tactile settle. */
+      tl.fromTo(cta, { autoAlpha: 0, scale: 0.94 },
+        { autoAlpha: 1, scale: 1.015, duration: 0.34, ease: 'power3.out' }, 4.58);
+      tl.to(cta, { scale: 1, duration: 0.42, ease: 'power3.out' }, 4.92);
+
+      tl.fromTo(fine, { autoAlpha: 0, y: 12 },
+        { autoAlpha: 1, y: 0, duration: 0.5, ease: 'power3.out' }, 5.16);
+      /* Final frame: everything holds to the end. The exit IS the hold. */
+
+      window.__timelines['08-in-use'] = tl;
+    })();
+  </script>
+</template>
