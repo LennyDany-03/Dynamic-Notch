@@ -1,0 +1,262 @@
+<template>
+  <style>
+    @font-face { font-family: 'Geist'; font-style: normal; font-weight: 400; font-display: block; src: url('assets/fonts/Geist_Regular.woff2') format('woff2'); }
+    @font-face { font-family: 'Geist'; font-style: normal; font-weight: 500; font-display: block; src: url('assets/fonts/Geist_Medium.woff2') format('woff2'); }
+    @font-face { font-family: 'Geist'; font-style: normal; font-weight: 600; font-display: block; src: url('assets/fonts/Geist_SemiBold.woff2') format('woff2'); }
+    @font-face { font-family: 'Geist Mono'; font-style: normal; font-weight: 400; font-display: block; src: url('assets/fonts/Geist_Mono_Regular.woff2') format('woff2'); }
+    @font-face { font-family: 'Geist Mono'; font-style: normal; font-weight: 500; font-display: block; src: url('assets/fonts/Geist_Mono_Medium.woff2') format('woff2'); }
+
+    #root {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      background: transparent;
+      font-family: 'Geist', 'Inter', system-ui, sans-serif;
+      color: #F5F5F7;
+    }
+
+    #root .f04-ground {
+      position: absolute;
+      inset: 0;
+      background-color: #0F0F13;
+      background-image:
+        linear-gradient(to right, rgba(47, 111, 237, 0.10) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(47, 111, 237, 0.10) 1px, transparent 1px);
+      background-size: 38.4px 38.4px;
+    }
+
+    /* THE ANCHOR — shell + nav strip. Never moves for the whole 10.3s. */
+    #root .f04-card {
+      position: absolute;
+      left: 580px; top: 210px;
+      width: 760px; height: 328px;
+      border-radius: 32px;
+      background: rgba(32, 32, 32, 0.92);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28), 0 12px 28px rgba(0, 0, 0, 0.22);
+      overflow: hidden;
+    }
+    #root .f04-card::after {
+      content: ''; position: absolute; left: 0; right: 0; top: 0;
+      height: 2px; background: rgba(255, 255, 255, 0.1);
+    }
+    #root .f04-nav {
+      position: absolute; left: 0; right: 0; top: 0; height: 52px;
+      display: flex; align-items: center; justify-content: center; gap: 22px;
+    }
+    #root .f04-navlabel {
+      font-size: 20px; font-weight: 600; letter-spacing: 0.14em;
+      text-transform: uppercase; color: rgba(255, 255, 255, 0.62);
+      min-width: 300px; text-align: center;
+    }
+    #root .f04-chev {
+      font-size: 24px; color: rgba(255, 255, 255, 0.5);
+      transform-origin: 50% 50%;
+    }
+
+    /* THE CYCLING REGION — strictly beneath the strip, never touching it. */
+    #root .f04-panel {
+      position: absolute;
+      left: 0; right: 0; top: 52px; bottom: 0;
+      padding: 22px 32px;
+      box-sizing: border-box;
+    }
+
+    /* media */
+    #root .f04-art { position: absolute; left: 32px; top: 74px; width: 80px; height: 80px;
+      border-radius: 12px; background: linear-gradient(135deg, #3C5CA8, #1D2740); }
+    #root .f04-t1 { position: absolute; left: 130px; top: 74px; font-size: 26px; font-weight: 600; color: rgba(255,255,255,.92); }
+    #root .f04-t2 { position: absolute; left: 130px; top: 110px; font-size: 20px; color: rgba(255,255,255,.6); }
+    #root .f04-scrub { position: absolute; left: 130px; top: 160px; width: 560px; height: 4px;
+      border-radius: 2px; background: rgba(255,255,255,.15); }
+    #root .f04-scrub i { position: absolute; left: 0; top: 0; bottom: 0; width: 150px; border-radius: 2px; background: #2F6FED; }
+    #root .f04-play { position: absolute; left: 352px; top: 200px; width: 52px; height: 52px;
+      border-radius: 99px; background: #2F6FED; display: flex; align-items: center; justify-content: center;
+      transform-origin: 50% 50%; }
+    #root .f04-play i { width: 0; height: 0; border-left: 16px solid #fff;
+      border-top: 10px solid transparent; border-bottom: 10px solid transparent; margin-left: 5px; }
+
+    /* launcher */
+    #root .f04-search { position: absolute; left: 32px; right: 32px; top: 66px; height: 44px;
+      border-radius: 10px; background: rgba(0,0,0,.28); }
+    #root .f04-tiles { position: absolute; left: 32px; right: 32px; top: 128px;
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+    #root .f04-tiles span { height: 62px; border-radius: 10px; background: rgba(255,255,255,.055); display: block; }
+
+    /* system */
+    #root .f04-meters { position: absolute; left: 32px; right: 32px; top: 66px; }
+    #root .f04-mrow { display: grid; grid-template-columns: 92px 1fr 74px; align-items: center;
+      gap: 16px; height: 46px; }
+    #root .f04-mrow em { font-style: normal; font-size: 18px; letter-spacing: .1em;
+      text-transform: uppercase; color: rgba(255,255,255,.45); }
+    #root .f04-track { height: 8px; border-radius: 4px; background: rgba(255,255,255,.12); position: relative; }
+    #root .f04-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 100%;
+      border-radius: 4px; background: #2F6FED; transform-origin: 0% 50%; display: block; }
+    #root .f04-mrow b { font-weight: 500; font-size: 19px; text-align: right;
+      color: rgba(255,255,255,.75); font-variant-numeric: tabular-nums; }
+
+    /* weather */
+    #root .f04-temp { position: absolute; left: 32px; top: 62px; font-size: 76px; font-weight: 500; letter-spacing: -.02em; }
+    #root .f04-cond { position: absolute; left: 34px; top: 166px; font-size: 21px; color: rgba(255,255,255,.6); }
+    #root .f04-fc { position: absolute; left: 32px; right: 32px; top: 196px;
+      display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+    #root .f04-fc span { display: block; height: 56px; border-radius: 10px; background: rgba(255,255,255,.055); }
+
+    /* timer */
+    #root .f04-digits { position: absolute; left: 0; right: 0; top: 74px; text-align: center;
+      font-size: 92px; font-weight: 500; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+    #root .f04-presets { position: absolute; left: 180px; right: 180px; top: 196px;
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    #root .f04-presets span { display: block; height: 44px; border-radius: 99px;
+      background: rgba(255,255,255,.055); }
+
+    /* notes */
+    #root .f04-nlist { position: absolute; left: 32px; top: 66px; width: 220px; }
+    #root .f04-nlist span { display: block; height: 46px; border-radius: 10px;
+      background: rgba(255,255,255,.055); margin-bottom: 12px; }
+    #root .f04-nedit { position: absolute; left: 276px; right: 32px; top: 66px; }
+    #root .f04-nedit span { display: block; height: 12px; border-radius: 6px;
+      background: rgba(255,255,255,.10); margin-bottom: 18px; }
+
+    /* calendar */
+    #root .f04-wd { position: absolute; left: 32px; right: 32px; top: 62px;
+      display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
+    #root .f04-wd span { display: block; height: 14px; border-radius: 4px; background: rgba(255,255,255,.10); }
+    #root .f04-grid { position: absolute; left: 32px; right: 38px; top: 92px;
+      display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
+    #root .f04-grid span { display: block; height: 24px; border-radius: 6px; background: rgba(255,255,255,.055); }
+    #root .f04-grid span.on { background: #2F6FED; }
+
+    /* the payoff numeral */
+    #root .f04-seven {
+      position: absolute; left: 0; right: 0; top: 592px; text-align: center;
+      font-size: 168px; font-weight: 500; line-height: 1; letter-spacing: -.02em;
+      color: #2F6FED; transform-origin: 50% 50%;
+    }
+  </style>
+
+  <div id="root" data-composition-id="04-panels" data-start="0" data-duration="10.692" data-width="1920" data-height="1080">
+    <div id="f04-ground" class="clip f04-ground" data-start="0" data-duration="10.692" data-track-index="0"></div>
+
+    <div class="f04-card">
+      <div class="f04-nav">
+        <span class="f04-chev" id="f04-chevL">&#8249;</span>
+        <span class="f04-navlabel" id="f04-navlabel">Media controls</span>
+        <span class="f04-chev" id="f04-chevR">&#8250;</span>
+      </div>
+
+      <div class="f04-panel" id="f04-p0">
+        <div class="f04-art"></div>
+        <div class="f04-t1">Northbound</div>
+        <div class="f04-t2">Aurelia</div>
+        <div class="f04-scrub"><i></i></div>
+        <div class="f04-play" id="f04-play"><i></i></div>
+      </div>
+
+      <div class="f04-panel" id="f04-p1">
+        <div class="f04-search"></div>
+        <div class="f04-tiles">
+          <span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span>
+        </div>
+      </div>
+
+      <div class="f04-panel" id="f04-p2">
+        <div class="f04-meters">
+          <div class="f04-mrow"><em>CPU</em><div class="f04-track"><i class="f04-fill" id="f04-b0"></i></div><b>97%</b></div>
+          <div class="f04-mrow"><em>Memory</em><div class="f04-track"><i class="f04-fill" id="f04-b1"></i></div><b>64%</b></div>
+          <div class="f04-mrow"><em>GPU</em><div class="f04-track"><i class="f04-fill" id="f04-b2"></i></div><b>38%</b></div>
+          <div class="f04-mrow"><em>Disk</em><div class="f04-track"><i class="f04-fill" id="f04-b3"></i></div><b>12%</b></div>
+        </div>
+      </div>
+
+      <div class="f04-panel" id="f04-p3">
+        <div class="f04-temp">12&#176;</div>
+        <div class="f04-cond">Light rain</div>
+        <div class="f04-fc"><span></span><span></span><span></span><span></span><span></span></div>
+      </div>
+
+      <div class="f04-panel" id="f04-p4">
+        <div class="f04-digits">25:00</div>
+        <div class="f04-presets"><span></span><span></span><span></span><span></span></div>
+      </div>
+
+      <div class="f04-panel" id="f04-p5">
+        <div class="f04-nlist"><span></span><span></span><span></span></div>
+        <div class="f04-nedit"><span></span><span style="width:86%"></span><span style="width:94%"></span><span style="width:52%"></span></div>
+      </div>
+
+      <div class="f04-panel" id="f04-p6">
+        <div class="f04-wd"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+        <div class="f04-grid">
+          <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span class="on"></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="f04-seven" id="f04-seven">7</div>
+  </div>
+
+  <script>
+    (function () {
+      window.__timelines = window.__timelines || {};
+      var tl = gsap.timeline({ paused: true });
+
+      var panels = [];
+      for (var i = 0; i < 7; i++) panels.push(document.querySelector('#f04-p' + i));
+      var label = document.querySelector('#f04-navlabel');
+      var chevL = document.querySelector('#f04-chevL');
+      var chevR = document.querySelector('#f04-chevR');
+      var play = document.querySelector('#f04-play');
+      var seven = document.querySelector('#f04-seven');
+      var bars = [0, 1, 2, 3].map(function (n) { return document.querySelector('#f04-b' + n); });
+
+      var NAMES = ['Media controls', 'Launcher', 'System', 'Weather', 'Timer', 'Notes', 'Calendar'];
+      /* Cue table straight off the TTS word timings. */
+      var CUES = [0.0, 1.44, 3.60, 4.92, 5.76, 6.70, 7.34];
+
+      /* Panel 0 is present from t=0; the rest start hidden. */
+      gsap.set(panels, { autoAlpha: 0 });
+      gsap.set(panels[0], { autoAlpha: 1 });
+      gsap.set(bars, { scaleX: 0 });
+
+      /* discrete-text-sequence — instant hard-cut replacement at each threshold.
+         The shell and the nav strip never move; only the region beneath swaps. */
+      for (var s = 1; s < 7; s++) {
+        (function (idx) {
+          var at = CUES[idx];
+          tl.set(panels, { autoAlpha: 0 }, at);
+          tl.set(panels[idx], { autoAlpha: 1 }, at);
+          tl.set(label, { textContent: NAMES[idx] }, at);
+          /* a short incoming settle gives the cut velocity rather than a dissolve */
+          tl.fromTo(panels[idx], { x: 16 }, { x: 0, duration: 0.16, ease: 'power2.out' }, at);
+        })(s);
+      }
+
+      /* ============ Scene 1 (0.0-1.2s) — "Music": the transport lights ========= */
+      tl.fromTo(play, { scale: 1 }, { scale: 1.14, duration: 0.18, ease: 'power2.out' }, 0.22);
+      tl.to(play, { scale: 1, duration: 0.34, ease: 'power3.out' }, 0.40);
+
+      /* ============ Scene 2 (1.2-4.4s) — two steady steps ===================== */
+      /* stat-bars-and-fills: the four meters fill on the CPU cue (3.60). */
+      tl.fromTo(bars, { scaleX: 0 },
+        { scaleX: function (i) { return [0.97, 0.64, 0.38, 0.12][i]; },
+          duration: 0.7, ease: 'power3.out', stagger: 0.06 }, 3.66);
+
+      /* ============ Scene 3 (4.4-7.2s) — the cadence tightens ================= */
+      /* (handled by the CUES table above: weather 4.92, timer 5.76, notes 6.70) */
+
+      /* ============ Scene 4 (7.2-10.292s) — the payoff, then a long hold ====== */
+      tl.fromTo(seven, { autoAlpha: 0, scale: 0.7 },
+        { autoAlpha: 1, scale: 1, duration: 0.6, ease: 'power3.out' }, 7.84);
+      tl.fromTo([chevL, chevR], { scale: 1, color: 'rgba(255,255,255,0.5)' },
+        { scale: 1.25, color: '#2F6FED', duration: 0.22, ease: 'power2.out' }, 9.10);
+      tl.to([chevL, chevR], { scale: 1, color: 'rgba(255,255,255,0.5)', duration: 0.5, ease: 'power3.out' }, 9.34);
+      /* Then still to the end — the longest hold in the video, after six cuts. */
+
+      window.__timelines['04-panels'] = tl;
+    })();
+  </script>
+</template>
