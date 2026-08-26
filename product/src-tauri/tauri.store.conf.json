@@ -4,6 +4,7 @@
     "targets": ["nsis"],
     "createUpdaterArtifacts": false,
     "publisher": "Lenny Dany Derek",
+    "copyright": "Copyright © 2026 Lenny Dany Derek",
     "windows": {
       "webviewInstallMode": { "type": "offlineInstaller" }
     }
