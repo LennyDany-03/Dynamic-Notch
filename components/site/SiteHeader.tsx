@@ -1,13 +1,22 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import Logo from "./Logo";
 import { Download, ExternalLink } from "./icons";
 import { WhatsNewTrigger } from "./WhatsNew";
 import { site } from "@/lib/site";
 
-const leftLinks = [{ href: "#top", label: "See Crest" }];
-const rightLinks = [{ href: "#faq", label: "FAQ" }];
+/**
+ * Every in-page target is written root-relative (`/#faq`, not `#faq`) because
+ * this header is drawn on `/privacy` and `/contact` too, where a bare fragment
+ * resolves against *that* page and goes nowhere. It costs the home page
+ * nothing: a link differing from the current URL only in its fragment is a
+ * same-document navigation, so `/#faq` still smooth-scrolls from `/` without a
+ * reload.
+ */
+const leftLinks = [{ href: "/#top", label: "See Crest" }];
+const rightLinks = [{ href: "/#faq", label: "FAQ" }];
 
 export default function SiteHeader() {
   const [scrolled, setScrolled] = useState(false);
@@ -68,24 +77,24 @@ export default function SiteHeader() {
       <nav className="mx-auto hidden h-14 max-w-[1080px] grid-cols-[1fr_auto_1fr] items-center gap-6 px-[22px] lg:grid">
         <div className="flex items-center gap-8 justify-self-center">
           {leftLinks.map((link) => (
-            <a key={link.href} href={link.href} className={navLink}>
+            <Link key={link.href} href={link.href} className={navLink}>
               {link.label}
-            </a>
+            </Link>
           ))}
           {changelogLink}
         </div>
 
-        <a href="#top" className="shrink-0" aria-label={`${site.name} home`}>
+        <Link href="/#top" className="shrink-0" aria-label={`${site.name} home`}>
           <Logo size={24} withWordmark={false} />
-        </a>
+        </Link>
 
         <div className="flex items-center justify-end gap-8">
           <div className="flex items-center gap-8">
             {githubLink}
             {rightLinks.map((link) => (
-              <a key={link.href} href={link.href} className={navLink}>
+              <Link key={link.href} href={link.href} className={navLink}>
                 {link.label}
-              </a>
+              </Link>
             ))}
           </div>
           {downloadButton}
@@ -94,9 +103,9 @@ export default function SiteHeader() {
 
       
       <nav className="mx-auto flex h-14 max-w-[1080px] items-center justify-between gap-6 px-[22px] lg:hidden">
-        <a href="#top" className="shrink-0" aria-label={`${site.name} home`}>
+        <Link href="/#top" className="shrink-0" aria-label={`${site.name} home`}>
           <Logo size={24} />
-        </a>
+        </Link>
 
         <div className="flex items-center gap-2">
           {downloadButton}
@@ -137,13 +146,13 @@ export default function SiteHeader() {
         <div className="min-h-0">
           <ul className="border-t border-[var(--hairline)] px-[22px] py-2">
             <li>
-              <a
-                href="#top"
+              <Link
+                href="/#top"
                 onClick={() => setOpen(false)}
                 className="flex h-11 items-center text-[15px] tracking-[-0.01em] text-[var(--text-body)] transition-colors hover:text-[var(--text)]"
               >
                 See Crest
-              </a>
+              </Link>
             </li>
             <li>
               <WhatsNewTrigger
@@ -165,13 +174,13 @@ export default function SiteHeader() {
               </a>
             </li>
             <li>
-              <a
-                href="#faq"
+              <Link
+                href="/#faq"
                 onClick={() => setOpen(false)}
                 className="flex h-11 items-center text-[15px] tracking-[-0.01em] text-[var(--text-body)] transition-colors hover:text-[var(--text)]"
               >
                 FAQ
-              </a>
+              </Link>
             </li>
           </ul>
         </div>

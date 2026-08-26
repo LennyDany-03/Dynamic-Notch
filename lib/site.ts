@@ -33,6 +33,18 @@ export const site = {
   author: "LennyDany-03",
   authorUrl: "https://github.com/LennyDany-03",
   /**
+   * Support address, and the one registered with Microsoft Partner Center —
+   * keep the two the same, or a Store enquiry lands somewhere nobody reads.
+   * The privacy policy and the contact page both build their `mailto:` from it.
+   */
+  email: "lennydany3@gmail.com",
+  /**
+   * Who the privacy policy names as the publisher. `author` above is the GitHub
+   * handle, which is a username rather than a person — a legal document needs
+   * the person, so the two are deliberately separate strings.
+   */
+  publisher: "Lenny Dany Derek D",
+  /**
    * The community server. A permanent invite — the community section, the
    * header and the footer all point at this one string, so a re-issued invite
    * is a one-line change.
