@@ -68,6 +68,10 @@ windows = { version = "0.58", features = [
   "Win32_System_Performance",
   "Win32_System_SystemInformation",
   "Win32_System_Shutdown",
+  # Telling a packaged (MSIX/Store) build from the NSIS one at runtime, so
+  # `autostart.rs` picks the right startup mechanism and `updater.rs` stands
+  # down. See `autostart::is_packaged`.
+  "Win32_Storage_Packaging_Appx",
   # Foreground-window lookup, for clipboard capture exclusion.
   "Win32_Foundation",
   "Win32_UI_WindowsAndMessaging",

@@ -7,7 +7,10 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "tauri:nsis:build": "tauri build",
+    "tauri:msix:build": "tauri build --target x86_64-pc-windows-msvc --no-bundle && node scripts/stage-msix-exe.mjs x64 && tauri-windows-bundle build --arch x64 --runner npm",
+    "tauri:msix:build:local": "npm run tauri:msix:build && node scripts/build-msix-local.mjs x64"
   },
   "dependencies": {
     "@fontsource-variable/rubik": "^5.3.0",
@@ -28,7 +31,8 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^4.6.0",
     "typescript": "^6.0.3",
-    "vite": "^7.0.4"
+    "vite": "^7.0.4",
+    "@choochmeque/tauri-windows-bundle": "^0.1.28"
   },
   "allowScripts": {
     "esbuild@0.27.7": true

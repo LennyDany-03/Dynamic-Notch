@@ -83,9 +83,33 @@ pub struct UpdateInfo {
 /// callable, because the tray row is someone explicitly asking and reports the version
 /// before spending it — the objection is to a build replacing itself unprompted, not
 /// to the update mechanism being reachable while developing it.
+/// A packaged (Store) build is excluded outright, and unlike the source-tree case
+/// the exclusion covers the manual path too — see `store_managed` below.
 #[tauri::command]
 pub fn updater_auto_allowed() -> bool {
-    crate::autostart::running_installed_build()
+    crate::autostart::running_installed_build() && !crate::autostart::is_packaged()
+}
+
+/// The refusal both update commands share when Crest is running from an MSIX.
+///
+/// The Store owns the version of a packaged app: it installs updates itself, and
+/// the package is signed by Microsoft's own certificate after certification. The
+/// payload behind `updater_check` is an **NSIS installer**, which cannot service
+/// an MSIX at all — at best it writes a second, unpackaged Crest into
+/// `%LOCALAPPDATA%` beside the packaged one, leaving two installs whose single-
+/// instance mutex means whichever wins the boot silently suppresses the other,
+/// and leaving the Store still reporting the package as up to date.
+///
+/// So this is not the source-tree rule with a wider net. That one lets
+/// `updater_check` and `updater_install` stay callable because a developer asking
+/// explicitly is a legitimate ask; here there is no version of the ask that ends
+/// well, and the tray's update row is hidden by `updater_auto_allowed` anyway.
+/// The `Err` is what a hand-rolled `invoke` from a devtools console gets.
+fn store_managed() -> Option<String> {
+    crate::autostart::is_packaged().then(|| {
+        "Crest was installed from the Microsoft Store, which keeps it up to date."
+            .to_string()
+    })
 }
 
 /// Ask the endpoint what the latest release is.
@@ -95,6 +119,10 @@ pub fn updater_auto_allowed() -> bool {
 /// worst make the popup claim a version that then fails to install.
 #[tauri::command]
 pub async fn updater_check(app: AppHandle) -> Result<Option<UpdateInfo>, String> {
+    if let Some(refusal) = store_managed() {
+        return Err(refusal);
+    }
+
     let update = app
         .updater()
         .map_err(|e| e.to_string())?
@@ -126,6 +154,10 @@ pub async fn updater_check(app: AppHandle) -> Result<Option<UpdateInfo>, String>
 /// where `"passive"` would at least have shown a UAC prompt.
 #[tauri::command]
 pub async fn updater_install(app: AppHandle) -> Result<(), String> {
+    if let Some(refusal) = store_managed() {
+        return Err(refusal);
+    }
+
     // Taken, not cloned: a failed install should send the user back through
     // `updater_check` rather than silently retrying stale release metadata.
     let update = app

@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
+  xmlns:com="http://schemas.microsoft.com/appx/manifest/com/windows10"
+  xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities">
+
+  <Identity
+    Name="{{PACKAGE_NAME}}"
+    Publisher="{{PUBLISHER}}"
+    Version="{{VERSION}}"
+    ProcessorArchitecture="{{ARCH}}" />
+
+  <Properties>
+    <DisplayName>{{DISPLAY_NAME}}</DisplayName>
+    <PublisherDisplayName>{{PUBLISHER_DISPLAY_NAME}}</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop"
+      MinVersion="{{MIN_VERSION}}"
+      MaxVersionTested="10.0.22621.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="en-us" />
+  </Resources>
+
+  <Applications>
+    <Application Id="App"
+      Executable="{{EXECUTABLE}}"
+      EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+        DisplayName="{{DISPLAY_NAME}}"
+        Description="{{DESCRIPTION}}"
+        BackgroundColor="transparent"
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png">
+        <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" />
+      </uap:VisualElements>
+
+{{EXTENSIONS}}
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <!--
+      Declared here rather than in bundle.config.json because the bundler only
+      emits <Capability>, <DeviceCapability> and <rescap:Capability>, and this one
+      is a uap3 capability. It is what `notifications.rs` needs: without it,
+      UserNotificationListener::RequestAccessAsync returns Denied and the notch's
+      notification card and banner are permanently empty.
+
+      General-use, not restricted — it prompts the user for consent at runtime and
+      needs no Store approval.
+
+      **Above the generated capability block, not below it, and that is
+      load-bearing.** The schema models Capabilities as a sequence: any number of
+      Capability / foreign-namespace capabilities, and *then* DeviceCapability.
+      The generated block ends with the DeviceCapability for bluetooth, so this
+      line after it fails packaging outright with "Element uap3:Capability is
+      unexpected … Expecting: DeviceCapability" (MakeAppx C00CE014).
+
+      The same ordering rule is why `restricted` in bundle.config.json cannot be
+      combined with `device`: the generator emits restricted capabilities last,
+      i.e. after the DeviceCapability, which is invalid for the same reason. If a
+      restricted capability is ever genuinely needed, hand-write it here instead.
+    -->
+    <uap3:Capability Name="userNotificationListener" />
+{{CAPABILITIES}}
+  </Capabilities>
+</Package>
