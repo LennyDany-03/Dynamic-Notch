@@ -39,10 +39,32 @@ function cargoBinName() {
   return pkg[1];
 }
 
-/** The name the bundler will look for, by the same rule the bundler uses. */
+/**
+ * The name the bundler will look for, by the same rule the bundler uses.
+ *
+ * It derives the executable from `displayName` with the spaces stripped, and
+ * `bundle.config.json` is spread over the tauri config when it builds — so a
+ * `displayName` override there moves the target. That is not hypothetical: the
+ * Store listing is "Crest Notch" (Partner Center already had it reserved, and
+ * "Crest" could not be), so the override is set and the file to stage is
+ * `CrestNotch.exe`, not `Crest.exe`. Reading the same two sources in the same
+ * order is what keeps this script from having an opinion the bundler disagrees
+ * with — the previous version read only `productName` and would look for a file
+ * the bundler was not going to open.
+ */
 function packagedExeName() {
   const conf = JSON.parse(fs.readFileSync(path.join(srcTauri, 'tauri.conf.json'), 'utf8'));
-  return `${(conf.productName ?? 'App').replace(/\s+/g, '')}.exe`;
+
+  let displayName = conf.productName ?? 'App';
+  const bundleConfig = path.join(srcTauri, 'gen', 'windows', 'bundle.config.json');
+  if (fs.existsSync(bundleConfig)) {
+    const overrides = JSON.parse(fs.readFileSync(bundleConfig, 'utf8'));
+    if (typeof overrides.displayName === 'string' && overrides.displayName.trim()) {
+      displayName = overrides.displayName;
+    }
+  }
+
+  return `${displayName.replace(/\s+/g, '')}.exe`;
 }
 
 /** Honour `CARGO_TARGET_DIR` / `build.target-dir`, which the bundler also resolves. */
