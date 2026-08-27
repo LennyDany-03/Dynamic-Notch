@@ -100,6 +100,7 @@ pub fn run() {
             screenshots::reveal_screenshot,
             notifications::get_windows_notifications,
             notifications::notifications_available,
+            notifications::notifications_muting_supported,
             notifications::notification_logo,
             notifications::dismiss_notification,
             notifications::clear_all_notifications,

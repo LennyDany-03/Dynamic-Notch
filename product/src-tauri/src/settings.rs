@@ -864,9 +864,16 @@ fn apply_topmost(app: &AppHandle, enabled: bool) -> Result<(), String> {
 ///
 /// What was changed and what to put back is `notifications`' business, not a
 /// preference; see the memo it keeps.
+/// The packaged build is a fourth refusal, and it is the one the user cannot see
+/// coming: inside an MSIX the registry write never reaches the shell, so muting
+/// would report success and change nothing. Refusing here rather than letting the
+/// sweep run also keeps the restore memo honest — a memo full of apps that were
+/// never actually muted is a list of changes to undo that were never made.
 fn apply_banners(settings: &Settings) -> Result<(), String> {
-    let mute =
-        settings.mute_windows_banners && settings.notifications && notifications::access_allowed();
+    let mute = settings.mute_windows_banners
+        && settings.notifications
+        && notifications::banner_muting_supported()
+        && notifications::access_allowed();
     notifications::set_muted(mute)
 }
 
@@ -1167,6 +1174,14 @@ pub fn set_mute_windows_banners(
     let mut settings = current.get(&app);
 
     if enabled {
+        if !notifications::banner_muting_supported() {
+            return Err(
+                "The Microsoft Store version of Crest can't change this — Windows keeps a \
+                 packaged app's copy of the setting to itself. Windows' own banners will keep \
+                 appearing alongside the notch."
+                    .into(),
+            );
+        }
         if !settings.notifications {
             return Err("Turn on notifications in the notch first.".into());
         }

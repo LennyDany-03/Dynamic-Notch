@@ -640,6 +640,33 @@ export function useNotesLocation(): NotesLocation | null {
  * to silence Windows' banners while it is false — this is what explains that
  * refusal before the user meets it.
  */
+/**
+ * Whether muting Windows' own banners can work in this build at all.
+ *
+ * False in the Microsoft Store build: a packaged app's registry writes are
+ * redirected into a private hive, so the switch would report success and change
+ * nothing the shell reads. Read once and never re-read — unlike notification
+ * access, which the user can revoke mid-session, this is a property of how Crest
+ * was installed and cannot change while it runs.
+ *
+ * `true` until Rust answers, deliberately. The alternative renders the row dimmed
+ * for a frame in the NSIS build — the overwhelmingly common case — and a control
+ * that starts disabled and enables itself reads as a control that was broken and
+ * recovered. Rust refuses the write regardless, so an optimistic guess costs a
+ * click at worst and only in the build where the row is about to be dimmed anyway.
+ */
+export function useBannerMutingSupported(): boolean {
+  const [supported, setSupported] = useState(true)
+
+  useEffect(() => {
+    void invoke<boolean>('notifications_muting_supported')
+      .then(setSupported)
+      .catch(() => setSupported(true))
+  }, [])
+
+  return supported
+}
+
 export function useNotificationAccess(): boolean | null {
   const [allowed, setAllowed] = useState<boolean | null>(null)
 

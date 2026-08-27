@@ -396,11 +396,13 @@ if a Tauri-level override is ever genuinely needed: it only applies when passed
 explicitly with `--config`, so it cannot leak into a build that did not ask for it.
 
 **Capabilities are declared from what the code does, and `DeviceCapability` goes
-last.** Four are declared: `runFullTrust` (automatic — `Windows.FullTrustApplication`
+last.** Five are declared: `runFullTrust` (automatic — `Windows.FullTrustApplication`
 requires it, and it is also what keeps PDH, `IPolicyConfig`, `ExitWindowsEx`, the
 `shell:AppsFolder` walk and ordinary Win32 file access working, none of which
 survive an app container), `internetClient` for `weather.rs`, `bluetooth` for
-`system.rs`, and `userNotificationListener` for `notifications.rs`. There is
+`system.rs`, `userNotificationListener` for `notifications.rs`, and
+`unvirtualizedResources` — the one restricted capability here that is not
+automatic, paired with `RegistryWriteVirtualization` and explained below. There is
 deliberately **no screen-capture capability**: `screenshots.rs` scans the folders
 Windows saves captures to and never captures anything, so the module the name
 suggests would need one is the one that does not.
@@ -456,13 +458,56 @@ Identity has to match Partner Center byte for byte or the upload is rejected:
 `Crest_<version>_x64.msix` and `Crest_<version>.msixbundle`; the bundle is what
 Partner Center takes. x64 only for now.
 
-**One thing is unverified and should be tested before it is trusted:**
-`muteWindowsBanners` writes other apps' notification settings under HKCU, and MSIX
-virtualizes HKCU writes into a package-private hive, so the shell may never see
-them and the switch may be silently dead inside the package. If a sideload
-confirms it, the fix is to hide the row when `is_packaged()` — not
-`unvirtualizedResources`, which is a restricted capability needing Store approval
-and far too broad to spend on one preference.
+**`muteWindowsBanners` needs two manifest entries to work in the package, and
+without them it fails silently.** The mechanism is a registry write the shell
+reads back, and a packaged app's HKCU writes are redirected by default into a
+private hive. Measured on 0.7.1 by sideloading, both ways: with the default, all
+46 `ShowBanner` values went to
+`%LOCALAPPDATA%\Packages\<PFN>\SystemAppData\Helium\User.dat` and the real
+`…\Notifications\Settings` had **none**; with the opt-out, the same sweep put all
+46 into the **real** hive and Windows stopped drawing banners. Nothing errors in
+the broken case — the sweep reports success and the memo records 46 apps it
+believes it muted — which is what makes this worth a paragraph rather than a
+line.
+
+The opt-out is a pair, and neither half does anything alone:
+`<desktop6:RegistryWriteVirtualization>disabled` in `<Properties>`, and the
+`unvirtualizedResources` restricted capability. It also forces
+`MinVersion 10.0.19041.0`, which is why the npm script passes a min-windows flag —
+the bundler's 17763 default was never reachable for a Windows 11 app anyway.
+File-system virtualization is deliberately left **on**: `%APPDATA%` writes already
+reach the real location, so there is nothing to buy and turning it off would widen
+what has to be justified.
+
+**The Store grants `unvirtualizedResources` case by case, so the submission has to
+justify it** — and that is now the one thing standing between this build and the
+Store rather than a detail. The justification is what the app is for: Crest
+replaces Windows' banner with its own, and per-app `ShowBanner` is the only
+mechanism Windows exposes for suppressing the one it draws, so without it the
+notch shows a notification *beside* the banner it was meant to replace, which is
+the feature inverted rather than missing.
+
+If it is ever declined, `notifications::banner_muting_supported()` is the seam and
+the change is one line — return `!crate::autostart::is_packaged()`. That gates
+`apply_banners` (the sweep stops running, and the restore path cleans up a memo an
+earlier build wrote), refuses `set_mute_windows_banners` with a message naming the
+Store, and dims the Settings row with a line underneath, the same answer "Show me
+where it is" gives. All of that is written and currently inert, kept because the
+alternative is finding four call sites under a resubmission deadline. **The
+preference itself is never touched by that path**: it stays stored and correct for
+the NSIS build, so a profile moving between the two keeps its choice.
+
+Two things fall out of that measurement and are worth keeping. **File writes are
+*not* virtualized**: the packaged build reads and writes the real
+`%APPDATA%\com.lenny.crest`, the same `notes.json`, `reminders.json` and
+`settings.json` the NSIS build uses, so moving a user from one to the other
+carries their data across for free. Registry and filesystem virtualization behave
+differently here, so neither answer can be assumed from the other. And **the NSIS
+build's uninstaller does not remove the `Crest` scheduled task** — it is left
+Ready, pointing at a deleted `…\AppData\Local\Crest\windows_dynamic_noich.exe`,
+firing and failing at every login. Harmless to the packaged build, which branches
+on `is_packaged()` and never consults the scheduler, but every NSIS→Store migrator
+inherits it, and `schtasks /Delete /TN Crest /F` is what clears it.
 
 ## Styling
 
