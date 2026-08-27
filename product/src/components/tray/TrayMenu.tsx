@@ -364,6 +364,11 @@ export default function TrayMenu() {
   const [hovered, setHovered] = useState<string | null>(null)
   const [autostart, setAutostart] = useState(false)
   const [version, setVersion] = useState('')
+  // Whether the Microsoft Store owns this build's version. Read once — how Crest
+  // was installed cannot change while it runs. Defaults false so the row is
+  // present in the overwhelmingly common build and only ever *removed*, rather
+  // than appearing a frame late in every other one.
+  const [storeManaged, setStoreManaged] = useState(false)
   const [update, setUpdate] = useState<UpdateState>({ kind: 'idle' })
 
   // The popup is a Mica card like every other surface, so it follows the same
@@ -387,8 +392,17 @@ export default function TrayMenu() {
       icon: MODULE_ROWS[id].icon,
       action: { kind: 'module', module: id },
     }))
-    return [modules, ...GROUPS]
-  }, [settings.panels])
+    // The Store owns a packaged build's version, so there is no version of this
+    // ask that can succeed — `updater_check` refuses it, and `updateRowText`
+    // renders every error as a bare "Failed", which tells a Store user nothing.
+    // A row removed is better than a row that always fails.
+    const fixed = storeManaged
+      ? GROUPS.map((group) => group.filter((row) => row.id !== 'update')).filter(
+          (group) => group.length > 0,
+        )
+      : GROUPS
+    return [modules, ...fixed]
+  }, [settings.panels, storeManaged])
 
   // `tray.rs` positions this window from its size, so the size has to be the
   // truth about the card rather than a number in the config hoping to be.
@@ -401,6 +415,12 @@ export default function TrayMenu() {
 
   useEffect(() => {
     getVersion().then(setVersion).catch(() => setVersion(''))
+  }, [])
+
+  useEffect(() => {
+    void invoke<boolean>('updater_store_managed')
+      .then(setStoreManaged)
+      .catch(() => setStoreManaged(false))
   }, [])
 
   useEffect(() => {

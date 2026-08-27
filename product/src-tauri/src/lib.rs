@@ -144,6 +144,7 @@ pub fn run() {
             updater::updater_check,
             updater::updater_install,
             updater::updater_auto_allowed,
+            updater::updater_store_managed,
         ])
         .on_window_event(|window, event| {
             // A popup menu must close when it loses focus, the same as the native

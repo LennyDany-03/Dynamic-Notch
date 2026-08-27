@@ -1,1 +1,0 @@
-Crest — the dynamic notch, built for Windows. Nudge the top of your screen and your music, files, notes, notifications, system load and calendar slide down; move away and the desktop is yours again. Native Rust + Tauri, no account, no telemetry, MIT.

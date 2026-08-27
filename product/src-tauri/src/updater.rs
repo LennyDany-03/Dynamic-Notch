@@ -105,6 +105,23 @@ pub fn updater_auto_allowed() -> bool {
 /// explicitly is a legitimate ask; here there is no version of the ask that ends
 /// well, and the tray's update row is hidden by `updater_auto_allowed` anyway.
 /// The `Err` is what a hand-rolled `invoke` from a devtools console gets.
+/// Whether the Store owns this build's version, for the tray.
+///
+/// The tray's update row is *not* gated on `updater_auto_allowed`: that is false
+/// for a source-tree build too, where the row is exactly right to keep — a
+/// developer clicking it is asking on purpose. This is the narrower question, and
+/// it is the one that should hide the row: in a packaged build there is no
+/// version of the ask that can succeed, so offering the action is offering
+/// something that cannot work.
+///
+/// Without this the row stays, `updater_check` returns the refusal below, and the
+/// tray renders any error as a bare **"Failed"** — so a Store user clicking it
+/// learns nothing, and the message explaining why never reaches them.
+#[tauri::command]
+pub fn updater_store_managed() -> bool {
+    crate::autostart::is_packaged()
+}
+
 fn store_managed() -> Option<String> {
     crate::autostart::is_packaged().then(|| {
         "Crest was installed from the Microsoft Store, which keeps it up to date."

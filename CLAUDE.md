@@ -320,7 +320,17 @@ Note: the Rust crate is named `windows_dynamic_noich` (typo in the original scaf
 
 ## Releasing
 
-Tag-triggered, never push-triggered — every run of `.github/workflows/release.yml` is an update prompt on a user's machine.
+Every run of `.github/workflows/release.yml` is a silent update on a user's machine, so the gate is worth understanding before pushing.
+
+**A push to `main` releases.** The workflow runs on `branches: [main]` as well as
+`tags: ['v*']`, and the `gate` job decides: for a branch push the version in
+`tauri.conf.json` is authoritative, the tag is derived from it (`v0.7.2`), and the
+release proceeds **only if that tag has never existed**. So bumping the version and
+pushing is a release — no manual tag needed — while pushing anything else is inert,
+because the tag is already there. A hand-pushed tag or a `workflow_dispatch` is an
+explicit instruction and always proceeds. `release-meta.mjs` then validates the
+CHANGELOG section and `lib/site.ts` *before* the tag is created, so a failed check
+leaves no stray tag behind.
 
 1. Bump `version` in `product/src-tauri/tauri.conf.json` — **this is the only number the updater compares**. (The two `package.json` versions are not the release version.)
 2. Bump `version` in `lib/site.ts` to match; the site's download URL is built from it, so a mismatch is a 404 on the download button.
