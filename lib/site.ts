@@ -37,7 +37,7 @@ const origin = process.env.NEXT_PUBLIC_SITE_URL
  * what the release tag and the NSIS installer filename are built from, so a
  * mismatch here produces a 404 on the download button.
  */
-const version = "0.7.1";
+const version = "0.7.2";
 
 export const site = {
   name: "Crest",

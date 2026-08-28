@@ -1,3 +1,57 @@
+## 0.7.2 — 2026-08-28
+
+**A packaging release — like 0.7.1, nothing inside the app has changed.** If you
+installed Crest from GitHub, this version behaves exactly as 0.7.1 did. Every
+panel, preference, animation and keystroke is untouched, and the update that is
+about to install itself quietly is one you will not be able to see afterwards.
+
+What it adds is a second way to *distribute* Crest: a Microsoft Store package,
+built from the same source and stamped with the same version as the installer.
+The two are one binary in two wrappers, so most of the work was teaching Crest to
+notice which wrapper it is running inside and use the right mechanism for it.
+
+### New
+
+- **A Microsoft Store package.** Built off the same `tauri.conf.json` version the
+  installer uses, so the two distribution paths can never drift into describing
+  themselves as different releases. The Store listing is not live yet — this is
+  the build path being finished, not an announcement
+- **Crest asks Windows how it was installed rather than being told when it is
+  built.** A compile-time flag would decide this at build time, so a release built
+  with the wrong one would be a Crest that either never starts with Windows or
+  writes a startup entry that outlives its own uninstall — both of which look fine
+  until someone logs in. Asked at runtime, it cannot be got wrong by a build
+- **A privacy policy at [crest-beta.vercel.app/privacy](https://crest-beta.vercel.app/privacy).**
+  A plain account of what Crest touches, what it keeps on your machine, and the
+  only two services it ever talks to — Open-Meteo for the forecast of a place you
+  typed in yourself, and GitHub to see whether there is a newer version. There is
+  no third one, and the source is there to check it against
+
+### Improved
+
+- **Starting with Windows uses the mechanism each build is supposed to use.** The
+  installer keeps the scheduled task it has always used, because Explorer's own
+  startup queue runs ten deep on a normal machine and put Crest on screen minutes
+  after login. A packaged build uses the startup task its manifest declares, which
+  is the one Windows expects and the one the Startup tab in Task Manager can
+  switch off
+- **The Store build leaves updating to the Store.** Crest updates itself silently,
+  and what it downloads is an installer — which cannot service a packaged app, and
+  would at best leave a second Crest on the machine, the two of them suppressing
+  each other at boot while the Store still reported everything up to date. So a
+  packaged build does not check, does not install, and drops the tray's update row
+  rather than offering an action that cannot succeed. **Nothing changes for the
+  installer**, which still checks shortly after launch and every six hours, as it
+  always has
+
+### Fixed
+
+- **The site's sitemap pointed at `localhost`.** It was built from an environment
+  variable nobody had set on the host, so the live sitemap advertised
+  `http://localhost:3000` for every page on it — including the privacy policy,
+  which is the one URL that has to stay findable. It reads the real domain now,
+  and only falls back to localhost where that is genuinely where it is running
+
 ## 0.7.1 — 2026-08-27
 
 **A packaging release — nothing inside the app has changed.** Crest looks and
