@@ -22,6 +22,7 @@ import {
   NOTCH_WIDTH,
   OPACITY,
   PANEL_SCALE,
+  useBannerMutingSupported,
   useNotificationAccess,
   useSettings,
 } from '../../hooks/useSettings'
@@ -1420,6 +1421,7 @@ function SettingsPane({ api }: { api: ReturnType<typeof useSettings> }) {
     setTimerSound,
   } = api
   const notificationAccess = useNotificationAccess()
+  const bannerMutingSupported = useBannerMutingSupported()
 
   return (
     <>
@@ -1511,7 +1513,14 @@ function SettingsPane({ api }: { api: ReturnType<typeof useSettings> }) {
         body="Stops Windows drawing its pop-up in the bottom-right corner, so a notification appears in the notch and nowhere else. It still lands in the notification centre, and Windows gets its banners back if you turn this off or quit Crest."
         on={settings.muteWindowsBanners}
         onToggle={() => setMuteWindowsBanners(!settings.muteWindowsBanners)}
-        disabled={notificationAccess === false || !settings.notifications}
+        // The Store build cannot do this at all: a packaged app's registry writes
+        // go to a private hive the shell never reads, so the sweep succeeds and
+        // Windows keeps drawing its banner. Dimming it and saying so below is the
+        // same answer "Show me where it is" gives — a switch that visibly does
+        // nothing is worse than one that is visibly not available.
+        disabled={
+          !bannerMutingSupported || notificationAccess === false || !settings.notifications
+        }
         icon={
           <Icon>
             <path d="M18 8a6 6 0 0 0-9.3-5" />
@@ -1533,6 +1542,18 @@ function SettingsPane({ api }: { api: ReturnType<typeof useSettings> }) {
             Settings → Privacy &amp; security → Notifications
           </strong>
           , then reopen this window.
+        </p>
+      )}
+
+      {/* Only when access is granted, or this stacks a second explanation under
+          the one above and the row is already dimmed for the first reason. This
+          note is about the build rather than a setting, so unlike the one above
+          there is nothing the user can go and change. */}
+      {!bannerMutingSupported && notificationAccess !== false && (
+        <p style={{ margin: '2px 12px 0', fontSize: 11.5, lineHeight: 1.5, color: color.text.muted }}>
+          Muting isn't available in the Microsoft Store version — Windows keeps a packaged app's
+          copy of that setting to itself, so Crest can't reach the one the pop-up reads.
+          Notifications still appear in the notch; Windows' own banner appears too.
         </p>
       )}
 

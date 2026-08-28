@@ -2,24 +2,49 @@
  * Single source of truth for everything the marketing copy needs to point at.
  *
  * `url` feeds `metadataBase`, which is what makes the OG/Twitter image URLs
- * absolute — set `NEXT_PUBLIC_SITE_URL` on the host once the real domain is
- * live, otherwise social previews resolve against localhost.
+ * absolute — set `NEXT_PUBLIC_SITE_URL` on the host to pin a custom domain.
  */
 const repo = "https://github.com/LennyDany-03/Dynamic-Notch";
+
+/**
+ * The origin this site is served from, used for canonical URLs, `metadataBase`
+ * and the sitemap.
+ *
+ * The localhost fallback used to be the only one, and on a host where nobody had
+ * set `NEXT_PUBLIC_SITE_URL` it did not fail loudly — it shipped a live
+ * `sitemap.xml` advertising `http://localhost:3000/privacy`, which is the URL
+ * the Microsoft Store submission depends on being discoverable. So the Vercel
+ * domain is read directly as the middle fallback and the variable becomes an
+ * override for a custom domain rather than a requirement.
+ *
+ * `VERCEL_PROJECT_PRODUCTION_URL` is the *production* domain on every
+ * deployment, preview builds included, which is what a canonical URL wants —
+ * `VERCEL_URL` is per-deployment, so it would point previews at themselves and
+ * scatter the canonical across every build. Neither is `NEXT_PUBLIC_`, so both
+ * are server-only; that is safe precisely because the three readers of
+ * `site.url` (`app/sitemap.ts` and the two `metadata` exports) all run on the
+ * server. Do not read `site.url` from a Client Component without making this a
+ * `NEXT_PUBLIC_` variable — the value would be `undefined` in the browser
+ * bundle and hydration would disagree with the server.
+ */
+const origin = process.env.NEXT_PUBLIC_SITE_URL
+  ?? (process.env.VERCEL_PROJECT_PRODUCTION_URL
+    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+    : "http://localhost:3000");
 
 /**
  * Must match `version` in product/src-tauri/tauri.conf.json — that number is
  * what the release tag and the NSIS installer filename are built from, so a
  * mismatch here produces a 404 on the download button.
  */
-const version = "0.7.1";
+const version = "0.7.2";
 
 export const site = {
   name: "Crest",
   tagline: "The dynamic notch, built for Windows.",
   description:
     "Crest puts a Mica-glass notch at the top of your Windows desktop. Hover for your music, apps, files, notes, notifications, system load, weather and calendar. Then it disappears. Five themes, any monitor. Free, native, and open source.",
-  url: process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
+  url: origin,
   version,
   repo,
   /**

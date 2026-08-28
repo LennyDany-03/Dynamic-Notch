@@ -269,6 +269,49 @@ pub fn access_allowed() -> bool {
         .unwrap_or(false)
 }
 
+/// Whether silencing Windows' own banners can work at all in this build.
+///
+/// False inside an MSIX, and the reason is that the mechanism is a registry write
+/// the shell has to read back. A packaged app's HKCU writes are redirected into a
+/// package-private hive (`SystemAppData\Helium\User.dat`), so `ShowBanner = 0`
+/// lands somewhere only Crest can see and the shell keeps drawing its banner from
+/// the value it still holds. Nothing errors. Measured on 0.7.1: the sweep wrote
+/// all 46 entries into the private hive and the real
+/// `…\Notifications\Settings` had none of them, before and after.
+///
+/// **Not fixable from inside the package by declaring more.** The opt-out is
+/// `<desktop6:RegistryWriteVirtualization>disabled`, which requires the
+/// `unvirtualizedResources` restricted capability — Store approval, granted case
+/// by case, for a capability that turns off virtualization wholesale. That is far
+/// too much surface to spend on one secondary preference, on a listing that has
+/// already been rejected once.
+///
+/// A function rather than an `is_packaged()` call at each site because the two
+/// questions are different: callers want to know whether this *feature works*,
+/// and if a second reason it cannot ever appears, it appears here.
+pub fn banner_muting_supported() -> bool {
+    // Packaged builds are back in, because the manifest now turns the
+    // redirection off: `<desktop6:RegistryWriteVirtualization>disabled` plus the
+    // `unvirtualizedResources` capability, which only work as a pair. See the
+    // notes at both in `gen/windows/AppxManifest.xml.template`.
+    //
+    // The seam is kept rather than deleted. It is one line to make this
+    // `!crate::autostart::is_packaged()` again, which is exactly what to do if
+    // the Store declines the capability — the alternative to having it is
+    // hunting for four call sites under submission deadline.
+    true
+}
+
+/// The same question, for Settings.
+///
+/// Its own command beside `notifications_available` and for the same reason: the
+/// row is inert without it, and the window has to be able to say why before the
+/// user meets a refusal from `set_mute_windows_banners`.
+#[tauri::command]
+pub fn notifications_muting_supported() -> bool {
+    banner_muting_supported()
+}
+
 /// Ask for access once, at startup.
 ///
 /// Separated from reading because the read runs on a poll: a request per poll

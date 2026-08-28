@@ -47,6 +47,116 @@ use tauri_plugin_autostart::ManagerExt;
 /// would need creating first, and one task does not need a namespace.
 const TASK_NAME: &str = "Crest";
 
+/// The `TaskId` of the `windows.startupTask` extension in the MSIX manifest.
+///
+/// **Must match `extensions.startupTask.taskId` in
+/// `src-tauri/gen/windows/bundle.config.json`.** It is the only handle the
+/// package gives us onto that entry — `StartupTask::GetAsync` takes this string
+/// and fails for any other — so the two are one value in two files and there is
+/// nothing at compile time that would notice them drifting apart.
+#[cfg(windows)]
+const MSIX_TASK_ID: &str = "CrestStartupTask";
+
+/// Whether this process is running from an MSIX package.
+///
+/// The Store build and the NSIS build are the same binary compiled the same way,
+/// so this is asked at runtime rather than behind a Cargo feature. That is
+/// deliberate and it is the safer half of the choice: a feature flag decides at
+/// *build* time which mechanism is compiled in, and a release built with the
+/// wrong flag is a Crest that either never starts with Windows or writes a
+/// scheduled task from inside a package — both of which look fine until a user
+/// logs in. Asking Windows what we are cannot be got wrong by a build script.
+///
+/// `GetCurrentPackageFullName` is the documented test: it answers
+/// `APPMODEL_ERROR_NO_PACKAGE` for an unpackaged process and a length for a
+/// packaged one. Cached because the answer cannot change while the process lives
+/// and every caller is on a path that runs more than once.
+#[cfg(windows)]
+pub fn is_packaged() -> bool {
+    use std::sync::OnceLock;
+    use windows::core::PWSTR;
+    use windows::Win32::Foundation::ERROR_INSUFFICIENT_BUFFER;
+    use windows::Win32::Storage::Packaging::Appx::GetCurrentPackageFullName;
+
+    static PACKAGED: OnceLock<bool> = OnceLock::new();
+    *PACKAGED.get_or_init(|| {
+        let mut len: u32 = 0;
+        // Length-query form: with a null buffer a packaged process answers
+        // ERROR_INSUFFICIENT_BUFFER and sets `len`, so there is no allocation to
+        // do and no name to parse — the error code *is* the answer.
+        let result = unsafe { GetCurrentPackageFullName(&mut len, PWSTR::null()) };
+        result == ERROR_INSUFFICIENT_BUFFER
+    })
+}
+
+#[cfg(not(windows))]
+pub fn is_packaged() -> bool {
+    false
+}
+
+/// Read the package's startup task, if there is one.
+///
+/// Returns `None` for anything that is not a plain readable state — an
+/// unpackaged process, a manifest without the extension, a call that never
+/// completes. Every caller treats that as "startup is off", which is the safe
+/// side: reporting it on when it is not puts a switch on screen that lies.
+#[cfg(windows)]
+fn msix_task() -> Option<windows::ApplicationModel::StartupTask> {
+    use std::time::Duration;
+    use windows::core::HSTRING;
+    use windows::ApplicationModel::StartupTask;
+
+    let op = StartupTask::GetAsync(&HSTRING::from(MSIX_TASK_ID)).ok()?;
+    crate::system::await_op(op, Duration::from_secs(2))
+}
+
+/// Whether the package's startup task is on.
+///
+/// `EnabledByPolicy` counts as on: an administrator has forced it, the app
+/// cannot turn it off, and a switch reading "off" next to an app that starts
+/// anyway is the worse of the two lies.
+#[cfg(windows)]
+fn msix_is_enabled() -> bool {
+    use windows::ApplicationModel::StartupTaskState;
+
+    matches!(
+        msix_task().and_then(|task| task.State().ok()),
+        Some(StartupTaskState::Enabled) | Some(StartupTaskState::EnabledByPolicy)
+    )
+}
+
+/// Turn the package's startup task on or off, and report the state reached.
+///
+/// **`DisabledByUser` cannot be undone from here, and that is Windows' rule, not
+/// a gap in this code.** Once someone switches Crest off in Task Manager's
+/// Startup tab, `RequestEnableAsync` returns that same state and changes
+/// nothing — the setting is deliberately out of the app's reach so an app cannot
+/// re-enable itself behind the user's back. Returning the real state is what
+/// makes the tray switch snap back instead of showing an on that never took,
+/// which is the contract `set_enabled` already has for the scheduled-task path.
+#[cfg(windows)]
+fn msix_set_enabled(enabled: bool) -> bool {
+    use std::time::Duration;
+    use windows::ApplicationModel::StartupTaskState;
+
+    let Some(task) = msix_task() else {
+        return false;
+    };
+
+    if !enabled {
+        let _ = task.Disable();
+        return msix_is_enabled();
+    }
+
+    let Ok(op) = task.RequestEnableAsync() else {
+        return false;
+    };
+    matches!(
+        crate::system::await_op(op, Duration::from_secs(5)),
+        Some(StartupTaskState::Enabled) | Some(StartupTaskState::EnabledByPolicy)
+    )
+}
+
 /// Do not flash a console window. Every `schtasks` call here is silent, and
 /// without this each one blinks a black rectangle onto the desktop.
 #[cfg(windows)]
@@ -287,6 +397,16 @@ fn delete_task() -> Result<(), String> {
 /// The Run key is still consulted so that an install which fell back to it — or
 /// one that has not been migrated yet — reports honestly.
 pub fn is_enabled(app: &AppHandle) -> bool {
+    // A packaged build has neither of the other two and must not be asked about
+    // them: `schtasks /Query` from inside a package answers about the *machine's*
+    // task store, so a leftover "Crest" task from a previous NSIS install on the
+    // same machine would report the Store build as starting with Windows when it
+    // is the uninstalled one that would start.
+    #[cfg(windows)]
+    if is_packaged() {
+        return msix_is_enabled();
+    }
+
     task_exists() || app.autolaunch().is_enabled().unwrap_or(false)
 }
 
@@ -302,6 +422,16 @@ pub fn is_enabled(app: &AppHandle) -> bool {
 /// which is the identical bug by the slower mechanism. The caller is told the
 /// state actually reached, so the tray switch snaps back rather than lying.
 pub fn set_enabled(app: &AppHandle, enabled: bool) -> bool {
+    // The package's own extension, and nothing else. Writing a scheduled task or
+    // a Run key from inside an MSIX would survive the app being uninstalled —
+    // the package goes, the task stays, and every login afterwards tries to
+    // launch a path that no longer exists. Clean uninstall is the whole reason
+    // the manifest carries a startup task in the first place.
+    #[cfg(windows)]
+    if is_packaged() {
+        return msix_set_enabled(enabled);
+    }
+
     if !enabled {
         let _ = delete_task();
         let _ = app.autolaunch().disable();
@@ -350,6 +480,19 @@ pub fn set_enabled(app: &AppHandle, enabled: bool) -> bool {
 ///
 /// Returns whether the caller should record that startup has now been configured.
 pub fn migrate(app: &AppHandle, configured: bool) -> bool {
+    // Nothing to migrate *from* and no ambiguity to resolve. The manifest ships
+    // the startup task `Enabled="true"`, so Windows has already made the choice
+    // this function exists to make, and it is recorded as configured so the
+    // three-case guess below never runs against a package.
+    //
+    // Deliberately not calling `set_enabled` here: on a build the user has
+    // switched off in Task Manager that call is refused anyway, and on every
+    // other one it would re-assert a state Windows already holds.
+    #[cfg(windows)]
+    if is_packaged() {
+        return true;
+    }
+
     let exe = std::env::current_exe().ok();
     let installed = exe.as_deref().map(is_installed_build).unwrap_or(false);
 

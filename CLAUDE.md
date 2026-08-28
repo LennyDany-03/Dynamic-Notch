@@ -33,10 +33,16 @@ npm run lint     # eslint
 Crest (from `product/`):
 
 ```bash
-npm run tauri dev     # full app: Vite on :1420 + Rust backend
-npm run dev           # Vite only — browser fallback, see below
-npm run tauri build   # installers → src-tauri/target/release/bundle/
+npm run tauri dev        # full app: Vite on :1420 + Rust backend
+npm run dev              # Vite only — browser fallback, see below
+npm run tauri build      # installers → src-tauri/target/release/bundle/
+npm run tauri:nsis:build # the same thing, named — the shipping installer
+npm run tauri:msix:build # the Store package → src-tauri/target/msix/
+npm run tauri:msix:build:local # ↑ re-packed so it can be sideloaded, → target/msix-localtest/
 ```
+
+The last two are the two distribution paths and they are named rather than
+implied because there are now two of them; see [The Store build](#the-store-build-msix).
 
 `npm run build` in `product/` is `vite build` only — no `tsc` step, so type errors do not fail the build. Type-check explicitly with `npx tsc --noEmit` from `product/`.
 
@@ -297,6 +303,11 @@ The card itself carries two corrections worth reading before changing it. It has
 
 **Starting with Windows is a scheduled task, not the Run key.** `tauri-plugin-autostart` writes `HKCU\…\Run`, which is a *queue*: Explorer delays it ~10s and then walks the entries with a stagger. On a machine with Docker Desktop, Steam, Epic, Riot and Google Drive also in that list, Crest was tenth and appeared about five minutes after login. No amount of making Crest faster moves it up that list. `autostart.rs` registers a logon-triggered task instead, which Task Scheduler starts independently of that walk. Three XML settings are load-bearing and all three defaults are wrong: `DisallowStartIfOnBatteries` defaults to **true** (a laptop would silently never start it — the single most common way a scheduled task "does not work"), the logon `Delay` is pinned to `PT0S`, and `Priority` defaults to 7 (below-normal) where 5 is normal. It runs `LeastPrivilege`/`InteractiveToken`, so no elevation and no UAC — which is what makes it viable at all. The Run key stays as the fallback, and turning startup off clears both.
 
+None of that applies inside an MSIX, which uses the manifest's own startup task
+instead — `autostart.rs` branches at runtime on `is_packaged()`, and writing a
+scheduled task from inside a package would outlive the package. See
+[The Store build](#the-store-build-msix).
+
 Related bug, now fixed: `setup` used to call `autolaunch().enable()` **unconditionally on every launch**, so turning the tray toggle off lasted until the next boot. `autostart::migrate` replaces it, and `settings.autostart_configured` is what lets it tell "off on purpose" from "never set up" — without that flag it cannot avoid re-enabling on every start.
 
 **Only an installed build may enrol itself**, and the task is repointed at whatever installed build is running. The task records `current_exe()`, so the first `npm run tauri dev` on a machine that had never configured startup registered `target\debug\…exe` — a binary that loads Vite's dev URL rather than the bundled frontend and, since `windows_subsystem = "windows"` is release-only, opens a console. That is a console window and a webview reading "localhost refused to connect" at every login, and it *survived installing the real app*, because `task_exists()` was true from then on and `migrate` had nothing that would repoint it. `is_installed_build` refuses both the debug build and a release binary sitting in `target\release` (running what `tauri build` produced is no more a request for startup than the other), and it gates `set_enabled` rather than `create_task`, or the Run-key fallback would write the same dev path by the slower mechanism. In that state `migrate` must also return **false**, leaving `autostart_configured` unwritten — a dev session recording a choice nobody made would read as "off on purpose" to the first installed launch, which would then never start up. The repoint is the self-healing half: an installed build that finds the task aimed elsewhere re-creates it, which fixes a moved install and this bug alike, one launch after the app is installed. `task_targets` substring-matches the path rather than parsing the XML, through a `decode` that handles `schtasks` answering in UTF-16 on some machines and the console codepage on others — read the wrong way the path never matches and the task is rewritten on every launch.
@@ -309,7 +320,17 @@ Note: the Rust crate is named `windows_dynamic_noich` (typo in the original scaf
 
 ## Releasing
 
-Tag-triggered, never push-triggered — every run of `.github/workflows/release.yml` is an update prompt on a user's machine.
+Every run of `.github/workflows/release.yml` is a silent update on a user's machine, so the gate is worth understanding before pushing.
+
+**A push to `main` releases.** The workflow runs on `branches: [main]` as well as
+`tags: ['v*']`, and the `gate` job decides: for a branch push the version in
+`tauri.conf.json` is authoritative, the tag is derived from it (`v0.7.2`), and the
+release proceeds **only if that tag has never existed**. So bumping the version and
+pushing is a release — no manual tag needed — while pushing anything else is inert,
+because the tag is already there. A hand-pushed tag or a `workflow_dispatch` is an
+explicit instruction and always proceeds. `release-meta.mjs` then validates the
+CHANGELOG section and `lib/site.ts` *before* the tag is created, so a failed check
+leaves no stray tag behind.
 
 1. Bump `version` in `product/src-tauri/tauri.conf.json` — **this is the only number the updater compares**. (The two `package.json` versions are not the release version.)
 2. Bump `version` in `lib/site.ts` to match; the site's download URL is built from it, so a mismatch is a 404 on the download button.
@@ -317,6 +338,186 @@ Tag-triggered, never push-triggered — every run of `.github/workflows/release.
 4. `git commit`, then `git tag vX.Y.Z && git push origin main --tags`.
 
 The workflow builds from `product/`, signs with `TAURI_SIGNING_PRIVATE_KEY`, and publishes the NSIS installer, its `.sig`, and `latest.json`. There is intentionally no `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` secret — the key has no password and GitHub cannot store an empty secret, so the empty reference is correct.
+
+**This ships the NSIS path only.** The Store package is not built, signed or
+uploaded by the workflow — it is `npm run tauri:msix:build` and a manual Partner
+Center submission, off the same `tauri.conf.json` version. So a release that
+matters to Store users is two steps, and skipping the second leaves the Store on
+the previous version with nothing anywhere saying so. See
+[The Store build](#the-store-build-msix).
+
+## The Store build (MSIX)
+
+Two distribution paths, one binary. Direct downloads get the NSIS installer from
+GitHub Releases; the Microsoft Store gets an MSIX built by
+`@choochmeque/tauri-windows-bundle` from `src-tauri/gen/windows/`. The Store path
+exists because the Win32 submission was rejected under policy 10.2.9 — every PE
+file must be signed by a cert chaining to the Microsoft Trusted Root Program, and
+Azure Trusted Signing is not available in India for an individual or for Ascendry
+as an org. The Store re-signs MSIX packages itself, at no cost, which is the whole
+reason for the second path. **The MSIX is left unsigned on purpose** — a signing
+cert is the thing this whole path exists to avoid.
+
+**That unsigned package cannot be sideloaded, which is why there are two of them.**
+`Add-AppxPackage -AllowUnsigned` is not a flag that waives the requirement; it
+only accepts a package whose *identity* says being unsigned was deliberate, by
+carrying the marker OID `2.25.311729368913984317654407730594956997722=1` inside
+the Publisher string. Partner Center pins Publisher to the exact value it reserved
+(`CN=4E27AC9C-…`) and anything appended stops matching, so "installable locally"
+and "acceptable to the Store" are mutually exclusive properties of one package.
+Hence `npm run tauri:msix:build:local`, which produces a second package that is
+the first one with that single attribute changed, into `target/msix-localtest/`.
+Everything else — the exe, the assets, the capabilities, the startup task — is
+byte-identical, so a bug found in the test package is a bug that would have
+shipped and cannot hide behind a differently-configured build.
+
+`scripts/build-msix-local.mjs` gets there by copying what the real build already
+staged in `target/appx/x64` and rewriting `<Identity Publisher>` in the copy. It
+**never writes to `gen/windows/bundle.config.json`**. The obvious implementation —
+swap in a test config, build, swap back — leaves a window in which the committed
+Store identity is replaced on disk by a test one, and a build interrupted in that
+window poisons the repo in exactly the way the `tauri.windows.conf.json` trap
+below describes, only harder to spot because the file is still named correctly.
+Nothing in that script opens a real-identity file for writing, so the upload path
+cannot be affected by anything it does.
+
+The two are separate installs to Windows: same `Name`, different `Publisher`, so
+different package identities. Both can be present at once and both show up as
+"Crest", which is worth knowing before wondering which one is running —
+`Get-AppxPackage *CrestNotch*` tells them apart by publisher, and pipes to
+`Remove-AppxPackage`.
+
+**Never create `product/src-tauri/tauri.windows.conf.json`.** The name looks like
+exactly the right place for Windows-only overrides and it is poisoned for this
+repo specifically. Tauri v2 auto-merges `tauri.<platform>.conf.json` into the main
+config — it is in Tauri's own config schema, alongside the `linux`/`macos`/`android`/`ios`
+variants — so that file applies to **every** Windows build, which here means the
+NSIS installer that ships to everyone not on the Store. The trap is that
+`tauri-windows-bundle` *also* reads that filename and its docs point you at it, so
+the tool's convention and Tauri's convention collide, and they only collide in a
+repo that has two Windows distribution paths. Following the tool's instructions
+puts the Store identity into the shipping installer: `identifier` changes, and with
+it `app_data_dir()`, so every existing user's notes, reminders, timer and
+`settings.json` silently move and the app comes up empty — months after the commit
+that did it, on a release nobody connected to the Store work. Store-only values go
+in `gen/windows/bundle.config.json`, which nothing but the MSIX path reads.
+`tauri.store.conf.json` (the offline-WebView2 NSIS variant) is the pattern to copy
+if a Tauri-level override is ever genuinely needed: it only applies when passed
+explicitly with `--config`, so it cannot leak into a build that did not ask for it.
+
+**Capabilities are declared from what the code does, and `DeviceCapability` goes
+last.** Five are declared: `runFullTrust` (automatic — `Windows.FullTrustApplication`
+requires it, and it is also what keeps PDH, `IPolicyConfig`, `ExitWindowsEx`, the
+`shell:AppsFolder` walk and ordinary Win32 file access working, none of which
+survive an app container), `internetClient` for `weather.rs`, `bluetooth` for
+`system.rs`, `userNotificationListener` for `notifications.rs`, and
+`unvirtualizedResources` — the one restricted capability here that is not
+automatic, paired with `RegistryWriteVirtualization` and explained below. There is
+deliberately **no screen-capture capability**: `screenshots.rs` scans the folders
+Windows saves captures to and never captures anything, so the module the name
+suggests would need one is the one that does not.
+
+Two ordering rules, both from the foundation schema, which models `Capabilities` as
+any number of `Capability` and foreign-namespace capabilities followed by
+`DeviceCapability`. `userNotificationListener` is a `uap3` capability the bundler's
+whitelist has no bucket for, so it is hand-written in `AppxManifest.xml.template`
+**above** the generated block; below it, packaging fails outright with MakeAppx
+`C00CE014`. And for the same reason the bundler's `restricted` array cannot be
+combined with its `device` array at all — it emits restricted capabilities *after*
+the device ones — so a restricted capability, if one is ever justified, is
+hand-written in the template too.
+
+**Which build is running is asked at runtime, not compiled in.**
+`autostart::is_packaged()` calls `GetCurrentPackageFullName`, and `is_enabled`,
+`set_enabled` and `migrate` each branch on it: a package uses the manifest's
+`windows.startupTask` extension, everything else keeps the scheduled task and the
+Run-key fallback. A Cargo feature was the obvious alternative and is worse — it
+decides at build time, so a release built with the wrong flag is a Crest that
+either never starts with Windows or writes a scheduled task from inside a package,
+and both look fine until someone logs in. Writing a task from a package is the
+worse half: the package uninstalls and the task stays, so every login afterwards
+launches a path that no longer exists. Two things follow. `MSIX_TASK_ID` in
+`autostart.rs` must match `extensions.startupTask.taskId` in `bundle.config.json`
+— one value in two files, with nothing at compile time that would notice them
+drifting. And `StartupTaskState::DisabledByUser` is not recoverable from inside the
+app: once someone switches Crest off in Task Manager's Startup tab
+`RequestEnableAsync` returns that state and changes nothing, which is Windows'
+rule and not a gap, so `set_enabled` reports the state actually reached and the
+tray switch snaps back rather than showing an on that never took.
+
+**The updater stands down when packaged, on both paths.** `updater_auto_allowed`
+is false and `updater_check`/`updater_install` return an error, which is stricter
+than the source-tree rule above them — there, a developer asking explicitly is a
+legitimate ask; here no version of the ask ends well. The payload is an NSIS
+installer and it cannot service an MSIX: at best it writes a second, unpackaged
+Crest into `%LOCALAPPDATA%`, leaving two installs whose single-instance mutex means
+whichever wins the boot silently suppresses the other, with the Store still
+reporting the package as up to date.
+
+`scripts/stage-msix-exe.mjs` exists because cargo names the binary after the
+package — `windows_dynamic_noich`, the scaffold typo — while the bundler derives
+`Crest.exe` from `productName`, and `--no-bundle` leaves no rename step between
+them. It copies rather than renames (the bundler runs its own `tauri build`
+afterwards and cargo checks freshness by the name it knows). Renaming the crate or
+adding a `[[bin]]` would both fix it by changing what *every* build emits, the
+NSIS one included, which is the one thing this path must not do.
+
+Identity has to match Partner Center byte for byte or the upload is rejected:
+`LennyDanyDerek.CrestNotch`, `CN=4E27AC9C-84B1-422E-A39E-F5722FC51CD9`, product ID
+`068e2226-c083-4fff-a601-4c7bd97336e4`. Outputs are version-stamped —
+`Crest_<version>_x64.msix` and `Crest_<version>.msixbundle`; the bundle is what
+Partner Center takes. x64 only for now.
+
+**`muteWindowsBanners` needs two manifest entries to work in the package, and
+without them it fails silently.** The mechanism is a registry write the shell
+reads back, and a packaged app's HKCU writes are redirected by default into a
+private hive. Measured on 0.7.1 by sideloading, both ways: with the default, all
+46 `ShowBanner` values went to
+`%LOCALAPPDATA%\Packages\<PFN>\SystemAppData\Helium\User.dat` and the real
+`…\Notifications\Settings` had **none**; with the opt-out, the same sweep put all
+46 into the **real** hive and Windows stopped drawing banners. Nothing errors in
+the broken case — the sweep reports success and the memo records 46 apps it
+believes it muted — which is what makes this worth a paragraph rather than a
+line.
+
+The opt-out is a pair, and neither half does anything alone:
+`<desktop6:RegistryWriteVirtualization>disabled` in `<Properties>`, and the
+`unvirtualizedResources` restricted capability. It also forces
+`MinVersion 10.0.19041.0`, which is why the npm script passes a min-windows flag —
+the bundler's 17763 default was never reachable for a Windows 11 app anyway.
+File-system virtualization is deliberately left **on**: `%APPDATA%` writes already
+reach the real location, so there is nothing to buy and turning it off would widen
+what has to be justified.
+
+**The Store grants `unvirtualizedResources` case by case, so the submission has to
+justify it** — and that is now the one thing standing between this build and the
+Store rather than a detail. The justification is what the app is for: Crest
+replaces Windows' banner with its own, and per-app `ShowBanner` is the only
+mechanism Windows exposes for suppressing the one it draws, so without it the
+notch shows a notification *beside* the banner it was meant to replace, which is
+the feature inverted rather than missing.
+
+If it is ever declined, `notifications::banner_muting_supported()` is the seam and
+the change is one line — return `!crate::autostart::is_packaged()`. That gates
+`apply_banners` (the sweep stops running, and the restore path cleans up a memo an
+earlier build wrote), refuses `set_mute_windows_banners` with a message naming the
+Store, and dims the Settings row with a line underneath, the same answer "Show me
+where it is" gives. All of that is written and currently inert, kept because the
+alternative is finding four call sites under a resubmission deadline. **The
+preference itself is never touched by that path**: it stays stored and correct for
+the NSIS build, so a profile moving between the two keeps its choice.
+
+Two things fall out of that measurement and are worth keeping. **File writes are
+*not* virtualized**: the packaged build reads and writes the real
+`%APPDATA%\com.lenny.crest`, the same `notes.json`, `reminders.json` and
+`settings.json` the NSIS build uses, so moving a user from one to the other
+carries their data across for free. Registry and filesystem virtualization behave
+differently here, so neither answer can be assumed from the other. And **the NSIS
+build's uninstaller does not remove the `Crest` scheduled task** — it is left
+Ready, pointing at a deleted `…\AppData\Local\Crest\windows_dynamic_noich.exe`,
+firing and failing at every login. Harmless to the packaged build, which branches
+on `is_packaged()` and never consults the scheduler, but every NSIS→Store migrator
+inherits it, and `schtasks /Delete /TN Crest /F` is what clears it.
 
 ## Styling
 

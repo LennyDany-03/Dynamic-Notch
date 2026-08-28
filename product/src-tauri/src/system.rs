@@ -148,7 +148,7 @@ fn kinds() -> &'static Mutex<HashMap<String, BluetoothKind>> {
 /// which is not hypothetical here, see `notifications::notification_logo` — would
 /// otherwise take the thread with it. The sleep is what keeps the poll from
 /// spinning a core while it waits.
-fn await_op<T>(operation: IAsyncOperation<T>, timeout: Duration) -> Option<T>
+pub(crate) fn await_op<T>(operation: IAsyncOperation<T>, timeout: Duration) -> Option<T>
 where
     T: RuntimeType + 'static,
 {

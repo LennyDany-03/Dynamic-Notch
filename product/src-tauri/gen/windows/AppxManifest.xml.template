@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
+  xmlns:com="http://schemas.microsoft.com/appx/manifest/com/windows10"
+  xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
+  xmlns:desktop6="http://schemas.microsoft.com/appx/manifest/desktop/windows10/6"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities">
+
+  <Identity
+    Name="{{PACKAGE_NAME}}"
+    Publisher="{{PUBLISHER}}"
+    Version="{{VERSION}}"
+    ProcessorArchitecture="{{ARCH}}" />
+
+  <Properties>
+    <DisplayName>{{DISPLAY_NAME}}</DisplayName>
+    <PublisherDisplayName>{{PUBLISHER_DISPLAY_NAME}}</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+    <!--
+      What makes `muteWindowsBanners` work inside the package.
+
+      By default a packaged app's HKCU writes are redirected into a private hive
+      (`SystemAppData\Helium\User.dat`), so `notifications.rs` writing
+      `ShowBanner = 0` lands somewhere only Crest can read and the shell keeps
+      drawing its banner from the value it still holds. Measured on 0.7.1: all 46
+      entries went to the private hive, the real `…\Notifications\Settings` had
+      none. Nothing errors, which is what makes it dangerous — the sweep reports
+      success and the feature is silently dead.
+
+      This is the documented opt-out, and it is why `unvirtualizedResources` is in
+      the capability list below: the two only work as a pair, and neither does
+      anything alone. File-system virtualization is deliberately left ON — writes
+      to `%APPDATA%` already reach the real location (verified: the packaged build
+      shares `notes.json` and `settings.json` with the NSIS one), so there is
+      nothing to buy and turning it off would widen what has to be justified.
+
+      Requires MinVersion 10.0.19041.0, which is why the npm script passes a
+      min-windows flag. Crest is a Windows 11 app; the bundler's 17763 default was
+      never reachable for it.
+    -->
+    <desktop6:RegistryWriteVirtualization>disabled</desktop6:RegistryWriteVirtualization>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop"
+      MinVersion="{{MIN_VERSION}}"
+      MaxVersionTested="10.0.22621.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="en-us" />
+  </Resources>
+
+  <Applications>
+    <Application Id="App"
+      Executable="{{EXECUTABLE}}"
+      EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+        DisplayName="{{DISPLAY_NAME}}"
+        Description="{{DESCRIPTION}}"
+        BackgroundColor="transparent"
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png">
+        <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" />
+      </uap:VisualElements>
+
+{{EXTENSIONS}}
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <!--
+      Declared here rather than in bundle.config.json because the bundler only
+      emits <Capability>, <DeviceCapability> and <rescap:Capability>, and this one
+      is a uap3 capability. It is what `notifications.rs` needs: without it,
+      UserNotificationListener::RequestAccessAsync returns Denied and the notch's
+      notification card and banner are permanently empty.
+
+      General-use, not restricted — it prompts the user for consent at runtime and
+      needs no Store approval.
+
+      **Above the generated capability block, not below it, and that is
+      load-bearing.** The schema models Capabilities as a sequence: any number of
+      Capability / foreign-namespace capabilities, and *then* DeviceCapability.
+      The generated block ends with the DeviceCapability for bluetooth, so this
+      line after it fails packaging outright with "Element uap3:Capability is
+      unexpected … Expecting: DeviceCapability" (MakeAppx C00CE014).
+
+      The same ordering rule is why `restricted` in bundle.config.json cannot be
+      combined with `device`: the generator emits restricted capabilities last,
+      i.e. after the DeviceCapability, which is invalid for the same reason. If a
+      restricted capability is ever genuinely needed, hand-write it here instead.
+    -->
+    <uap3:Capability Name="userNotificationListener" />
+    <!--
+      The other half of RegistryWriteVirtualization above; neither works alone.
+
+      **Restricted, so the Store grants it case by case and the submission has to
+      justify it.** The justification is the one the app is for: Crest replaces
+      Windows' notification banner with its own, and the per-app `ShowBanner`
+      value is the only mechanism Windows exposes for suppressing the one it
+      draws. Without this the notch shows a notification *next to* the banner it
+      was meant to replace, which is the feature inverted rather than merely
+      missing.
+
+      Hand-written here rather than in bundle.config.json's `restricted` array on
+      purpose: the generator emits restricted capabilities *after* the
+      DeviceCapability for bluetooth, which the schema rejects — the same ordering
+      rule the uap3 capability above is subject to. See the note there.
+    -->
+    <rescap:Capability Name="unvirtualizedResources" />
+{{CAPABILITIES}}
+  </Capabilities>
+</Package>
