@@ -19,7 +19,7 @@ export const metadata: Metadata = {
  * revision, so this string is part of the policy rather than decoration —
  * change it whenever any of the copy in `sections` changes.
  */
-const EFFECTIVE = "August 27, 2026";
+const EFFECTIVE = "August 28, 2026";
 
 /** A labelled point: the thing on the left, what happens to it on the right. */
 function Point({ term, children }: { term: string; children: ReactNode }) {
@@ -148,17 +148,16 @@ const sections: { heading: string; body: ReactNode }[] = [
     ),
   },
   {
-    heading: "The two connections Crest makes",
+    heading: "The two services Crest talks to",
     body: (
       <>
         <p className="t-body">
           This is the whole of {site.name}&rsquo;s outbound network traffic.
-          There is no third one.
+          There is no third service, and both of these are listed in the source.
         </p>
         <ul className={listClass}>
           <Point term="Open-Meteo">
-            When you have set a location for the weather card, {site.name}{" "}
-            fetches the forecast for it from{" "}
+            The weather card talks to{" "}
             <a
               href="https://open-meteo.com/"
               target="_blank"
@@ -167,12 +166,17 @@ const sections: { heading: string; body: ReactNode }[] = [
             >
               Open-Meteo
             </a>
-            . The request carries the coordinates of the place you searched for
-            and nothing else — no account, no API key, no identifier. There is
-            deliberately no automatic location and no IP lookup: {site.name}{" "}
-            does not know where you are unless you tell it, and until you do,
-            nothing is fetched at all. Clearing the location in Settings stops
-            it.
+            , and nothing happens there until you go looking for a place.
+            Searching for one in Settings sends the text you typed, so it can be
+            turned into coordinates. Once you have picked one, the card sends
+            those coordinates and the time zone they resolved to, and gets a
+            forecast back. Neither request carries an account, an API key or any
+            identifier — they name {site.name} and its version, the way every
+            browser sends a user agent, and nothing about you or your machine.
+            There is deliberately no automatic location and no IP lookup:{" "}
+            {site.name} does not know where you are unless you tell it, and
+            until you do, nothing is fetched at all. Clearing the location in
+            Settings stops it.
           </Point>
           <Point term="GitHub">
             {site.name} checks{" "}
@@ -341,8 +345,8 @@ export default function PrivacyPolicy() {
           </h2>
           <p className="t-lede mt-5">
             {site.name} is a Windows desktop utility from {site.publisher}. This
-            is a plain account of what it touches on your machine, what it keeps,
-            and the only two things it ever sends anywhere.
+            is a plain account of what it touches on your machine, what it
+            keeps, and the only two services it ever talks to.
           </p>
           <p className="mt-5 text-[13px] text-[var(--text-faint)]">
             Effective {EFFECTIVE} · Version {site.version}
