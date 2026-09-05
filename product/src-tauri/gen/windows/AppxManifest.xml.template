@@ -57,13 +57,50 @@
     <Application Id="App"
       Executable="{{EXECUTABLE}}"
       EntryPoint="Windows.FullTrustApplication">
+      <!--
+        Every tile size is named explicitly, and that is what Store policy
+        10.1.1.11 ("On Device Tiles") failed on for 0.7.2.
+
+        Two separate faults, one symptom. `Wide310x150Logo.png` was staged by
+        the bundler's own `generateWideTile`, whose image-js `copyTo` does not
+        land — what shipped was a **solid opaque black rectangle**, i.e. exactly
+        the "default image" the policy names. And `Square71x71Logo` /
+        `Square310x310Logo` were absent from this element entirely, because the
+        bundler's `TAURI_ICON_MAP` has no entry for either and so never staged
+        them; Windows had nothing to draw the medium and large tiles from but a
+        rescaled 150.
+
+        All six now come from `scripts/gen-msix-assets.mjs`, which generates
+        them from `icons/ios/AppIcon-512@2x.png` (the 1024px master) into
+        `Assets/` before the bundler runs. Read the header of that script before
+        changing anything here — in particular, **never pass the bundler's
+        `regenerate-assets` flag**, which would put the black tile back and drop
+        the two tiles below.
+
+        (That flag is spelled without its leading dashes on purpose. A double
+        hyphen is illegal anywhere inside an XML comment, so writing any CLI
+        flag here in full fails packaging outright with a manifest parse error
+        naming this line. It reads like a typo in the prose and is not one.)
+
+        `BackgroundColor` is the brand blue rather than `transparent`: it is the
+        plate Windows draws behind a tile, and the mark is a full-bleed field of
+        exactly this colour (#1800AD, sampled from the master), so any edge the
+        plate shows through — a rounded tile corner, a size Windows letterboxes
+        — is the mark's own field instead of the system accent. `transparent` is
+        legal for a FullTrustApplication and is what the bundler's stock
+        template writes; it just means the one thing a reviewer can see around
+        the art is a colour that has nothing to do with the product.
+      -->
       <uap:VisualElements
         DisplayName="{{DISPLAY_NAME}}"
         Description="{{DESCRIPTION}}"
-        BackgroundColor="transparent"
+        BackgroundColor="#1800AD"
         Square150x150Logo="Assets\Square150x150Logo.png"
         Square44x44Logo="Assets\Square44x44Logo.png">
-        <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" />
+        <uap:DefaultTile
+          Wide310x150Logo="Assets\Wide310x150Logo.png"
+          Square71x71Logo="Assets\Square71x71Logo.png"
+          Square310x310Logo="Assets\Square310x310Logo.png" />
       </uap:VisualElements>
 
 {{EXTENSIONS}}

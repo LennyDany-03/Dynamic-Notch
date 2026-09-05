@@ -25,8 +25,16 @@
     "pfx": null,
     "pfxPassword": null
   },
+  "assets": {
+    "variants": {
+      "scale": true,
+      "targetSize": true,
+      "unplated": true,
+      "lightUnplated": true
+    }
+  },
   "resourceIndex": {
-    "enabled": false,
+    "enabled": true,
     "keepConfig": false
   }
 }

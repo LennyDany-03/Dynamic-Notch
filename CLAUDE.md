@@ -462,6 +462,49 @@ afterwards and cargo checks freshness by the name it knows). Renaming the crate 
 adding a `[[bin]]` would both fix it by changing what *every* build emits, the
 NSIS one included, which is the one thing this path must not do.
 
+**`scripts/gen-msix-assets.mjs` owns the tile assets, and the bundler must never
+be allowed to.** The bundler stages tiles from its own `TAURI_ICON_MAP`, which
+knows three names — StoreLogo, Square44x44, Square150x150. `Square71x71Logo` and
+`Square310x310Logo` are not in it, so the medium and large tiles were simply
+never staged and `AppxManifest.xml.template` could not name them. `Wide310x150`
+*is* handled, by a `generateWideTile` that composites the square icon onto a
+fresh `new Image(310, 150, RGBA)` with image-js `copyTo` — and the copy does not
+land, so what it writes is a **solid opaque black rectangle**: alpha 255
+everywhere, RGB 0 everywhere, 554 bytes. Nothing errors. The bundler prints
+"Copied assets from icons" and counts the black tile as a success, which is how
+it shipped in 0.7.2 and **failed Store certification under policy 10.1.1.11**
+("On Device Tiles" — tile icons must uniquely represent the product, not be a
+default image).
+
+So the six tiles, their scale variants and the target-size variants are all
+generated in-repo from `icons/ios/AppIcon-512@2x.png` — the 1024px master, not
+the 512 `icon.png` the bundler would reach for, because
+`Square150x150Logo.scale-400` is 600px on its own and the whole point is that
+nothing is upscaled. The script runs as the *first* step of
+`tauri:msix:build`, ahead of the Rust build, and the bundler's build only
+`cpSync`s `gen/windows/Assets/` into the appx staging dir, so what the script
+writes is what ships. Two rules follow, and both are about not handing the job
+back:
+
+- **Never pass `--regenerate-assets` to `tauri-windows-bundle build`.** It is
+  the one flag that re-runs the bundler's own `generateAssets` over that
+  directory: the black wide tile returns and the two tiles it has never heard of
+  are left behind. That is the certification failure, recreated by a flag whose
+  name reads like a refresh.
+- `assets.variants` in `bundle.config.json` is set for the same reason the
+  capabilities are declared there — it records what the package *has* — but it
+  is inert on a normal build, and the variants it names are the ones this script
+  writes. `resourceIndex.enabled` is what makes them do anything: qualified
+  filenames (`.scale-200`, `.targetsize-48_altform-unplated`) are resolved by
+  the resource index, so without `makepri` they are dead weight and Windows
+  falls back to the one unqualified file the manifest names.
+
+`BackgroundColor` in the template is the brand blue (`#1800AD`, the mark's own
+field colour) rather than the stock `transparent`. It is the plate Windows draws
+*behind* a tile, so it is what shows at a rounded corner or a size the shell
+letterboxes — `transparent` is legal for a FullTrustApplication and just means
+the only colour a reviewer sees around the art is the system accent.
+
 Identity has to match Partner Center byte for byte or the upload is rejected:
 `LennyDanyDerek.CrestNotch`, `CN=4E27AC9C-84B1-422E-A39E-F5722FC51CD9`, product ID
 `068e2226-c083-4fff-a601-4c7bd97336e4`. Outputs are version-stamped —
