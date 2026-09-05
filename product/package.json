@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:nsis:build": "tauri build",
-    "tauri:msix:build": "tauri build --target x86_64-pc-windows-msvc --no-bundle && node scripts/stage-msix-exe.mjs x64 && tauri-windows-bundle build --arch x64 --runner npm --min-windows 10.0.19041.0",
+    "tauri:msix:build": "node scripts/gen-msix-assets.mjs && tauri build --target x86_64-pc-windows-msvc --no-bundle && node scripts/stage-msix-exe.mjs x64 && tauri-windows-bundle build --arch x64 --runner npm --min-windows 10.0.19041.0",
     "tauri:msix:build:local": "npm run tauri:msix:build && node scripts/build-msix-local.mjs x64"
   },
   "dependencies": {
